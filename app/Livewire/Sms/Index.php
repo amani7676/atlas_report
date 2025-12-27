@@ -80,6 +80,7 @@ class Index extends Component
     public function openSendModal($id)
     {
         $this->selectedMessage = SmsMessage::findOrFail($id);
+        // بارگذاری مجدد residents برای اطمینان از دریافت داده‌های به‌روز
         $this->loadResidents();
         $this->selectedResidents = [];
         $this->residentSearch = '';
@@ -100,13 +101,51 @@ class Index extends Component
                     foreach ($unit['rooms'] ?? [] as $room) {
                         foreach ($room['beds'] ?? [] as $bed) {
                             if (isset($bed['resident']) && $bed['resident']) {
-                                $this->residents[] = [
-                                    'id' => $bed['resident']['id'],
-                                    'name' => $bed['resident']['full_name'] ?? '',
-                                    'phone' => $bed['resident']['phone'] ?? '',
+                                $resident = $bed['resident'];
+                                
+                                // لاگ برای دیباگ - فقط برای اولین رکورد
+                                if (empty($this->residents)) {
+                                    \Log::info('API Resident Data Sample', [
+                                        'resident' => $resident,
+                                        'unit' => $unit['unit'] ?? null,
+                                        'room' => $room,
+                                        'bed' => $bed
+                                    ]);
+                                }
+                                
+                                // دریافت همه فیلدهای ممکن از API
+                                $residentData = [
+                                    'id' => $resident['id'] ?? null,
+                                    'name' => $resident['full_name'] ?? $resident['name'] ?? '',
+                                    'phone' => $resident['phone'] ?? '',
                                     'unit_name' => $unit['unit']['name'] ?? '',
+                                    'unit_code' => $unit['unit']['code'] ?? $unit['unit']['id'] ?? '',
                                     'room_name' => $room['name'] ?? '',
+                                    'bed_name' => $bed['name'] ?? '',
+                                    'national_id' => $resident['national_id'] ?? $resident['national_code'] ?? '',
                                 ];
+                                
+                                // دریافت تاریخ‌ها با بررسی نام‌های مختلف
+                                $contractStartDate = $resident['contract_start_date'] 
+                                    ?? $resident['start_date'] 
+                                    ?? $resident['contract_start']
+                                    ?? $resident['contract']['start_date'] ?? null;
+                                    
+                                $contractEndDate = $resident['contract_end_date'] 
+                                    ?? $resident['end_date'] 
+                                    ?? $resident['contract_end']
+                                    ?? $resident['contract']['end_date'] ?? null;
+                                    
+                                $contractExpiryDate = $resident['contract_expiry_date'] 
+                                    ?? $resident['expiry_date'] 
+                                    ?? $resident['contract_expiry']
+                                    ?? $resident['contract']['expiry_date'] ?? null;
+                                
+                                $residentData['contract_start_date'] = $contractStartDate;
+                                $residentData['contract_end_date'] = $contractEndDate;
+                                $residentData['contract_expiry_date'] = $contractExpiryDate;
+                                
+                                $this->residents[] = $residentData;
                             }
                         }
                     }
@@ -134,6 +173,117 @@ class Index extends Component
                    strpos(strtolower($resident['phone']), $search) !== false ||
                    strpos(strtolower($resident['unit_name']), $search) !== false;
         });
+    }
+
+    /**
+     * جایگزینی متغیرها در متن پیام با اطلاعات واقعی کاربر
+     */
+    protected function replaceVariables($text, $resident)
+    {
+        // لاگ داده‌های دریافتی
+        \Log::debug('replaceVariables called', [
+            'resident_keys' => array_keys($resident),
+            'resident_data' => $resident,
+            'original_text' => $text
+        ]);
+
+        $replacements = [
+            '{resident_name}' => $resident['name'] ?? '',
+            '{resident_phone}' => $resident['phone'] ?? '',
+            '{unit_name}' => $resident['unit_name'] ?? '',
+            '{unit_code}' => $resident['unit_code'] ?? '',
+            '{room_name}' => $resident['room_name'] ?? '',
+            '{room_number}' => preg_replace('/[^0-9]/', '', $resident['room_name'] ?? ''),
+            '{bed_name}' => $resident['bed_name'] ?? '',
+            '{national_id}' => $resident['national_id'] ?? '',
+        ];
+
+        // تبدیل تاریخ‌ها به فرمت شمسی
+        $contractStartDate = $resident['contract_start_date'] ?? null;
+        if ($contractStartDate) {
+            $replacements['{contract_start_date}'] = $this->formatJalaliDate($contractStartDate);
+        } else {
+            $replacements['{contract_start_date}'] = '';
+        }
+
+        $contractEndDate = $resident['contract_end_date'] ?? null;
+        if ($contractEndDate) {
+            $replacements['{contract_end_date}'] = $this->formatJalaliDate($contractEndDate);
+        } else {
+            $replacements['{contract_end_date}'] = '';
+        }
+
+        $contractExpiryDate = $resident['contract_expiry_date'] ?? null;
+        if ($contractExpiryDate) {
+            $replacements['{contract_expiry_date}'] = $this->formatJalaliDate($contractExpiryDate);
+        } else {
+            $replacements['{contract_expiry_date}'] = '';
+        }
+
+        // تاریخ امروز
+        $replacements['{today}'] = $this->formatJalaliDate(now()->toDateString());
+
+        // لاگ replacements
+        \Log::debug('Replacements', [
+            'replacements' => $replacements
+        ]);
+
+        $result = $text;
+        foreach ($replacements as $key => $value) {
+            $oldResult = $result;
+            $result = str_replace($key, $value, $result);
+            if ($oldResult !== $result) {
+                \Log::debug('Replaced variable', [
+                    'key' => $key,
+                    'value' => $value,
+                    'before' => $oldResult,
+                    'after' => $result
+                ]);
+            }
+        }
+
+        \Log::debug('Final result', [
+            'final_text' => $result
+        ]);
+
+        return $result;
+    }
+
+    /**
+     * تبدیل تاریخ میلادی به شمسی
+     */
+    protected function formatJalaliDate($date)
+    {
+        if (!$date) {
+            return '';
+        }
+
+        try {
+            $carbonDate = null;
+            
+            // اگر تاریخ به صورت string است، آن را به Carbon تبدیل می‌کنیم
+            if (is_string($date)) {
+                $carbonDate = \Carbon\Carbon::parse($date);
+            } elseif ($date instanceof \Carbon\Carbon) {
+                $carbonDate = $date;
+            } else {
+                return (string)$date;
+            }
+
+            // استفاده از کتابخانه Morilog/Jalali برای تبدیل به شمسی
+            if (class_exists(\Morilog\Jalali\Jalalian::class)) {
+                return \Morilog\Jalali\Jalalian::fromCarbon($carbonDate)->format('Y/m/d');
+            }
+
+            // اگر کتابخانه موجود نبود، تاریخ میلادی را برمی‌گردانیم
+            return $carbonDate->format('Y/m/d');
+        } catch (\Exception $e) {
+            \Log::error('Error formatting date', [
+                'date' => $date,
+                'error' => $e->getMessage()
+            ]);
+            return is_string($date) ? $date : (string)$date;
+        }
     }
 
     public function toggleResidentSelection($residentId)
@@ -207,17 +357,17 @@ class Index extends Component
             return;
         }
 
+        // بارگذاری مجدد residents برای اطمینان از دریافت داده‌های به‌روز
+        $this->loadResidents();
+
         $smsMessage = $this->selectedMessage;
         $melipayamakService = new MelipayamakService();
         $from = config('services.melipayamak.from', '5000...');
         $sentCount = 0;
         $failedCount = 0;
 
-        // ساخت متن پیام با لینک در صورت وجود
-        $messageText = $smsMessage->text;
-        if ($smsMessage->link) {
-            $messageText .= "\n" . $smsMessage->link;
-        }
+        // متن پایه پیام
+        $baseMessageText = $smsMessage->text;
 
         foreach ($this->selectedResidents as $residentId) {
             $resident = collect($this->residents)->firstWhere('id', $residentId);
@@ -225,6 +375,27 @@ class Index extends Component
             if (!$resident || empty($resident['phone'])) {
                 $failedCount++;
                 continue;
+            }
+
+            // لاگ برای دیباگ
+            \Log::info('Replacing variables for resident', [
+                'resident_id' => $residentId,
+                'resident_data' => $resident,
+                'original_text' => $baseMessageText
+            ]);
+
+            // جایگزینی متغیرها با اطلاعات واقعی کاربر
+            $personalizedText = $this->replaceVariables($baseMessageText, $resident);
+            
+            // لاگ متن نهایی
+            \Log::info('Final personalized text', [
+                'resident_id' => $residentId,
+                'final_text' => $personalizedText
+            ]);
+            
+            // اضافه کردن لینک در صورت وجود
+            if ($smsMessage->link) {
+                $personalizedText .= "\n" . $smsMessage->link;
             }
 
             // ایجاد رکورد در جدول sms_message_residents
@@ -239,7 +410,7 @@ class Index extends Component
             ]);
 
             // ارسال پیامک
-            $result = $melipayamakService->sendSms($resident['phone'], $from, $messageText);
+            $result = $melipayamakService->sendSms($resident['phone'], $from, $personalizedText);
 
             // ارسال پاسخ به console.log
             $this->dispatch('logMelipayamakResponse', $result);

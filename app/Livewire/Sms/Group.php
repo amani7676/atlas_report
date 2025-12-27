@@ -71,6 +71,55 @@ class Group extends Component
         $this->smsMessages = SmsMessage::where('is_active', true)->get();
     }
 
+    /**
+     * جایگزینی متغیرها در متن پیام با اطلاعات واقعی کاربر
+     */
+    protected function replaceVariables($text, $resident)
+    {
+        $replacements = [
+            '{resident_name}' => $resident['resident_name'] ?? '',
+            '{resident_phone}' => $resident['phone'] ?? '',
+            '{unit_name}' => $resident['unit_name'] ?? '',
+            '{room_name}' => $resident['room_name'] ?? '',
+            '{room_number}' => preg_replace('/[^0-9]/', '', $resident['room_name'] ?? ''),
+            '{bed_name}' => $resident['bed_name'] ?? '',
+        ];
+
+        // تاریخ امروز
+        $replacements['{today}'] = $this->formatJalaliDate(now()->toDateString());
+
+        $result = $text;
+        foreach ($replacements as $key => $value) {
+            $result = str_replace($key, $value, $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * تبدیل تاریخ میلادی به شمسی
+     */
+    protected function formatJalaliDate($date)
+    {
+        if (!$date) {
+            return '';
+        }
+
+        try {
+            if (is_string($date)) {
+                $date = \Carbon\Carbon::parse($date);
+            }
+
+            if (class_exists(\Morilog\Jalali\Jalalian::class)) {
+                return \Morilog\Jalali\Jalalian::fromCarbon($date)->format('Y/m/d');
+            }
+
+            return $date->format('Y/m/d');
+        } catch (\Exception $e) {
+            return $date;
+        }
+    }
+
     public function openSendModal()
     {
         if (empty($this->selectedResidents)) {
@@ -179,16 +228,21 @@ class Group extends Component
         $sentCount = 0;
         $failedCount = 0;
 
-        // ساخت متن پیام با لینک در صورت وجود
-        $messageText = $smsMessage->text;
-        if ($smsMessage->link) {
-            $messageText .= "\n" . $smsMessage->link;
-        }
+        // متن پایه پیام
+        $baseMessageText = $smsMessage->text;
 
         foreach ($this->selectedResidents as $residentData) {
             if (empty($residentData['phone'])) {
                 $failedCount++;
                 continue;
+            }
+
+            // جایگزینی متغیرها با اطلاعات واقعی کاربر
+            $personalizedText = $this->replaceVariables($baseMessageText, $residentData);
+            
+            // اضافه کردن لینک در صورت وجود
+            if ($smsMessage->link) {
+                $personalizedText .= "\n" . $smsMessage->link;
             }
 
             // ایجاد رکورد در جدول sms_message_residents
@@ -201,9 +255,6 @@ class Group extends Component
                 'description' => $smsMessage->description,
                 'status' => 'pending',
             ]);
-
-            // ساخت متن پیام شخصی‌سازی شده
-            $personalizedText = str_replace('{resident_name}', $residentData['resident_name'], $messageText);
 
             // ارسال پیامک
             $result = $melipayamakService->sendSms($residentData['phone'], $from, $personalizedText);

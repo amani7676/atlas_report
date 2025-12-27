@@ -155,9 +155,8 @@ class Manual extends Component
             $melipayamakService = new MelipayamakService();
             $from = config('services.melipayamak.from', '5000...');
             
-            // ساخت متن پیام
-            $messageText = $smsMessage->text;
-            $messageText = str_replace('{resident_name}', $this->selectedResident['name'], $messageText);
+            // ساخت متن پیام با جایگزینی متغیرها
+            $messageText = $this->replaceVariables($smsMessage->text, $this->selectedResident);
             
             $report = Report::find($this->selectedReport);
             if ($report) {
@@ -271,6 +270,55 @@ class Manual extends Component
         }
 
         return array_values($filteredUnits);
+    }
+
+    /**
+     * جایگزینی متغیرها در متن پیام با اطلاعات واقعی کاربر
+     */
+    protected function replaceVariables($text, $resident)
+    {
+        $replacements = [
+            '{resident_name}' => $resident['name'] ?? '',
+            '{resident_phone}' => $resident['phone'] ?? '',
+            '{unit_name}' => $resident['unit_name'] ?? '',
+            '{room_name}' => $resident['room_name'] ?? '',
+            '{room_number}' => preg_replace('/[^0-9]/', '', $resident['room_name'] ?? ''),
+            '{bed_name}' => $resident['bed_name'] ?? '',
+        ];
+
+        // تاریخ امروز
+        $replacements['{today}'] = $this->formatJalaliDate(now()->toDateString());
+
+        $result = $text;
+        foreach ($replacements as $key => $value) {
+            $result = str_replace($key, $value, $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * تبدیل تاریخ میلادی به شمسی
+     */
+    protected function formatJalaliDate($date)
+    {
+        if (!$date) {
+            return '';
+        }
+
+        try {
+            if (is_string($date)) {
+                $date = \Carbon\Carbon::parse($date);
+            }
+
+            if (class_exists(\Morilog\Jalali\Jalalian::class)) {
+                return \Morilog\Jalali\Jalalian::fromCarbon($date)->format('Y/m/d');
+            }
+
+            return $date->format('Y/m/d');
+        } catch (\Exception $e) {
+            return $date;
+        }
     }
 
     public function render()

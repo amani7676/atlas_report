@@ -82,7 +82,7 @@
                                     </span>
                                 @endif
                             </td>
-                            <td>{{ $sms->created_at->format('Y/m/d H:i') }}</td>
+                            <td>{{ jalaliDate($sms->created_at, 'Y/m/d H:i') }}</td>
                             <td>
                                 <div style="display: flex; gap: 10px;">
                                     <button wire:click="openSendModal({{ $sms->id }})" class="btn btn-success" title="ارسال پیامک">
@@ -149,10 +149,59 @@
 
                     <div class="form-group">
                         <label class="form-label">متن پیام *</label>
-                        <textarea wire:model="text" class="form-control" rows="5" required placeholder="متن پیامک که برای اقامتگران ارسال می‌شود"></textarea>
+                        
+                        <!-- دکمه‌های درج متغیرها -->
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="margin-bottom: 10px;">
+                                <strong style="font-size: 13px; color: #666;">متغیرهای موجود:</strong>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <button type="button" onclick="insertVariable('{resident_name}')" class="btn btn-sm" style="background: #4361ee; color: white; font-size: 11px;" title="نام اقامت‌گر">
+                                    نام اقامت‌گر
+                                </button>
+                                <button type="button" onclick="insertVariable('{resident_phone}')" class="btn btn-sm" style="background: #4361ee; color: white; font-size: 11px;" title="شماره تلفن">
+                                    شماره تلفن
+                                </button>
+                                <button type="button" onclick="insertVariable('{unit_name}')" class="btn btn-sm" style="background: #4cc9f0; color: white; font-size: 11px;" title="نام واحد">
+                                    نام واحد
+                                </button>
+                                <button type="button" onclick="insertVariable('{unit_code}')" class="btn btn-sm" style="background: #4cc9f0; color: white; font-size: 11px;" title="کد واحد">
+                                    کد واحد
+                                </button>
+                                <button type="button" onclick="insertVariable('{room_name}')" class="btn btn-sm" style="background: #4cc9f0; color: white; font-size: 11px;" title="نام اتاق">
+                                    نام اتاق
+                                </button>
+                                <button type="button" onclick="insertVariable('{room_number}')" class="btn btn-sm" style="background: #4cc9f0; color: white; font-size: 11px;" title="شماره اتاق">
+                                    شماره اتاق
+                                </button>
+                                <button type="button" onclick="insertVariable('{bed_name}')" class="btn btn-sm" style="background: #4cc9f0; color: white; font-size: 11px;" title="نام تخت">
+                                    نام تخت
+                                </button>
+                                <button type="button" onclick="insertVariable('{national_id}')" class="btn btn-sm" style="background: #ff9e00; color: white; font-size: 11px;" title="کد ملی">
+                                    کد ملی
+                                </button>
+                                <button type="button" onclick="insertVariable('{contract_start_date}')" class="btn btn-sm" style="background: #ff9e00; color: white; font-size: 11px;" title="تاریخ شروع قرارداد">
+                                    تاریخ شروع قرارداد
+                                </button>
+                                <button type="button" onclick="insertVariable('{contract_end_date}')" class="btn btn-sm" style="background: #ff9e00; color: white; font-size: 11px;" title="تاریخ پایان قرارداد">
+                                    تاریخ پایان قرارداد
+                                </button>
+                                <button type="button" onclick="insertVariable('{contract_expiry_date}')" class="btn btn-sm" style="background: #ff9e00; color: white; font-size: 11px;" title="تاریخ سررسید">
+                                    تاریخ سررسید
+                                </button>
+                                <button type="button" onclick="insertVariable('{today}')" class="btn btn-sm" style="background: #28a745; color: white; font-size: 11px;" title="تاریخ امروز">
+                                    تاریخ امروز
+                                </button>
+                            </div>
+                            <small style="color: #666; font-size: 11px; margin-top: 10px; display: block;">
+                                روی هر دکمه کلیک کنید تا متغیر در متن پیام درج شود
+                            </small>
+                        </div>
+                        
+                        <textarea id="messageText" wire:model="text" class="form-control" rows="5" required placeholder="متن پیامک که برای اقامتگران ارسال می‌شود"></textarea>
                         @error('text') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
-                        <small style="color: #666; font-size: 12px;">
-                            می‌توانید از متغیرهای {resident_name} و {violation} استفاده کنید (برای پیامک خودکار)
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                            می‌توانید از متغیرهای بالا استفاده کنید. در زمان ارسال، این متغیرها با اطلاعات واقعی هر کاربر جایگزین می‌شوند.
                         </small>
                     </div>
 
@@ -295,5 +344,26 @@
                 @this.call('delete', id);
             }
         });
+    }
+
+    function insertVariable(variable) {
+        const textarea = document.getElementById('messageText');
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const before = text.substring(0, start);
+        const after = text.substring(end, text.length);
+
+        textarea.value = before + variable + after;
+        textarea.focus();
+        
+        // تنظیم موقعیت cursor بعد از متغیر
+        const newPosition = start + variable.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+
+        // به‌روزرسانی Livewire
+        @this.set('text', textarea.value);
     }
 </script>

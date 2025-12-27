@@ -109,7 +109,7 @@
                                     </span>
                                 @endif
                             </td>
-                            <td>{{ $category->created_at->format('Y/m/d') }}</td>
+                            <td>{{ jalaliDate($category->created_at, 'Y/m/d') }}</td>
                             <td>
                                 <div style="display: flex; gap: 10px;">
                                     <a href="/categories/edit/{{ $category->id }}" class="btn" style="background: #4cc9f0; color: white;" title="ویرایش">

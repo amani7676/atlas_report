@@ -246,6 +246,15 @@ class SentMessages extends Component
     public function render()
     {
         $sentMessages = $this->sentMessagesQuery->paginate($this->perPage);
+        
+        // همگام‌سازی اطلاعات با API برای رکوردهای نمایش داده شده
+        foreach ($sentMessages as $message) {
+            if ($message->resident_id) {
+                $apiService = new \App\Services\ResidentApiService();
+                $apiService->syncResidentData($message);
+            }
+        }
+        
         $statusCounts = $this->statusCounts;
 
         return view('livewire.sms.sent-messages', [

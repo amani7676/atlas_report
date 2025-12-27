@@ -93,7 +93,7 @@
             margin: 5px 0;
         }
 
-        .sidebar-menu a {
+        .sidebar-menu > li > a {
             color: white;
             text-decoration: none;
             padding: 12px 20px;
@@ -102,12 +102,82 @@
             gap: 10px;
             transition: all 0.3s;
             border-right: 3px solid transparent;
+            cursor: pointer;
         }
 
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
+        .sidebar-menu > li > a:hover,
+        .sidebar-menu > li > a.active {
             background: rgba(255, 255, 255, 0.1);
             border-right-color: var(--success-color);
+        }
+
+        /* Submenu Styles */
+        .menu-item {
+            position: relative;
+        }
+
+        .menu-item.has-submenu > a::after {
+            content: '\f107';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            margin-right: auto;
+            transition: transform 0.3s;
+            font-size: 12px;
+        }
+
+        .menu-item.has-submenu.open > a::after {
+            transform: rotate(180deg);
+        }
+
+        .submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: rgba(0, 0, 0, 0.2);
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .menu-item.open > .submenu {
+            max-height: 500px;
+        }
+
+        .submenu li {
+            margin: 0;
+        }
+
+        .submenu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px 10px 40px;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            transition: all 0.3s;
+            border-right: 3px solid transparent;
+            font-size: 14px;
+        }
+
+        .submenu a:hover,
+        .submenu a.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-right-color: var(--success-color);
+            padding-right: 25px;
+        }
+
+        .menu-section {
+            padding: 15px 20px 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+
+        .menu-section:first-child {
+            margin-top: 0;
         }
 
         .main-content {
@@ -268,6 +338,25 @@
                 margin-bottom: 15px;
             }
 
+            .sidebar-menu > li > a {
+                padding: 14px 20px;
+                font-size: 15px;
+            }
+
+            .submenu a {
+                padding: 12px 20px 12px 45px;
+                font-size: 14px;
+            }
+
+            .menu-section {
+                padding: 12px 20px 8px;
+                font-size: 11px;
+            }
+
+            .menu-item.has-submenu > a::after {
+                font-size: 14px;
+            }
+
             .table {
                 font-size: 14px;
             }
@@ -334,6 +423,78 @@
         .rtl-popup {
             direction: rtl;
         }
+
+        /* استایل‌های صفحه‌بندی سفارشی */
+        .custom-pagination {
+            display: flex !important;
+            align-items: center;
+            gap: 5px;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-direction: row;
+        }
+
+        .custom-pagination .page-item {
+            list-style: none;
+            display: inline-block;
+        }
+
+        .custom-pagination .page-link {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0;
+            border: 1px solid #dee2e6;
+            color: #0d6efd;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+            text-decoration: none;
+            background-color: white;
+        }
+
+        .custom-pagination .page-link:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-decoration: none;
+        }
+
+        .custom-pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4);
+        }
+
+        .custom-pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .custom-pagination .page-item.disabled .page-link:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .custom-pagination .page-link i {
+            font-size: 0.75rem;
+        }
+
+        /* استایل‌های ریسپانسیو برای موبایل */
+        @media (max-width: 768px) {
+            .custom-pagination .page-link {
+                width: 30px;
+                height: 30px;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 
     @livewireStyles
@@ -352,75 +513,117 @@
             </div>
 
             <ul class="sidebar-menu">
+                <!-- داشبورد -->
                 <li>
                     <a href="/" class="{{ request()->is('/') ? 'active' : '' }}">
                         <i class="fas fa-home"></i>
                         <span>داشبورد</span>
                     </a>
                 </li>
-                <li>
-                    <a href="/reports" class="{{ request()->is('reports*') ? 'active' : '' }}">
+
+                <!-- گزارش‌ها -->
+                <div class="menu-section">گزارش‌ها</div>
+                <li class="menu-item has-submenu {{ request()->is('reports*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-file-alt"></i>
                         <span>گزارش‌ها</span>
                     </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/reports" class="{{ request()->is('reports') && !request()->is('reports/create') && !request()->is('reports/edit*') ? 'active' : '' }}">
+                                <i class="fas fa-list"></i>
+                                <span>لیست گزارش‌ها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/reports/create" class="{{ request()->is('reports/create') ? 'active' : '' }}">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>ایجاد گزارش جدید</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
-                <li>
-                    <a href="/reports/create" class="{{ request()->is('reports/create') ? 'active' : '' }}">
-                        <i class="fas fa-plus-circle"></i>
-                        <span>ایجاد گزارش جدید</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/categories" class="{{ request()->is('categories*') ? 'active' : '' }}">
+
+                <!-- دسته‌بندی‌ها -->
+                <div class="menu-section">دسته‌بندی‌ها</div>
+                <li class="menu-item has-submenu {{ request()->is('categories*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-list"></i>
                         <span>دسته‌بندی‌ها</span>
                     </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/categories" class="{{ request()->is('categories') && !request()->is('categories/create') && !request()->is('categories/edit*') ? 'active' : '' }}">
+                                <i class="fas fa-list"></i>
+                                <span>لیست دسته‌بندی‌ها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/categories/create" class="{{ request()->is('categories/create') ? 'active' : '' }}">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>ایجاد دسته‌بندی جدید</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
 
-                <li>
-                    <a href="/categories/create" class="{{ request()->is('categories/create') ? 'active' : '' }}">
-                        <i class="fas fa-plus-circle"></i>
-                        <span>ایجاد دسته‌بندی جدید</span>
-                    </a>
-                </li>
-
-                <li>
-                    <a href="/residents" class="{{ request()->is('residents') ? 'active' : '' }}">
+                <!-- اقامت‌گران -->
+                <div class="menu-section">اقامت‌گران</div>
+                <li class="menu-item has-submenu {{ request()->is('residents*') || request()->is('resident-reports*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-users"></i>
-                        <span>مدیریت اقامت‌گران</span>
+                        <span>اقامت‌گران</span>
                     </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/residents" class="{{ request()->is('residents') ? 'active' : '' }}">
+                                <i class="fas fa-users"></i>
+                                <span>مدیریت اقامت‌گران</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/resident-reports" class="{{ request()->is('resident-reports*') ? 'active' : '' }}">
+                                <i class="fas fa-clipboard-list"></i>
+                                <span>گزارش‌های اقامت‌گران</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
-                <li>
-                    <a href="/resident-reports" class="{{ request()->is('resident-reports') ? 'active' : '' }}">
-                        <i class="fas fa-clipboard-list"></i>
-                        <span>گزارش‌های اقامت‌گران</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') ? 'active' : '' }}">
+
+                <!-- پیام‌ها -->
+                <div class="menu-section">پیام‌ها</div>
+                <li class="menu-item has-submenu {{ request()->is('sms*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-sms"></i>
-                        <span>مدیریت پیام‌های SMS</span>
+                        <span>پیام‌ها</span>
                     </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') ? 'active' : '' }}">
+                                <i class="fas fa-sms"></i>
+                                <span>مدیریت پیام‌های SMS</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/manual" class="{{ request()->is('sms/manual') ? 'active' : '' }}">
+                                <i class="fas fa-user"></i>
+                                <span>ارسال SMS دستی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/group" class="{{ request()->is('sms/group') ? 'active' : '' }}">
+                                <i class="fas fa-users"></i>
+                                <span>ارسال SMS گروهی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
+                                <i class="fas fa-history"></i>
+                                <span>پیام‌های ارسال شده</span>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
-                <li>
-                    <a href="/sms/manual" class="{{ request()->is('sms/manual') ? 'active' : '' }}">
-                        <i class="fas fa-user"></i>
-                        <span>ارسال SMS دستی</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/sms/group" class="{{ request()->is('sms/group') ? 'active' : '' }}">
-                        <i class="fas fa-users"></i>
-                        <span>ارسال SMS گروهی</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
-                        <i class="fas fa-history"></i>
-                        <span>پیام‌های ارسال شده</span>
-                    </a>
-                </li>
-
             </ul>
         </nav>
 
@@ -474,6 +677,36 @@
 
         // Close sidebar when clicking on overlay
         document.getElementById('overlay').addEventListener('click', toggleSidebar);
+
+        // Submenu toggle functionality
+        function toggleSubmenu(element) {
+            const menuItem = element.closest('.menu-item');
+            if (menuItem) {
+                menuItem.classList.toggle('open');
+            }
+        }
+
+        // Auto-open submenus based on current route
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            
+            // Open submenu if current route matches
+            document.querySelectorAll('.menu-item.has-submenu').forEach(item => {
+                const submenuLinks = item.querySelectorAll('.submenu a');
+                let shouldOpen = false;
+                
+                submenuLinks.forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && currentPath.startsWith(href)) {
+                        shouldOpen = true;
+                    }
+                });
+                
+                if (shouldOpen) {
+                    item.classList.add('open');
+                }
+            });
+        });
 
         // SweetAlert2 configuration
         window.addEventListener('showAlert', event => {

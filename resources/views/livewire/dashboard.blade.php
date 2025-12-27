@@ -42,7 +42,7 @@
                                         {{ $report->negative_score }}
                                     </span>
                                 </td>
-                                <td>{{ $report->created_at->format('Y/m/d H:i') }}</td>
+                                <td>{{ jalaliDate($report->created_at, 'Y/m/d H:i') }}</td>
                             </tr>
                         @endforeach
                     </tbody>

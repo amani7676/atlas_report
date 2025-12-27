@@ -337,7 +337,7 @@
                                                         </span>
                                                     </td>
                                                     <td>{{ $report->notes }}</td>
-                                                    <td>{{ $report->created_at->format('Y/m/d') }}</td>
+                                                    <td>{{ jalaliDate($report->created_at, 'Y/m/d') }}</td>
                                                 </tr>
                                             @empty
                                                 <tr>
@@ -608,7 +608,7 @@
                                     </td>
                                     <td>
                                         <div>
-                                            {{ $report->created_at->format('Y/m/d H:i') }}
+                                            {{ jalaliDate($report->created_at, 'Y/m/d H:i') }}
                                             <br>
                                             <small class="text-muted">
                                                 {{ $report->created_at->diffForHumans() }}
@@ -679,9 +679,9 @@
                                                         <div class="mt-3">
                                                             <strong>اطلاعات ثبت:</strong>
                                                             <p class="mb-1">تاریخ ثبت:
-                                                                {{ $report->created_at->format('Y/m/d H:i') }}</p>
+                                                                {{ jalaliDate($report->created_at, 'Y/m/d H:i') }}</p>
                                                             <p class="mb-0">آخرین ویرایش:
-                                                                {{ $report->updated_at->format('Y/m/d H:i') }}</p>
+                                                                {{ jalaliDate($report->updated_at, 'Y/m/d H:i') }}</p>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer">

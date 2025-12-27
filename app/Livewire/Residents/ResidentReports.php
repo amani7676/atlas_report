@@ -310,6 +310,15 @@ class ResidentReports extends Component
     public function render()
     {
         $reports = $this->reportsQuery->paginate($this->perPage);
+        
+        // همگام‌سازی اطلاعات با API برای رکوردهای نمایش داده شده
+        foreach ($reports as $report) {
+            if ($report->resident_id) {
+                $apiService = new \App\Services\ResidentApiService();
+                $apiService->syncResidentData($report);
+            }
+        }
+        
         $filteredRooms = $this->getFilteredRooms();
         $residentsList = $this->searchResidents();
 

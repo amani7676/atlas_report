@@ -164,12 +164,12 @@
                             </td>
                             <td>
                                 @if($sentMessage->sent_at)
-                                    {{ $sentMessage->sent_at->format('Y/m/d H:i') }}
+                                    {{ jalaliDate($sentMessage->sent_at, 'Y/m/d H:i') }}
                                 @else
                                     <span style="color: #999;">-</span>
                                 @endif
                             </td>
-                            <td>{{ $sentMessage->created_at->format('Y/m/d H:i') }}</td>
+                            <td>{{ jalaliDate($sentMessage->created_at, 'Y/m/d H:i') }}</td>
                             <td>
                                 <div style="display: flex; gap: 10px;">
                                     @if($sentMessage->status === 'failed')
@@ -212,8 +212,51 @@
         </div>
 
         <!-- Pagination -->
-        <div style="margin-top: 20px;">
-            {{ $sentMessages->links() }}
-        </div>
+        @if ($sentMessages->hasPages())
+            <div style="margin-top: 20px; padding: 15px; background: white; border-top: 1px solid #dee2e6; border-radius: 0 0 10px 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="color: #6c757d; font-size: 14px;">
+                    نمایش
+                    <strong>{{ $sentMessages->firstItem() ?? 0 }}</strong>
+                    تا
+                    <strong>{{ $sentMessages->lastItem() ?? 0 }}</strong>
+                    از
+                    <strong>{{ $sentMessages->total() }}</strong>
+                    نتیجه
+                </div>
+                {{-- صفحه‌بندی سفارشی --}}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination custom-pagination mb-0">
+                        {{-- دکمه "قبلی" --}}
+                        <li class="page-item {{ $sentMessages->onFirstPage() ? 'disabled' : '' }}">
+                            <a class="page-link" href="#" wire:click="previousPage" tabindex="-1"
+                                aria-disabled="{{ $sentMessages->onFirstPage() ? 'true' : 'false' }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+
+                        {{-- شماره صفحات --}}
+                        @foreach ($sentMessages->getUrlRange(1, $sentMessages->lastPage()) as $page => $url)
+                            @if ($page == $sentMessages->currentPage())
+                                <li class="page-item active">
+                                    <span class="page-link">{{ $page }}</span>
+                                </li>
+                            @else
+                                <li class="page-item">
+                                    <a class="page-link" href="#" wire:click="gotoPage({{ $page }})">{{ $page }}</a>
+                                </li>
+                            @endif
+                        @endforeach
+
+                        {{-- دکمه "بعدی" --}}
+                        <li class="page-item {{ !$sentMessages->hasMorePages() ? 'disabled' : '' }}">
+                            <a class="page-link" href="#" wire:click="nextPage"
+                                aria-disabled="{{ !$sentMessages->hasMorePages() ? 'true' : 'false' }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        @endif
     </div>
 </div>
