@@ -19,38 +19,166 @@ class MelipayamakService
     }
 
     /**
+     * اعتبارسنجی و نرمال‌سازی شماره تلفن
+     */
+    protected function normalizePhoneNumber($phone)
+    {
+        // حذف فاصله‌ها، خط تیره و کاراکترهای غیرعددی
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        
+        // حذف پیش‌شماره کشور (98) در صورت وجود
+        if (strlen($phone) == 13 && substr($phone, 0, 2) == '98') {
+            $phone = '0' . substr($phone, 2);
+        }
+        
+        // اطمینان از شروع با 09
+        if (strlen($phone) == 10 && substr($phone, 0, 1) == '9') {
+            $phone = '0' . $phone;
+        }
+        
+        return $phone;
+    }
+
+    /**
+     * اعتبارسنجی شماره تلفن
+     */
+    protected function validatePhoneNumber($phone)
+    {
+        $normalized = $this->normalizePhoneNumber($phone);
+        
+        // شماره باید با 09 شروع شود و دقیقاً 11 رقم باشد
+        if (strlen($normalized) !== 11 || substr($normalized, 0, 2) !== '09') {
+            return false;
+        }
+        
+        // بررسی اینکه همه ارقام عدد هستند
+        return ctype_digit($normalized);
+    }
+
+    /**
+     * اعتبارسنجی متن پیام
+     */
+    protected function validateMessageText($text)
+    {
+        // متن نباید خالی باشد
+        if (empty(trim($text))) {
+            return false;
+        }
+        
+        // بررسی طول متن (حداکثر 1000 کاراکتر)
+        if (mb_strlen($text) > 1000) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
      * ارسال پیامک به یک شماره
      */
     public function sendSms($to, $from, $text)
     {
         try {
+            // اعتبارسنجی شماره تلفن
+            if (!$this->validatePhoneNumber($to)) {
+                $normalized = $this->normalizePhoneNumber($to);
+                Log::error('Melipayamak Invalid Phone Number', [
+                    'original' => $to,
+                    'normalized' => $normalized,
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => '18',
+                    'message' => 'شماره موبایل گیرنده نامعتبر است. شماره باید با 09 شروع شود و 11 رقم باشد. (شماره وارد شده: ' . $to . ')',
+                ];
+            }
+
+            // اعتبارسنجی متن پیام
+            if (!$this->validateMessageText($text)) {
+                Log::error('Melipayamak Invalid Message Text', [
+                    'text_length' => mb_strlen($text),
+                    'text_preview' => mb_substr($text, 0, 50),
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => '17',
+                    'message' => 'متن پیامک خالی است یا متغیر text مقدار ندارد. متن نباید خالی باشد و حداکثر 1000 کاراکتر باشد.',
+                ];
+            }
+
+            // نرمال‌سازی شماره تلفن
+            $normalizedPhone = $this->normalizePhoneNumber($to);
+
             $data = [
                 'username' => $this->username,
                 'password' => $this->password, // APIKey
-                'to' => $to,
+                'to' => $normalizedPhone,
                 'from' => $from,
-                'text' => $text,
+                'text' => trim($text),
             ];
+
+            // لاگ داده‌های ارسالی (بدون نمایش رمز عبور)
+            Log::debug('Melipayamak SMS Request', [
+                'to' => $normalizedPhone,
+                'from' => $from,
+                'text_length' => mb_strlen($text),
+            ]);
 
             $response = Http::asForm()->post($this->baseUrl . '/SendSMS/SendSMS', $data);
 
-            // پاسخ API به صورت string عددی است (RecId در صورت موفقیت یا کد خطا)
             $responseBody = trim($response->body());
-            $responseCode = (string)$responseBody;
+            
+            // بررسی اینکه آیا پاسخ JSON است یا رشته عددی
+            $responseData = null;
+            $responseCode = null;
+            $responseType = 'unknown';
+            
+            // تلاش برای پارس JSON
+            $jsonData = json_decode($responseBody, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($jsonData)) {
+                // پاسخ JSON است
+                $responseType = 'json';
+                $responseCode = isset($jsonData['RetStatus']) ? (string)$jsonData['RetStatus'] : (string)$jsonData['Value'];
+                $responseData = $jsonData;
+            } else {
+                // پاسخ رشته عددی است
+                $responseType = 'numeric';
+                $responseCode = (string)$responseBody;
+            }
 
             // بررسی موفقیت آمیز بودن ارسال
-            // اگر پاسخ یک عدد مثبت باشد (و کد خطا نباشد)، یعنی RecId است و ارسال موفق بوده
-            // کدهای خطا: 0, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 18, 35, 108, 109, 110
-            $errorCodes = ['0', '2', '3', '4', '5', '6', '7', '9', '10', '11', '12', '14', '15', '16', '17', '18', '35', '108', '109', '110'];
+            // بر اساس مستندات رسمی ملی پیامک:
+            // - کد 1: ارسال پیامک با موفقیت انجام شد
+            // - رشته عددی (recId): شناسه یکتای ارسال پیامک است و نشان‌دهندۀ ارسال موفق می‌باشد
+            // کدهای خطا: -1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 35, 108, 109, 110
+            $errorCodes = ['-1', '0', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '15', '16', '17', '18', '35', '108', '109', '110'];
             
-            if ($response->successful() && is_numeric($responseBody)) {
-                // اگر کد خطا نباشد، یعنی RecId است
-                if (!in_array($responseCode, $errorCodes) && (int)$responseBody > 0) {
+            if ($response->successful() && is_numeric($responseCode)) {
+                $responseInt = (int)$responseCode;
+                
+                // کد 1 = ارسال موفق
+                if ($responseInt === 1) {
                     return [
                         'success' => true,
-                        'rec_id' => (int)$responseBody,
+                        'rec_id' => 1,
                         'response_code' => $responseCode,
-                        'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseBody . ')',
+                        'message' => 'پیامک با موفقیت ارسال شد',
+                        'raw_response' => $responseBody,
+                        'api_response' => $responseData ?? $responseBody,
+                    ];
+                }
+                
+                // اگر کد خطا نباشد و عدد مثبت باشد، یعنی RecId است
+                if (!in_array($responseCode, $errorCodes) && $responseInt > 0) {
+                    return [
+                        'success' => true,
+                        'rec_id' => $responseInt,
+                        'response_code' => $responseCode,
+                        'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
+                        'raw_response' => $responseBody,
+                        'api_response' => $responseData ?? $responseBody,
                     ];
                 }
             }
@@ -59,18 +187,27 @@ class MelipayamakService
             $errorMessage = $this->getErrorMessage($responseCode);
             
             Log::error('Melipayamak SMS Error', [
-                'to' => $to,
+                'to' => $normalizedPhone,
                 'from' => $from,
                 'error' => $errorMessage,
                 'response_code' => $responseCode,
+                'response_type' => $responseType, // نوع پاسخ: 'json' یا 'numeric'
                 'response_body' => $responseBody,
+                'response_data' => $responseData,
                 'http_status_code' => $response->status(),
+                'request_data' => [
+                    'to' => $normalizedPhone,
+                    'from' => $from,
+                    'text_length' => mb_strlen($text),
+                ],
             ]);
 
             return [
                 'success' => false,
                 'response_code' => $responseCode,
                 'message' => $errorMessage,
+                'raw_response' => $responseBody,
+                'api_response' => $responseData ?? $responseBody,
             ];
         } catch (\Exception $e) {
             Log::error('Melipayamak SMS Exception', [
@@ -94,23 +231,25 @@ class MelipayamakService
     protected function getErrorMessage($responseCode)
     {
         $errorMessages = [
-            '0' => 'نام کاربری یا رمز عبور اشتباه است',
-            '2' => 'اعتبار کافی نمی باشد',
-            '3' => 'محدودیت در ارسال روزانه',
-            '4' => 'محدودیت در حجم ارسال',
-            '5' => 'شماره فرستنده معتبر نمی باشد',
-            '6' => 'سامانه در حال بروزرسانی می باشد',
-            '7' => 'متن حاوی کلمه فیلتر شده می باشد',
-            '9' => 'ارسال از خطوط عمومی از طریق وب سرویس امکان پذیر نمی باشد',
-            '10' => 'کاربر مورد نظر فعال نمی باشد',
-            '11' => 'ارسال نشده',
-            '12' => 'مدارک کاربر کامل نمی باشد',
-            '14' => 'متن حاوی لینک می باشد',
-            '15' => 'ارسال به بیش از 1 شماره همراه بدون درج "لغو11" ممکن نیست',
-            '16' => 'شماره گیرنده‌ای یافت نشد',
-            '17' => 'متن پیامک خالی می باشد',
-            '18' => 'شماره گیرنده نامعتبر است',
-            '35' => 'شماره در لیست سیاه مخالفات می‌باشد',
+            '-1' => 'خطای نامشخص؛ برای بررسی با پشتیبانی تماس بگیرید',
+            '0' => 'اتصال به وب‌سرویس ممکن نیست یا نام کاربری و رمز عبور اشتباه است',
+            '2' => 'اعتبار پنل پیامک کافی نیست؛ موجودی خود را افزایش دهید',
+            '3' => 'محدودیت در تعداد ارسال روزانه فعال است',
+            '4' => 'محدودیت در حجم یا تعداد پیامک‌های ارسالی وجود دارد',
+            '5' => 'شماره فرستنده یا سرشماره پیامکی معتبر نیست',
+            '6' => 'سامانه در حال بروزرسانی است؛ بعداً تلاش کنید',
+            '7' => 'متن پیامک شامل کلمه یا عبارت فیلترشده است',
+            '8' => 'تعداد پیامک‌ها کمتر از حداقل مجاز برای ارسال است',
+            '9' => 'ارسال از خطوط عمومی از طریق وب‌سرویس مجاز نیست',
+            '10' => 'پنل پیامکی غیرفعال یا مسدود شده است',
+            '11' => 'ارسال انجام نشد؛ شماره گیرنده در لیست سیاه مخابرات است',
+            '12' => 'مدارک احراز هویت کاربر کامل نیست',
+            '14' => 'سرشماره فرستنده امکان ارسال پیامک حاوی لینک را ندارد',
+            '15' => 'در پیام‌های چندگیرنده، عبارت «لغو11» در انتهای متن نوشته نشده است',
+            '16' => 'شماره موبایل گیرنده یافت نشد؛ پارامتر to را بررسی کنید',
+            '17' => 'متن پیامک خالی است یا متغیر text مقدار ندارد',
+            '18' => 'شماره موبایل گیرنده نامعتبر است',
+            '35' => 'در متد REST، شماره گیرنده در لیست سیاه مخابرات قرار دارد',
             '108' => 'مسدود شدن IP به دلیل تلاش ناموفق استفاده از API',
             '109' => 'الزام تنظیم IP مجاز برای استفاده از API',
             '110' => 'الزام استفاده از ApiKey به جای رمز عبور',
@@ -133,9 +272,57 @@ class MelipayamakService
     public function sendBulkSms($to, $from, $text)
     {
         try {
-            // تبدیل آرایه به رشته با کاما
+            // اعتبارسنجی متن پیام
+            if (!$this->validateMessageText($text)) {
+                Log::error('Melipayamak Bulk SMS Invalid Message Text', [
+                    'text_length' => mb_strlen($text),
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => '17',
+                    'message' => 'متن پیامک خالی است یا متغیر text مقدار ندارد. متن نباید خالی باشد و حداکثر 1000 کاراکتر باشد.',
+                ];
+            }
+
+            // تبدیل آرایه به رشته با کاما و نرمال‌سازی شماره‌ها
             if (is_array($to)) {
-                $to = implode(',', $to);
+                $normalizedPhones = [];
+                foreach ($to as $phone) {
+                    if ($this->validatePhoneNumber($phone)) {
+                        $normalizedPhones[] = $this->normalizePhoneNumber($phone);
+                    }
+                }
+                
+                if (empty($normalizedPhones)) {
+                    return [
+                        'success' => false,
+                        'response_code' => '18',
+                        'message' => 'هیچ شماره موبایل معتبری یافت نشد.',
+                    ];
+                }
+                
+                $to = implode(',', $normalizedPhones);
+            } else {
+                // اگر رشته است، شماره‌ها را با کاما جدا کرده و نرمال‌سازی می‌کنیم
+                $phones = explode(',', $to);
+                $normalizedPhones = [];
+                foreach ($phones as $phone) {
+                    $phone = trim($phone);
+                    if ($this->validatePhoneNumber($phone)) {
+                        $normalizedPhones[] = $this->normalizePhoneNumber($phone);
+                    }
+                }
+                
+                if (empty($normalizedPhones)) {
+                    return [
+                        'success' => false,
+                        'response_code' => '18',
+                        'message' => 'هیچ شماره موبایل معتبری یافت نشد.',
+                    ];
+                }
+                
+                $to = implode(',', $normalizedPhones);
             }
 
             $data = [
@@ -143,22 +330,68 @@ class MelipayamakService
                 'password' => $this->password, // APIKey
                 'to' => $to,
                 'from' => $from,
-                'text' => $text,
+                'text' => trim($text),
             ];
+
+            Log::debug('Melipayamak Bulk SMS Request', [
+                'to' => $to,
+                'from' => $from,
+                'text_length' => mb_strlen($text),
+            ]);
 
             $response = Http::asForm()->post($this->baseUrl . '/SendSMS/SendSMS', $data);
 
             $responseBody = trim($response->body());
-            $responseCode = (string)$responseBody;
-            $errorCodes = ['0', '2', '3', '4', '5', '6', '7', '9', '10', '11', '12', '14', '15', '16', '17', '18', '35', '108', '109', '110'];
+            
+            // بررسی اینکه آیا پاسخ JSON است یا رشته عددی
+            $responseData = null;
+            $responseCode = null;
+            $responseType = 'unknown';
+            
+            // تلاش برای پارس JSON
+            $jsonData = json_decode($responseBody, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($jsonData)) {
+                // پاسخ JSON است
+                $responseType = 'json';
+                $responseCode = isset($jsonData['RetStatus']) ? (string)$jsonData['RetStatus'] : (string)$jsonData['Value'];
+                $responseData = $jsonData;
+            } else {
+                // پاسخ رشته عددی است
+                $responseType = 'numeric';
+                $responseCode = (string)$responseBody;
+            }
+            
+            // بررسی موفقیت آمیز بودن ارسال
+            // بر اساس مستندات رسمی ملی پیامک:
+            // - کد 1: ارسال پیامک با موفقیت انجام شد
+            // - رشته عددی (recId): شناسه یکتای ارسال پیامک است و نشان‌دهندۀ ارسال موفق می‌باشد
+            // کدهای خطا: -1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 35, 108, 109, 110
+            $errorCodes = ['-1', '0', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '15', '16', '17', '18', '35', '108', '109', '110'];
 
-            if ($response->successful() && is_numeric($responseBody)) {
-                if (!in_array($responseCode, $errorCodes) && (int)$responseBody > 0) {
+            if ($response->successful() && is_numeric($responseCode)) {
+                $responseInt = (int)$responseCode;
+                
+                // کد 1 = ارسال موفق
+                if ($responseInt === 1) {
                     return [
                         'success' => true,
-                        'rec_id' => (int)$responseBody,
+                        'rec_id' => 1,
                         'response_code' => $responseCode,
-                        'message' => 'پیامک‌ها با موفقیت ارسال شدند (RecId: ' . $responseBody . ')',
+                        'message' => 'پیامک‌ها با موفقیت ارسال شدند',
+                        'raw_response' => $responseBody,
+                        'api_response' => $responseData ?? $responseBody,
+                    ];
+                }
+                
+                // اگر کد خطا نباشد و عدد مثبت باشد، یعنی RecId است
+                if (!in_array($responseCode, $errorCodes) && $responseInt > 0) {
+                    return [
+                        'success' => true,
+                        'rec_id' => $responseInt,
+                        'response_code' => $responseCode,
+                        'message' => 'پیامک‌ها با موفقیت ارسال شدند (RecId: ' . $responseCode . ')',
+                        'raw_response' => $responseBody,
+                        'api_response' => $responseData ?? $responseBody,
                     ];
                 }
             }
@@ -170,13 +403,17 @@ class MelipayamakService
                 'from' => $from,
                 'error' => $errorMessage,
                 'response_code' => $responseCode,
+                'response_type' => $responseType, // نوع پاسخ: 'json' یا 'numeric'
                 'response_body' => $responseBody,
+                'response_data' => $responseData,
             ]);
 
             return [
                 'success' => false,
                 'response_code' => $responseCode,
                 'message' => $errorMessage,
+                'raw_response' => $responseBody,
+                'api_response' => $responseData ?? $responseBody,
             ];
         } catch (\Exception $e) {
             Log::error('Melipayamak Bulk SMS Exception', [

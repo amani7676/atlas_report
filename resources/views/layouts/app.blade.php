@@ -331,6 +331,9 @@
             display: block;
             opacity: 1;
         }
+        .rtl-popup {
+            direction: rtl;
+        }
     </style>
 
     @livewireStyles
@@ -482,6 +485,77 @@
                 confirmButtonColor: '#4361ee'
             });
         });
+
+        // Log Melipayamak API Response to Console
+        window.addEventListener('logMelipayamakResponse', event => {
+            const response = event.detail;
+            console.log('=== پاسخ ملی پیامک ===');
+            console.log('وضعیت:', response.success ? '✅ موفق' : '❌ خطا');
+            console.log('کد پاسخ:', response.response_code);
+            console.log('پیام:', response.message);
+            console.log('پاسخ خام (Raw Response):', response.raw_response);
+            console.log('پاسخ API (Parsed):', response.api_response);
+            if (response.rec_id) {
+                console.log('RecId:', response.rec_id);
+            }
+            console.log('===================');
+        });
+
+        // تابع نمایش خطای کامل API ملی پیامک
+        window.showError = function(errorData) {
+            // اگر errorData یک رشته باشد (برای سازگاری با کد قدیمی)
+            if (typeof errorData === 'string') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'پیام خطا',
+                    html: '<div style="text-align: right; direction: rtl;">' + errorData + '</div>',
+                    confirmButtonText: 'باشه',
+                    confirmButtonColor: '#4361ee'
+                });
+                return;
+            }
+
+            // ساخت HTML برای نمایش اطلاعات کامل
+            let html = '<div style="text-align: right; direction: rtl; font-family: monospace; font-size: 13px;">';
+            html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px;">';
+            html += '<strong style="color: #dc3545;">وضعیت:</strong> ';
+            html += '<span style="color: ' + (errorData.success ? '#28a745' : '#dc3545') + ';">';
+            html += errorData.success ? '✅ موفق' : '❌ خطا';
+            html += '</span><br><br>';
+            
+            html += '<strong>کد پاسخ:</strong> ' + (errorData.response_code || '-') + '<br><br>';
+            html += '<strong>پیام:</strong> ' + (errorData.message || '-') + '<br><br>';
+            
+            if (errorData.raw_response) {
+                html += '<strong>پاسخ خام (Raw Response):</strong><br>';
+                html += '<div style="background: #fff; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 5px; word-break: break-all;">';
+                html += errorData.raw_response;
+                html += '</div><br>';
+            }
+            
+            if (errorData.api_response) {
+                html += '<strong>پاسخ API (Parsed):</strong><br>';
+                html += '<div style="background: #fff; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 5px; max-height: 300px; overflow-y: auto;">';
+                html += '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">';
+                html += JSON.stringify(errorData.api_response, null, 2);
+                html += '</pre>';
+                html += '</div>';
+            }
+            
+            html += '</div></div>';
+
+            Swal.fire({
+                icon: 'error',
+                title: 'جزئیات خطا',
+                html: html,
+                width: '700px',
+                confirmButtonText: 'باشه',
+                confirmButtonColor: '#4361ee',
+                customClass: {
+                    popup: 'rtl-popup'
+                }
+            });
+        };
 
         // Confirm delete for single items
         window.confirmDelete = function(id, type, title) {

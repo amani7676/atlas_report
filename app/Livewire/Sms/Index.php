@@ -241,6 +241,9 @@ class Index extends Component
             // ارسال پیامک
             $result = $melipayamakService->sendSms($resident['phone'], $from, $messageText);
 
+            // ارسال پاسخ به console.log
+            $this->dispatch('logMelipayamakResponse', $result);
+
             if ($result['success']) {
                 $smsMessageResident->update([
                     'status' => 'sent',
@@ -254,6 +257,8 @@ class Index extends Component
                     'status' => 'failed',
                     'error_message' => $result['message'],
                     'response_code' => $result['response_code'] ?? null,
+                    'api_response' => $result['api_response'] ?? null,
+                    'raw_response' => $result['raw_response'] ?? null,
                 ]);
                 $failedCount++;
             }

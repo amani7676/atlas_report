@@ -63,13 +63,16 @@ class SentMessages extends Component
             // ساخت متن پیام
             $messageText = $smsMessageResident->smsMessage->text;
             $messageText = str_replace('{resident_name}', $smsMessageResident->resident_name ?? '', $messageText);
-            
+
             if ($smsMessageResident->smsMessage->link) {
                 $messageText .= "\n" . $smsMessageResident->smsMessage->link;
             }
 
             // ارسال پیامک
             $result = $melipayamakService->sendSms($smsMessageResident->phone, $from, $messageText);
+            
+            // ارسال پاسخ به console.log
+            $this->dispatch('logMelipayamakResponse', $result);
 
             if ($result['success']) {
                 $smsMessageResident->update([
@@ -89,6 +92,8 @@ class SentMessages extends Component
                     'status' => 'failed',
                     'error_message' => $result['message'],
                     'response_code' => $result['response_code'] ?? null,
+                    'api_response' => $result['api_response'] ?? null,
+                    'raw_response' => $result['raw_response'] ?? null,
                 ]);
 
                 $this->dispatch('showAlert', [
@@ -151,13 +156,16 @@ class SentMessages extends Component
                 // ساخت متن پیام
                 $messageText = $smsMessageResident->smsMessage->text;
                 $messageText = str_replace('{resident_name}', $smsMessageResident->resident_name ?? '', $messageText);
-                
+
                 if ($smsMessageResident->smsMessage->link) {
                     $messageText .= "\n" . $smsMessageResident->smsMessage->link;
                 }
 
                 // ارسال پیامک
                 $result = $melipayamakService->sendSms($smsMessageResident->phone, $from, $messageText);
+
+                // ارسال پاسخ به console.log
+                $this->dispatch('logMelipayamakResponse', $result);
 
                 if ($result['success']) {
                     $smsMessageResident->update([
@@ -172,6 +180,8 @@ class SentMessages extends Component
                         'status' => 'failed',
                         'error_message' => $result['message'],
                         'response_code' => $result['response_code'] ?? null,
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
                     ]);
                     $failedCount++;
                 }

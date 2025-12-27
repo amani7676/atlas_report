@@ -183,7 +183,13 @@
                                     @endif
                                     @if($sentMessage->error_message)
                                         <button
-                                            onclick="showError({{ json_encode($sentMessage->error_message) }})"
+                                            onclick="showError({{ json_encode([
+                                                'success' => false,
+                                                'response_code' => $sentMessage->response_code,
+                                                'message' => $sentMessage->error_message,
+                                                'raw_response' => $sentMessage->raw_response,
+                                                'api_response' => $sentMessage->api_response
+                                            ]) }})"
                                             class="btn btn-danger btn-sm"
                                             title="مشاهده خطا"
                                         >
@@ -211,15 +217,3 @@
         </div>
     </div>
 </div>
-
-<script>
-    function showError(errorMessage) {
-        Swal.fire({
-            icon: 'error',
-            title: 'پیام خطا',
-            html: '<div style="text-align: right; direction: rtl;">' + errorMessage + '</div>',
-            confirmButtonText: 'باشه',
-            confirmButtonColor: '#4361ee'
-        });
-    }
-</script>

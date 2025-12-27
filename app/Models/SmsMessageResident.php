@@ -18,10 +18,13 @@ class SmsMessageResident extends Model
         'sent_at',
         'error_message',
         'response_code',
+        'api_response',
+        'raw_response',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'api_response' => 'array',
     ];
 
     public function smsMessage(): BelongsTo
