@@ -9,6 +9,7 @@ class Report extends Model
 {
     protected $fillable = [
         'category_id',
+        'type',
         'title',
         'description',
         'negative_score',

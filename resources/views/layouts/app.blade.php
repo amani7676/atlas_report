@@ -393,6 +393,24 @@
                         <span>گزارش‌های اقامت‌گران</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') ? 'active' : '' }}">
+                        <i class="fas fa-sms"></i>
+                        <span>مدیریت پیام‌های SMS</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/sms/manual" class="{{ request()->is('sms/manual') ? 'active' : '' }}">
+                        <i class="fas fa-user"></i>
+                        <span>ارسال SMS دستی</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/sms/group" class="{{ request()->is('sms/group') ? 'active' : '' }}">
+                        <i class="fas fa-users"></i>
+                        <span>ارسال SMS گروهی</span>
+                    </a>
+                </li>
 
             </ul>
         </nav>

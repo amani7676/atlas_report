@@ -23,6 +23,9 @@ Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edi
 
 Route::get('/residents', Units::class)->name('residents.units');
 Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
+Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
+Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
+Route::get('/sms/group', \App\Livewire\Sms\Group::class)->name('sms.group');
 
 
 // Route های API برای حذف

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\ResidentReportCreated;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -28,6 +29,13 @@ class ResidentReport extends Model
         'bed_id' => 'integer',
         'resident_id' => 'integer',
     ];
+
+    protected static function booted()
+    {
+        static::created(function ($residentReport) {
+            event(new ResidentReportCreated($residentReport));
+        });
+    }
 
     public function report(): BelongsTo
     {
