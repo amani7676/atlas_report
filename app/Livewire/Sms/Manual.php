@@ -190,17 +190,20 @@ class Manual extends Component
                 $smsMessageResident->update([
                     'status' => 'sent',
                     'sent_at' => now(),
+                    'response_code' => $result['response_code'] ?? null,
+                    'error_message' => null,
                 ]);
                 
                 $this->dispatch('showAlert', [
                     'type' => 'success',
                     'title' => 'موفقیت!',
-                    'text' => 'گزارش ثبت شد و پیامک با موفقیت ارسال شد.'
+                    'text' => 'گزارش ثبت شد و پیامک با موفقیت ارسال شد. ' . ($result['message'] ?? '')
                 ]);
             } else {
                 $smsMessageResident->update([
                     'status' => 'failed',
                     'error_message' => $result['message'],
+                    'response_code' => $result['response_code'] ?? null,
                 ]);
                 
                 $this->dispatch('showAlert', [

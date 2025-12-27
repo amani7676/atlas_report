@@ -17,6 +17,7 @@ class SmsMessageResident extends Model
         'status',
         'sent_at',
         'error_message',
+        'response_code',
     ];
 
     protected $casts = [

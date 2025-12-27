@@ -36,9 +36,10 @@ return [
     ],
 
     'melipayamak' => [
-        'username' => env('MELIPAYAMAK_USERNAME'),
-        'password' => env('MELIPAYAMAK_PASSWORD'),
-        'from' => env('MELIPAYAMAK_FROM', '5000...'),
+        'username' => env('MELIPAYAMAK_USERNAME', '9961351938'),
+        'password' => env('MELIPAYAMAK_PASSWORD'), // استفاده نمی‌شود، فقط برای سازگاری
+        'api_key' => env('MELIPAYAMAK_API_KEY', '2fe1db8f-2148-4701-96f9-ecfd25bc5470'), // APIKey اصلی
+        'from' => env('MELIPAYAMAK_FROM', '50002710051938'),
     ],
 
 ];

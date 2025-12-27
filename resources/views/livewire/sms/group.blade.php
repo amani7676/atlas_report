@@ -117,36 +117,52 @@
                     <button wire:click="closeSendModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="form-label">پیام SMS *</label>
-                    <select wire:model="selectedSmsMessage" class="form-control" required>
-                        <option value="">انتخاب پیام</option>
-                        @foreach($smsMessages as $sms)
-                            <option value="{{ $sms->id }}">{{ $sms->title }}</option>
-                        @endforeach
-                    </select>
+                <!-- Info about selected residents -->
+                <div style="background: #e8f4fd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <p><strong>تعداد اقامت‌گران انتخاب شده:</strong> {{ count($selectedResidents) }} نفر</p>
+                </div>
+
+                <form wire:submit.prevent="sendSms">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label">پیام SMS *</label>
+                        <select wire:model.live="selectedSmsMessage" class="form-control" required>
+                            <option value="">انتخاب پیام</option>
+                            @foreach($smsMessages as $sms)
+                                <option value="{{ $sms->id }}">{{ $sms->title }}</option>
+                            @endforeach
+                        </select>
+                        @error('selectedSmsMessage') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                    </div>
+
                     @if($selectedSmsMessage)
                         @php
                             $selectedMsg = $smsMessages->firstWhere('id', $selectedSmsMessage);
                         @endphp
                         @if($selectedMsg)
-                            <div style="background: #e8f4fd; padding: 15px; border-radius: 6px; margin-top: 10px;">
-                                <p><strong>متن پیام:</strong> {{ $selectedMsg->text }}</p>
+                            <div style="background: #e8f4fd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                                <p><strong>عنوان پیام:</strong> {{ $selectedMsg->title }}</p>
+                                @if($selectedMsg->description)
+                                    <p><strong>توضیحات:</strong> {{ $selectedMsg->description }}</p>
+                                @endif
+                                <p><strong>متن پیام:</strong></p>
+                                <div style="background: white; padding: 10px; border-radius: 4px; border: 1px solid #ddd; margin-top: 5px;">
+                                    {{ $selectedMsg->text }}
+                                </div>
                                 @if($selectedMsg->link)
-                                    <p><strong>لینک:</strong> {{ $selectedMsg->link }}</p>
+                                    <p style="margin-top: 10px;"><strong>لینک:</strong> <a href="{{ $selectedMsg->link }}" target="_blank">{{ $selectedMsg->link }}</a></p>
                                 @endif
                             </div>
                         @endif
                     @endif
-                </div>
 
-                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                    <button type="button" wire:click="closeSendModal" class="btn" style="background: #6c757d; color: white;">لغو</button>
-                    <button wire:click="sendSms" class="btn btn-success" {{ !$selectedSmsMessage ? 'disabled' : '' }}>
-                        <i class="fas fa-paper-plane"></i>
-                        ارسال به {{ count($selectedResidents) }} نفر
-                    </button>
-                </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                        <button type="button" wire:click="closeSendModal" class="btn" style="background: #6c757d; color: white;">لغو</button>
+                        <button type="submit" class="btn btn-success" {{ !$selectedSmsMessage ? 'disabled' : '' }}>
+                            <i class="fas fa-paper-plane"></i>
+                            ارسال به {{ count($selectedResidents) }} نفر
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     @endif

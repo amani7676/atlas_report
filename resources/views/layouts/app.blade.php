@@ -411,6 +411,12 @@
                         <span>ارسال SMS گروهی</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
+                        <i class="fas fa-history"></i>
+                        <span>پیام‌های ارسال شده</span>
+                    </a>
+                </li>
 
             </ul>
         </nav>

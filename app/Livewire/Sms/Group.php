@@ -148,6 +148,13 @@ class Group extends Component
 
     public function sendSms()
     {
+        $this->validate([
+            'selectedSmsMessage' => 'required|exists:sms_messages,id',
+        ], [
+            'selectedSmsMessage.required' => 'لطفاً یک پیام را انتخاب کنید.',
+            'selectedSmsMessage.exists' => 'پیام انتخاب شده معتبر نیست.',
+        ]);
+
         if (!$this->selectedSmsMessage) {
             $this->dispatch('showAlert', [
                 'type' => 'warning',
@@ -205,12 +212,15 @@ class Group extends Component
                 $smsMessageResident->update([
                     'status' => 'sent',
                     'sent_at' => now(),
+                    'response_code' => $result['response_code'] ?? null,
+                    'error_message' => null,
                 ]);
                 $sentCount++;
             } else {
                 $smsMessageResident->update([
                     'status' => 'failed',
                     'error_message' => $result['message'],
+                    'response_code' => $result['response_code'] ?? null,
                 ]);
                 $failedCount++;
             }

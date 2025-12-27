@@ -63,11 +63,14 @@ class SendSmsJob implements ShouldQueue
                 $smsMessageResident->update([
                     'status' => 'sent',
                     'sent_at' => now(),
+                    'response_code' => $result['response_code'] ?? null,
+                    'error_message' => null,
                 ]);
             } else {
                 $smsMessageResident->update([
                     'status' => 'failed',
                     'error_message' => $result['message'],
+                    'response_code' => $result['response_code'] ?? null,
                 ]);
             }
         } catch (\Exception $e) {
