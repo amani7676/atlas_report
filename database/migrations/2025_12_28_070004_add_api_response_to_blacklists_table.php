@@ -11,9 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('blacklists', function (Blueprint $table) {
-            //
-        });
+        // این مایگریشن قبلاً اعمال شده است
     }
 
     /**

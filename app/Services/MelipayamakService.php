@@ -506,4 +506,119 @@ class MelipayamakService
             ];
         }
     }
+
+    /**
+     * درج لیست سیاه برای استفاده در ارسال پیامک از طریق الگو (پترن)
+     * بر اساس مستندات: https://api.payamak-panel.com/post/blacklist.asmx
+     * 
+     * @param string $title عنوان لیست ویژه سیاه
+     * @return array
+     */
+    public function blackListAdd($title)
+    {
+        try {
+            if (empty(trim($title))) {
+                return [
+                    'success' => false,
+                    'message' => 'عنوان لیست سیاه نمی‌تواند خالی باشد',
+                ];
+            }
+
+            Log::debug('Melipayamak BlackListAdd Request', [
+                'title' => $title,
+                'username' => $this->username,
+            ]);
+
+            // استفاده از GET با query parameters برای متد BlackListAdd
+            // بر اساس مستندات: https://api.payamak-panel.com/post/blacklist.asmx/BlackListAdd?username=""&password=""&title="test"
+            $baseUrl = 'https://api.payamak-panel.com/post/blacklist.asmx/BlackListAdd';
+            
+            // ارسال درخواست GET با query parameters
+            $response = Http::get($baseUrl, [
+                'username' => $this->username,
+                'password' => $this->password,
+                'title' => trim($title),
+            ]);
+
+            $responseBody = trim($response->body());
+            $httpStatus = $response->status();
+            
+            Log::debug('Melipayamak BlackListAdd Response', [
+                'response_body' => $responseBody,
+                'http_status' => $httpStatus,
+            ]);
+
+            // استخراج BlackListId از پاسخ
+            // پاسخ می‌تواند XML یا عدد ساده باشد
+            $blackListId = null;
+            
+            // اگر پاسخ فقط یک عدد است (فرمت ساده)
+            if (is_numeric(trim($responseBody))) {
+                $blackListId = trim($responseBody);
+            }
+            // تلاش برای استخراج از تگ BlackListAddResult در XML
+            elseif (preg_match('/<BlackListAddResult[^>]*>(\d+)<\/BlackListAddResult>/i', $responseBody, $matches)) {
+                $blackListId = $matches[1];
+            }
+            // تلاش برای استخراج از تگ ReturnValue در XML
+            elseif (preg_match('/<ReturnValue[^>]*>(\d+)<\/ReturnValue>/i', $responseBody, $matches)) {
+                $blackListId = $matches[1];
+            }
+            // تلاش برای استخراج هر عددی که در تگ XML باشد
+            elseif (preg_match('/<[^>]*>(\d+)<\/[^>]*>/', $responseBody, $matches)) {
+                $blackListId = $matches[1];
+            }
+
+            // بررسی نتیجه
+            if ($blackListId !== null) {
+                $blackListIdInt = (int)$blackListId;
+                
+                // اگر کد 5 رقمی باشد (عدد مثبت)
+                if ($blackListIdInt > 0) {
+                    return [
+                        'success' => true,
+                        'blacklist_id' => $blackListId,
+                        'message' => 'لیست سیاه با موفقیت ایجاد شد (کد: ' . $blackListId . ')',
+                        'api_response' => $responseBody,
+                        'http_status_code' => $httpStatus,
+                        'raw_response' => $responseBody,
+                    ];
+                } 
+                // اگر 0 باشد، یعنی نام کاربری یا رمز عبور اشتباه است
+                elseif ($blackListIdInt === 0) {
+                    return [
+                        'success' => false,
+                        'message' => 'نام کاربری و یا رمز عبور اشتباه است',
+                        'api_response' => $responseBody,
+                        'http_status_code' => $httpStatus,
+                        'raw_response' => $responseBody,
+                    ];
+                }
+            }
+
+            // اگر نتوانستیم BlackListId را استخراج کنیم
+            return [
+                'success' => false,
+                'message' => 'پاسخ نامعتبر از سرور. پاسخ: ' . substr($responseBody, 0, 200),
+                'api_response' => $responseBody,
+                'http_status_code' => $httpStatus,
+                'raw_response' => $responseBody,
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Melipayamak BlackListAdd Exception', [
+                'title' => $title,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در اتصال به سرویس: ' . $e->getMessage(),
+                'api_response' => null,
+                'http_status_code' => null,
+                'raw_response' => $e->getMessage(),
+            ];
+        }
+    }
 }

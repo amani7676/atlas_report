@@ -592,7 +592,7 @@
 
                 <!-- پیام‌ها -->
                 <div class="menu-section">پیام‌ها</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('sms*') || request()->is('blacklists*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-sms"></i>
                         <span>پیام‌ها</span>
@@ -620,6 +620,12 @@
                             <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
                                 <i class="fas fa-history"></i>
                                 <span>پیام‌های ارسال شده</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
+                                <i class="fas fa-ban"></i>
+                                <span>لیست‌های سیاه</span>
                             </a>
                         </li>
                     </ul>

@@ -27,6 +27,7 @@ Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
 Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
 Route::get('/sms/group', \App\Livewire\Sms\Group::class)->name('sms.group');
 Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent');
+Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
 
 
 // Route های API برای حذف
