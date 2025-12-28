@@ -592,7 +592,7 @@
 
                 <!-- پیام‌ها -->
                 <div class="menu-section">پیام‌ها</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') || request()->is('blacklists*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('sms*') || request()->is('blacklists*') || request()->is('patterns*') || request()->is('variables*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-sms"></i>
                         <span>پیام‌ها</span>
@@ -626,6 +626,30 @@
                             <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
                                 <i class="fas fa-ban"></i>
                                 <span>لیست‌های سیاه</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/patterns" class="{{ request()->is('patterns*') && !request()->is('patterns/create*') && !request()->is('patterns/edit*') ? 'active' : '' }}">
+                                <i class="fas fa-eye"></i>
+                                <span>مشاهده الگوها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/patterns/create" class="{{ request()->is('patterns/create*') ? 'active' : '' }}">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>درج الگو</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/patterns" class="{{ request()->is('patterns*') && request()->is('patterns/edit*') ? 'active' : '' }}">
+                                <i class="fas fa-edit"></i>
+                                <span>ویرایش الگو</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/variables" class="{{ request()->is('variables*') ? 'active' : '' }}">
+                                <i class="fas fa-code"></i>
+                                <span>مدیریت متغیرها</span>
                             </a>
                         </li>
                     </ul>

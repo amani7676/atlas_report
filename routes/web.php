@@ -28,6 +28,10 @@ Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
 Route::get('/sms/group', \App\Livewire\Sms\Group::class)->name('sms.group');
 Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent');
 Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
+Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
+Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');
+Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index');
+Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
 
 
 // Route های API برای حذف

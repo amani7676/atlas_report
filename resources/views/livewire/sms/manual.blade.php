@@ -101,15 +101,57 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 20px;">
-                        <label class="form-label">پیام SMS *</label>
-                        <select wire:model="selectedSmsMessage" class="form-control" required>
-                            <option value="">انتخاب پیام</option>
-                            @foreach($smsMessages as $sms)
-                                <option value="{{ $sms->id }}">{{ $sms->title }}</option>
-                            @endforeach
-                        </select>
-                        @error('selectedSmsMessage') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input 
+                                type="checkbox" 
+                                wire:model.live="usePattern"
+                            >
+                            <span>استفاده از الگوی پیامک (Pattern)</span>
+                        </label>
+                        <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                            اگر فعال باشد، از الگوهای تأیید شده استفاده می‌شود. در غیر این صورت از پیامک عادی استفاده می‌شود.
+                        </small>
                     </div>
+
+                    @if($usePattern)
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label class="form-label">الگوی پیامک *</label>
+                            <select wire:model="selectedPattern" class="form-control" required>
+                                <option value="">انتخاب الگو</option>
+                                @foreach($patterns as $pattern)
+                                    <option value="{{ $pattern->id }}">
+                                        {{ $pattern->title }} 
+                                        @if($pattern->pattern_code)
+                                            (کد: {{ $pattern->pattern_code }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($selectedPattern)
+                                @php
+                                    $selectedPatternObj = $patterns->firstWhere('id', $selectedPattern);
+                                @endphp
+                                @if($selectedPatternObj)
+                                    <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                                        <strong>متن الگو:</strong>
+                                        <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">{{ $selectedPatternObj->text }}</p>
+                                    </div>
+                                @endif
+                            @endif
+                            @error('selectedPattern') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        </div>
+                    @else
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label class="form-label">پیام SMS *</label>
+                            <select wire:model="selectedSmsMessage" class="form-control" required>
+                                <option value="">انتخاب پیام</option>
+                                @foreach($smsMessages as $sms)
+                                    <option value="{{ $sms->id }}">{{ $sms->title }}</option>
+                                @endforeach
+                            </select>
+                            @error('selectedSmsMessage') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        </div>
+                    @endif
 
                     <div class="form-group" style="margin-bottom: 20px;">
                         <label class="form-label">یادداشت (اختیاری)</label>

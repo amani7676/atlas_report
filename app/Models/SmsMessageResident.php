@@ -10,6 +10,9 @@ class SmsMessageResident extends Model
 {
     protected $fillable = [
         'sms_message_id',
+        'pattern_id',
+        'is_pattern',
+        'pattern_variables',
         'resident_id',
         'resident_name',
         'phone',
@@ -26,7 +29,13 @@ class SmsMessageResident extends Model
     protected $casts = [
         'sent_at' => 'datetime',
         'api_response' => 'array',
+        'is_pattern' => 'boolean',
     ];
+    
+    public function pattern()
+    {
+        return $this->belongsTo(Pattern::class);
+    }
 
     protected static function booted()
     {

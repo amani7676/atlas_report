@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Http;
 use App\Models\ResidentReport;
 use App\Models\Report;
 use App\Models\SmsMessage;
+use App\Models\Pattern;
+use App\Models\PatternVariable;
 use App\Models\SmsMessageResident;
 use App\Services\MelipayamakService;
 
@@ -23,8 +25,11 @@ class Manual extends Component
     public $selectedResident = null;
     public $selectedReport = null;
     public $selectedSmsMessage = null;
+    public $selectedPattern = null;
+    public $usePattern = false; // آیا از الگو استفاده می‌شود یا پیامک عادی
     public $reports = [];
     public $smsMessages = [];
+    public $patterns = [];
     public $notes = '';
 
     public function mount()
@@ -32,6 +37,16 @@ class Manual extends Component
         $this->loadUnits();
         $this->loadReports();
         $this->loadSmsMessages();
+        $this->loadPatterns();
+    }
+    
+    public function loadPatterns()
+    {
+        $this->patterns = Pattern::where('is_active', true)
+            ->where('status', 'approved')
+            ->whereNotNull('pattern_code')
+            ->orderBy('title')
+            ->get();
     }
 
     public function loadUnits()
@@ -101,6 +116,8 @@ class Manual extends Component
 
         $this->selectedReport = null;
         $this->selectedSmsMessage = null;
+        $this->selectedPattern = null;
+        $this->usePattern = false;
         $this->notes = '';
         $this->showModal = true;
     }
@@ -116,13 +133,25 @@ class Manual extends Component
             return;
         }
 
-        if (!$this->selectedSmsMessage) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'لطفاً یک پیام را انتخاب کنید.'
-            ]);
-            return;
+        // بررسی اینکه آیا از الگو استفاده می‌شود یا پیامک عادی
+        if ($this->usePattern) {
+            if (!$this->selectedPattern) {
+                $this->dispatch('showAlert', [
+                    'type' => 'warning',
+                    'title' => 'هشدار!',
+                    'text' => 'لطفاً یک الگو را انتخاب کنید.'
+                ]);
+                return;
+            }
+        } else {
+            if (!$this->selectedSmsMessage) {
+                $this->dispatch('showAlert', [
+                    'type' => 'warning',
+                    'title' => 'هشدار!',
+                    'text' => 'لطفاً یک پیام را انتخاب کنید.'
+                ]);
+                return;
+            }
         }
 
         if (empty($this->selectedResident['phone'])) {
@@ -150,40 +179,81 @@ class Manual extends Component
                 'notes' => $this->notes,
             ]);
 
-            // ارسال SMS
-            $smsMessage = SmsMessage::find($this->selectedSmsMessage);
             $melipayamakService = new MelipayamakService();
-            $from = config('services.melipayamak.from', '5000...');
-            
-            // ساخت متن پیام با جایگزینی متغیرها
-            $messageText = $this->replaceVariables($smsMessage->text, $this->selectedResident);
-            
-            $report = Report::find($this->selectedReport);
-            if ($report) {
-                $violationInfo = "\n\nگزارش: " . $report->title;
-                if ($report->description) {
-                    $violationInfo .= "\n" . $report->description;
+            $result = null;
+            $smsMessageResident = null;
+
+            if ($this->usePattern && $this->selectedPattern) {
+                // ارسال با الگو
+                $pattern = Pattern::find($this->selectedPattern);
+                
+                if (!$pattern || !$pattern->pattern_code) {
+                    $this->dispatch('showAlert', [
+                        'type' => 'error',
+                        'title' => 'خطا!',
+                        'text' => 'الگوی انتخاب شده معتبر نیست یا کد الگو ندارد.'
+                    ]);
+                    return;
                 }
-                $messageText = str_replace('{violation}', $violationInfo, $messageText);
-            }
-            
-            if ($smsMessage->link) {
-                $messageText .= "\n" . $smsMessage->link;
-            }
 
-            // ایجاد رکورد در جدول sms_message_residents
-            $smsMessageResident = SmsMessageResident::create([
-                'sms_message_id' => $smsMessage->id,
-                'resident_id' => $this->selectedResident['id'],
-                'resident_name' => $this->selectedResident['name'],
-                'phone' => $this->selectedResident['phone'],
-                'title' => $smsMessage->title,
-                'description' => $smsMessage->description,
-                'status' => 'pending',
-            ]);
+                // استخراج متغیرها از متن الگو
+                $variables = $this->extractPatternVariables($pattern->text, $this->selectedResident);
+                
+                // ایجاد رکورد در جدول sms_message_residents
+                $smsMessageResident = SmsMessageResident::create([
+                    'pattern_id' => $pattern->id,
+                    'is_pattern' => true,
+                    'pattern_variables' => implode(';', $variables),
+                    'resident_id' => $this->selectedResident['id'],
+                    'resident_name' => $this->selectedResident['name'],
+                    'phone' => $this->selectedResident['phone'],
+                    'title' => $pattern->title,
+                    'description' => $pattern->text,
+                    'status' => 'pending',
+                ]);
 
-            // ارسال پیامک
-            $result = $melipayamakService->sendSms($this->selectedResident['phone'], $from, $messageText);
+                // ارسال پیامک با الگو
+                $result = $melipayamakService->sendByBaseNumber2(
+                    $this->selectedResident['phone'],
+                    $pattern->pattern_code,
+                    $variables
+                );
+            } else {
+                // ارسال پیامک عادی (بدون الگو)
+                $smsMessage = SmsMessage::find($this->selectedSmsMessage);
+                $from = config('services.melipayamak.from', '5000...');
+                
+                // ساخت متن پیام با جایگزینی متغیرها
+                $messageText = $this->replaceVariables($smsMessage->text, $this->selectedResident);
+                
+                $report = Report::find($this->selectedReport);
+                if ($report) {
+                    $violationInfo = "\n\nگزارش: " . $report->title;
+                    if ($report->description) {
+                        $violationInfo .= "\n" . $report->description;
+                    }
+                    $messageText = str_replace('{violation}', $violationInfo, $messageText);
+                }
+                
+                if ($smsMessage->link) {
+                    $messageText .= "\n" . $smsMessage->link;
+                }
+
+                // ایجاد رکورد در جدول sms_message_residents
+                $smsMessageResident = SmsMessageResident::create([
+                    'sms_message_id' => $smsMessage->id,
+                    'is_pattern' => false,
+                    'resident_id' => $this->selectedResident['id'],
+                    'resident_name' => $this->selectedResident['name'],
+                    'phone' => $this->selectedResident['phone'],
+                    'title' => $smsMessage->title,
+                    'description' => $smsMessage->description,
+                    'status' => 'pending',
+                ]);
+
+                // ارسال پیامک عادی
+                $result = $melipayamakService->sendSms($this->selectedResident['phone'], $from, $messageText);
+            }
 
             // ارسال پاسخ به console.log
             $this->dispatch('logMelipayamakResponse', $result);
@@ -233,6 +303,8 @@ class Manual extends Component
         $this->selectedResident = null;
         $this->selectedReport = null;
         $this->selectedSmsMessage = null;
+        $this->selectedPattern = null;
+        $this->usePattern = false;
         $this->notes = '';
     }
 
@@ -295,6 +367,138 @@ class Manual extends Component
         }
 
         return $result;
+    }
+
+    /**
+     * استخراج و جایگزینی متغیرها در الگو
+     * متغیرها به ترتیب {0}, {1}, {2} و ... استخراج می‌شوند
+     */
+    protected function extractPatternVariables($patternText, $resident)
+    {
+        // پیدا کردن تمام متغیرها در الگو (مثل {0}, {1}, {2})
+        preg_match_all('/\{(\d+)\}/', $patternText, $matches);
+        
+        if (empty($matches[1])) {
+            return []; // اگر متغیری وجود نداشت
+        }
+
+        // دریافت اطلاعات کامل resident از API
+        $residentData = $this->getResidentData($resident);
+        
+        // دریافت اطلاعات گزارش
+        $reportData = null;
+        if ($this->selectedReport) {
+            $report = Report::with('category')->find($this->selectedReport);
+            if ($report) {
+                $reportData = [
+                    'title' => $report->title,
+                    'description' => $report->description,
+                    'category_name' => $report->category->name ?? '',
+                    'negative_score' => $report->negative_score,
+                ];
+            }
+        }
+
+        // بارگذاری متغیرها از دیتابیس
+        $variables = PatternVariable::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->keyBy('code'); // کلید بر اساس کد (مثل {0}, {1})
+
+        $result = [];
+        $usedIndices = array_unique(array_map('intval', $matches[1]));
+        sort($usedIndices);
+
+        foreach ($usedIndices as $index) {
+            $code = '{' . $index . '}';
+            $variable = $variables->get($code);
+
+            if ($variable) {
+                $value = $this->getVariableValue($variable, $residentData, $reportData);
+                $result[] = $value;
+            } else {
+                // اگر متغیر در دیتابیس پیدا نشد، مقدار خالی
+                $result[] = '';
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * دریافت اطلاعات کامل resident از API
+     */
+    protected function getResidentData($resident)
+    {
+        try {
+            $response = Http::timeout(10)->get('http://atlas2.test/api/residents');
+            if ($response->successful()) {
+                $units = $response->json();
+                foreach ($units as $unit) {
+                    foreach ($unit['rooms'] ?? [] as $room) {
+                        foreach ($room['beds'] ?? [] as $bed) {
+                            if (isset($bed['resident']) && $bed['resident']['id'] == $resident['id']) {
+                                return [
+                                    'resident' => $bed['resident'],
+                                    'unit' => $unit['unit'] ?? null,
+                                    'room' => $room,
+                                    'bed' => $bed,
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // در صورت خطا، از داده‌های موجود استفاده می‌کنیم
+        }
+
+        return [
+            'resident' => $resident,
+            'unit' => ['name' => $resident['unit_name'] ?? ''],
+            'room' => ['name' => $resident['room_name'] ?? ''],
+            'bed' => ['name' => $resident['bed_name'] ?? ''],
+        ];
+    }
+
+    /**
+     * دریافت مقدار متغیر بر اساس فیلد جدول
+     */
+    protected function getVariableValue($variable, $residentData, $reportData)
+    {
+        $field = $variable->table_field;
+        $type = $variable->variable_type;
+
+        if ($type === 'user') {
+            // فیلدهای کاربر
+            if (strpos($field, 'unit_') === 0) {
+                $key = substr($field, 5);
+                return $residentData['unit'][$key] ?? '';
+            } elseif (strpos($field, 'room_') === 0) {
+                $key = substr($field, 5);
+                return $residentData['room'][$key] ?? '';
+            } elseif (strpos($field, 'bed_') === 0) {
+                $key = substr($field, 4);
+                return $residentData['bed'][$key] ?? '';
+            } else {
+                return $residentData['resident'][$field] ?? '';
+            }
+        } elseif ($type === 'report' && $reportData) {
+            // فیلدهای گزارش
+            if (strpos($field, 'category.') === 0) {
+                $key = substr($field, 9);
+                return $reportData['category_' . $key] ?? '';
+            } else {
+                return $reportData[$field] ?? '';
+            }
+        } elseif ($type === 'general') {
+            // فیلدهای عمومی
+            if ($field === 'today') {
+                return $this->formatJalaliDate(now()->toDateString());
+            }
+        }
+
+        return '';
     }
 
     /**

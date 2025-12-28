@@ -90,6 +90,7 @@
                                 <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                             @endif
                         </th>
+                        <th>نوع</th>
                         <th wire:click="sortBy('status')" style="cursor: pointer;">
                             وضعیت
                             @if($sortField === 'status')
@@ -136,6 +137,20 @@
                                         <small style="color: #666;">{{ \Illuminate\Support\Str::limit($sentMessage->description, 50) }}</small>
                                     @endif
                                 </div>
+                            </td>
+                            <td>
+                                @if($sentMessage->is_pattern)
+                                    <span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block;">
+                                        <i class="fas fa-code"></i> الگویی
+                                    </span>
+                                    @if($sentMessage->pattern)
+                                        <br><small style="color: #666; margin-top: 3px; display: block;">کد: {{ $sentMessage->pattern->pattern_code }}</small>
+                                    @endif
+                                @else
+                                    <span style="background: #6c757d; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block;">
+                                        <i class="fas fa-envelope"></i> عادی
+                                    </span>
+                                @endif
                             </td>
                             <td>
                                 @if($sentMessage->status === 'sent')
