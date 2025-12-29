@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\ResidentReport;
 use App\Models\Report;
 use App\Models\Category;
+use App\Models\Constant;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str; // اضافه شده
@@ -40,6 +41,7 @@ class ResidentReports extends Component
     public $selectedResident = null;
     public $residentReports = [];
     public $showResidentDetails = false;
+    public $filterByResidentName = null; // برای فیلتر کردن بر اساس نام اقامت‌گر
 
     // Propertyهای computed
     public function getTotalScoreProperty()
@@ -137,6 +139,10 @@ class ResidentReports extends Component
 
     public function getTopResidentsProperty()
     {
+        // دریافت مقدار ثابت max_violation از جدول constants
+        $maxViolation = Constant::where('key', 'max_violation')->first();
+        $maxViolationValue = $maxViolation ? (int)$maxViolation->value : 0;
+
         $query = ResidentReport::selectRaw('
             resident_name,
             MAX(unit_name) as unit_name,
@@ -161,8 +167,115 @@ class ResidentReports extends Component
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
             ->groupBy('resident_name')
-            ->orderByDesc('report_count')
+            ->havingRaw('SUM(reports.negative_score) >= ?', [$maxViolationValue]) // فیلتر بر اساس مجموع نمرات منفی
+            ->orderByDesc('total_score') // مرتب‌سازی بر اساس مجموع نمرات منفی
             ->limit(10);
+            
+        return $query->get();
+    }
+
+    /**
+     * تعداد اقامت‌گرانی که تخلف‌های تکرارای یکسان دارند
+     */
+    public function getRepeatViolationResidentsCountProperty()
+    {
+        return $this->repeatViolationResidents->count();
+    }
+
+    /**
+     * لیست اقامت‌گرانی که تخلف‌های تکرارای یکسان دارند
+     */
+    public function getRepeatViolationResidentsProperty()
+    {
+        // دریافت مقدار ثابت repeat_violation از جدول constants
+        $repeatViolation = Constant::where('key', 'repeat_violation')->first();
+        $repeatViolationValue = $repeatViolation ? (int)$repeatViolation->value : 0;
+
+        if ($repeatViolationValue <= 0) {
+            return collect([]);
+        }
+
+        // پیدا کردن اقامت‌گرانی که یک نوع گزارش را چند بار داشته‌اند
+        $residents = ResidentReport::selectRaw('
+            resident_name,
+            resident_reports.report_id,
+            reports.title as report_name,
+            MAX(unit_name) as unit_name,
+            MAX(room_name) as room_name,
+            MAX(phone) as phone,
+            COUNT(*) as repeat_count,
+            SUM(reports.negative_score) as total_score
+        ')
+            ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->whereNotNull('resident_name')
+            ->when($this->filters['report_id'], function ($query) {
+                $query->where('resident_reports.report_id', $this->filters['report_id']);
+            })
+            ->when($this->filters['category_id'], function ($query) {
+                $query->where('reports.category_id', $this->filters['category_id']);
+            })
+            ->when($this->filters['date_from'], function ($query) {
+                $query->whereDate('resident_reports.created_at', '>=', $this->filters['date_from']);
+            })
+            ->when($this->filters['date_to'], function ($query) {
+                $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
+            })
+            ->groupBy('resident_name', 'resident_reports.report_id', 'reports.title')
+            ->havingRaw('COUNT(*) >= ?', [$repeatViolationValue])
+            ->orderByDesc('repeat_count')
+            ->get();
+
+        return $residents;
+    }
+
+    /**
+     * تعداد اقامت‌گرانی که تعداد گزارش‌هایشان از count_violation بیشتر یا مساوی است
+     */
+    public function getCountViolationResidentsCountProperty()
+    {
+        return $this->countViolationResidents->count();
+    }
+
+    /**
+     * لیست اقامت‌گرانی که تعداد گزارش‌هایشان از count_violation بیشتر یا مساوی است
+     */
+    public function getCountViolationResidentsProperty()
+    {
+        // دریافت مقدار ثابت count_violation از جدول constants
+        $countViolation = Constant::where('key', 'count_violation')->first();
+        $countViolationValue = $countViolation ? (int)$countViolation->value : 0;
+
+        if ($countViolationValue <= 0) {
+            return collect([]);
+        }
+
+        $query = ResidentReport::selectRaw('
+            resident_name,
+            MAX(unit_name) as unit_name,
+            MAX(room_name) as room_name,
+            MAX(phone) as phone,
+            COUNT(*) as report_count,
+            SUM(reports.negative_score) as total_score
+        ')
+            ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->whereNotNull('resident_name')
+            ->when($this->filters['report_id'], function ($query) {
+                $query->where('resident_reports.report_id', $this->filters['report_id']);
+            })
+            ->when($this->filters['category_id'], function ($query) {
+                $query->where('reports.category_id', $this->filters['category_id']);
+            })
+            ->when($this->filters['date_from'], function ($query) {
+                $query->whereDate('resident_reports.created_at', '>=', $this->filters['date_from']);
+            })
+            ->when($this->filters['date_to'], function ($query) {
+                $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
+            })
+            ->groupBy('resident_name')
+            ->havingRaw('COUNT(*) >= ?', [$countViolationValue])
+            ->orderByDesc('report_count');
             
         return $query->get();
     }
@@ -180,6 +293,9 @@ class ResidentReports extends Component
                         ->orWhere('room_name', 'like', '%' . $this->search . '%')
                         ->orWhere('notes', 'like', '%' . $this->search . '%');
                 });
+            })
+            ->when($this->filterByResidentName, function ($query) {
+                $query->where('resident_name', $this->filterByResidentName);
             })
             ->when($this->filters['unit_id'], function ($query) {
                 $query->where('unit_id', $this->filters['unit_id']);
@@ -282,7 +398,35 @@ class ResidentReports extends Component
             'date_to' => null
         ];
         $this->search = '';
+        $this->filterByResidentName = null;
         $this->gotoPage(1);
+    }
+
+    /**
+     * فیلتر کردن بر اساس نام اقامت‌گر و اسکرول به پایین
+     */
+    public function filterByResident($residentName, $reportId = null)
+    {
+        $this->filterByResidentName = $residentName;
+        if ($reportId) {
+            $this->filters['report_id'] = $reportId;
+        } else {
+            // اگر report_id پاس داده نشده، فیلتر report_id را پاک می‌کنیم
+            $this->filters['report_id'] = null;
+        }
+        $this->resetPage();
+        
+        // اسکرول به پایین صفحه (لیست گزارش‌ها)
+        $this->dispatch('scrollToReports');
+    }
+
+    /**
+     * پاک کردن فیلتر اقامت‌گر
+     */
+    public function clearResidentFilter()
+    {
+        $this->filterByResidentName = null;
+        $this->resetPage();
     }
 
     // متدهای جدید برای جستجوی اقامت‌گران
@@ -410,7 +554,11 @@ class ResidentReports extends Component
             'reportsByUnit' => $this->reportsByUnit,
             'topResidents' => $this->topResidents,
             'reportsList' => $this->reportsList,
-            'residentsList' => $residentsList
+            'residentsList' => $residentsList,
+            'repeatViolationResidentsCount' => $this->repeatViolationResidentsCount,
+            'countViolationResidentsCount' => $this->countViolationResidentsCount,
+            'repeatViolationResidents' => $this->repeatViolationResidents,
+            'countViolationResidents' => $this->countViolationResidents,
         ]);
     }
 }

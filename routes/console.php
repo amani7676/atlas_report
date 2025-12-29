@@ -13,3 +13,9 @@ Artisan::command('inspire', function () {
 //     ->everyMinute()
 //     ->withoutOverlapping()
 //     ->runInBackground();
+
+// بررسی و ارسال پیامک‌های خودکار هر 5 دقیقه
+Schedule::command('auto-sms:check')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();

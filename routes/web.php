@@ -34,12 +34,14 @@ Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent')
 Route::get('/sms/pattern-manual', \App\Livewire\Sms\PatternManual::class)->name('sms.pattern-manual');
 Route::get('/sms/pattern-group', \App\Livewire\Sms\PatternGroup::class)->name('sms.pattern-group');
 Route::get('/sms/pattern-test', \App\Livewire\Sms\PatternTest::class)->name('sms.pattern-test');
+Route::get('/sms/auto', \App\Livewire\Sms\Auto::class)->name('sms.auto');
 Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
 Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
 Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');
 Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index');
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
 Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index');
+Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index');
 
 // API endpoint for syncing residents
 Route::post('/api/residents/sync', function () {

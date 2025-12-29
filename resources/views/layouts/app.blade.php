@@ -725,14 +725,14 @@
 
                 <!-- پیام‌های ساده -->
                 <div class="menu-section">پیام‌های ساده</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ (request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') && !request()->is('constants*')) || request()->is('sms/auto*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-sms"></i>
                         <span>پیام‌های ساده</span>
                     </a>
                     <ul class="submenu">
                         <li>
-                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') ? 'active' : '' }}">
+                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') && !request()->is('sms/auto*') ? 'active' : '' }}">
                                 <i class="fas fa-sms"></i>
                                 <span>مدیریت پیام‌های SMS</span>
                             </a>
@@ -753,6 +753,12 @@
                             <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
                                 <i class="fas fa-history"></i>
                                 <span>پیام‌های ارسال شده</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/auto" class="{{ request()->is('sms/auto') ? 'active' : '' }}">
+                                <i class="fas fa-robot"></i>
+                                <span>ارسال خودکار</span>
                             </a>
                         </li>
                     </ul>
@@ -818,6 +824,12 @@
                             <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
                                 <i class="fas fa-ban"></i>
                                 <span>لیست‌های سیاه</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/constants" class="{{ request()->is('constants*') ? 'active' : '' }}">
+                                <i class="fas fa-cog"></i>
+                                <span>ثابت‌ها</span>
                             </a>
                         </li>
                     </ul>

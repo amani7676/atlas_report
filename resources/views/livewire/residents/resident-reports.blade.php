@@ -226,55 +226,139 @@
         </div>
 
         <!-- بخش کارت‌های آماری -->
+
+
+        <!-- بخش جدول‌های اقامت‌گران -->
         <div class="row mb-3">
-            <div class="col-6 col-md-3">
-                <div class="card bg-primary text-white stats-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-1">تعداد گزارش‌ها</h6>
-                                <h3 class="mb-0">{{ $reports->total() }}</h3>
-                            </div>
-                            <i class="fas fa-file-alt fa-2x opacity-75"></i>
+            <!-- جدول اقامت‌گران با تخلف‌های تکرارای یکسان -->
+            <div class="col-12 col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-redo me-2"></i>
+                            اقامت‌گران با تخلف‌های تکرارای یکسان
+                            <span class="badge bg-light text-dark ms-2">{{ $repeatViolationResidentsCount }}</span>
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th>اقامت‌گر</th>
+                                        <th>نوع تخلف</th>
+                                        <th>تعداد تکرار</th>
+                                        <th>موقعیت</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($repeatViolationResidents as $index => $resident)
+                                        <tr>
+                                            <td>
+                                                <span class="badge rounded-pill bg-primary">{{ $index + 1 }}</span>
+                                            </td>
+                                            <td>
+                                                <a href="#"
+                                                   wire:click.prevent="filterByResident('{{ $resident->resident_name }}', {{ $resident->report_id }})"
+                                                   class="text-decoration-none text-primary fw-bold"
+                                                   style="cursor: pointer;"
+                                                   title="مشاهده تخلف‌های تکرارای این اقامت‌گر">
+                                                    <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
+                                                </a>
+                                                @if($resident->phone)
+                                                    <br><small class="text-muted">{{ $resident->phone }}</small>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ $resident->report_name ?? 'نامشخص' }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-danger">{{ $resident->repeat_count }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary mb-1">{{ $resident->unit_name ?? 'واحد نامشخص' }}</span>
+                                                <br>
+                                                <small class="text-muted">اتاق: {{ $resident->room_name ?? 'نامشخص' }}</small>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted">
+                                                <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
+                                                <p class="mb-0">هیچ اقامت‌گری با تخلف تکرارای یکسان یافت نشد.</p>
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="card bg-danger text-white stats-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-1">مجموع نمرات منفی</h6>
-                                <h3 class="mb-0">{{ $totalScore }}</h3>
-                            </div>
-                            <i class="fas fa-chart-line fa-2x opacity-75"></i>
-                        </div>
+
+            <!-- جدول اقامت‌گران با تعداد گزارش بالا -->
+            <div class="col-12 col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-file-alt me-2"></i>
+                            اقامت‌گران با تعداد گزارش بالا
+                            <span class="badge bg-light text-dark ms-2">{{ $countViolationResidentsCount }}</span>
+                        </h6>
                     </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card bg-success text-white stats-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-1">تعداد واحدها</h6>
-                                <h3 class="mb-0">{{ count($units) }}</h3>
-                            </div>
-                            <i class="fas fa-building fa-2x opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card bg-warning text-dark stats-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-1">اقامت‌گران دارای گزارش</h6>
-                                <h3 class="mb-0">{{ $distinctResidentsCount }}</h3>
-                            </div>
-                            <i class="fas fa-users fa-2x opacity-75"></i>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th>اقامت‌گر</th>
+                                        <th>تعداد گزارش</th>
+                                        <th>مجموع نمرات</th>
+                                        <th>موقعیت</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($countViolationResidents as $index => $resident)
+                                        <tr>
+                                            <td>
+                                                <span class="badge rounded-pill bg-info">{{ $index + 1 }}</span>
+                                            </td>
+                                            <td>
+                                                <a href="#"
+                                                   wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
+                                                   class="text-decoration-none text-info fw-bold"
+                                                   style="cursor: pointer;"
+                                                   title="مشاهده همه تخلف‌های این اقامت‌گر">
+                                                    <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
+                                                </a>
+                                                @if($resident->phone)
+                                                    <br><small class="text-muted">{{ $resident->phone }}</small>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary">{{ $resident->report_count }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-danger">{{ $resident->total_score }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary mb-1">{{ $resident->unit_name ?? 'واحد نامشخص' }}</span>
+                                                <br>
+                                                <small class="text-muted">اتاق: {{ $resident->room_name ?? 'نامشخص' }}</small>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted">
+                                                <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
+                                                <p class="mb-0">هیچ اقامت‌گری با تعداد گزارش بالا یافت نشد.</p>
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -409,7 +493,13 @@
                                                     class="badge rounded-pill bg-danger">{{ $counter++ }}</span>
                                             </td>
                                             <td>
-                                                <strong>{{ $resident->resident_name }}</strong>
+                                                <a href="#"
+                                                   wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
+                                                   class="text-decoration-none text-danger fw-bold"
+                                                   style="cursor: pointer;"
+                                                   title="مشاهده همه تخلف‌های این اقامت‌گر">
+                                                    <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
+                                                </a>
                                             </td>
                                             <td>
                                                 {{ $resident->phone ?? 'ثبت نشده' }}
@@ -427,6 +517,7 @@
                                             </td>
                                             <td>
                                                 <span class="badge bg-danger">{{ $resident->total_score }}</span>
+                                                <small class="d-block text-muted mt-1">(مجموع تخلف)</small>
                                             </td>
                                         </tr>
                                     @empty
@@ -445,8 +536,21 @@
         </div>
 
         <!-- بخش جستجو و فیلترهای اصلی -->
-        <div class="card mb-3">
+        <div class="card mb-3" id="reports-list-section">
             <div class="card-header bg-light">
+                @if($filterByResidentName)
+                    <div class="alert alert-info mb-2 py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="fas fa-filter me-1"></i>
+                                <strong>فیلتر فعال:</strong> نمایش گزارش‌های اقامت‌گر <strong>{{ $filterByResidentName }}</strong>
+                            </span>
+                            <button wire:click="clearResidentFilter" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-times me-1"></i> حذف فیلتر
+                            </button>
+                        </div>
+                    </div>
+                @endif
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
                     <button class="btn btn-outline-primary btn-sm mb-2 mb-md-0" wire:click="$toggle('showFilters')">
                         <i class="fas fa-filter me-1"></i>
@@ -666,9 +770,8 @@
                                                 onclick="confirmDeleteReport({{ $report->id }})" title="حذف گزارش">
                                                 <i class="fas fa-trash"></i>
                                             </button>
-                                            <button class="btn btn-outline-info" style="border-radius: 0 6px 6px 0;"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#reportDetails{{ $report->id }}"
+                                            <button type="button" class="btn btn-outline-info" style="border-radius: 0 6px 6px 0;"
+                                                onclick="return openReportModal({{ $report->id }});"
                                                 title="مشاهده جزئیات">
                                                 <i class="fas fa-eye"></i>
                                             </button>
@@ -676,7 +779,7 @@
 
                                         <!-- مودال (پنجره پاپ‌آپ) جزئیات گزارش -->
                                         <div class="modal fade" id="reportDetails{{ $report->id }}"
-                                            tabindex="-1">
+                                            tabindex="-1" wire:ignore>
                                             <div class="modal-dialog modal-dialog-scrollable">
                                                 <div class="modal-content">
                                                     <div class="modal-header bg-info text-white">
@@ -848,12 +951,36 @@
             });
         });
 
-        document.addEventListener('livewire:navigated', () => {
-            var modals = document.querySelectorAll('.modal');
-            modals.forEach(function(modal) {
-                if (!bootstrap.Modal.getInstance(modal)) {
-                    new bootstrap.Modal(modal);
+        // تابع برای باز کردن modal گزارش
+        // تابع برای باز کردن modal گزارش - در scope global
+        window.openReportModal = function(reportId) {
+            const modalElement = document.getElementById('reportDetails' + reportId);
+            if (modalElement) {
+                // اگر modal قبلاً initialize شده، از همان استفاده کن
+                let modal = bootstrap.Modal.getInstance(modalElement);
+                if (!modal) {
+                    // اگر initialize نشده، جدید بساز
+                    modal = new bootstrap.Modal(modalElement, {
+                        backdrop: true,
+                        keyboard: true,
+                        focus: true
+                    });
                 }
+                // فقط modal را نشان بده
+                modal.show();
+            }
+            return false; // جلوگیری از default behavior
+        }
+
+        // اسکرول به بخش لیست گزارش‌ها هنگام فیلتر کردن
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('scrollToReports', () => {
+                setTimeout(() => {
+                    const reportsSection = document.getElementById('reports-list-section');
+                    if (reportsSection) {
+                        reportsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
             });
         });
     </script>
