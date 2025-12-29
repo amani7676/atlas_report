@@ -45,8 +45,7 @@ class PatternManual extends Component
     {
         $this->reportPatterns = collect([]);
         $this->loadSenderNumbers();
-        // همگام‌سازی خودکار هنگام لود شدن صفحه (بدون نمایش آلارم)
-        $this->syncResidents(false);
+        $this->loadUnits();
         $this->loadReports();
         $this->loadPatterns();
     }

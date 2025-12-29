@@ -41,6 +41,65 @@ Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
 Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index');
 
+// API endpoint for syncing residents
+Route::post('/api/residents/sync', function () {
+    try {
+        // اجرای Job همگام‌سازی
+        $job = new \App\Jobs\SyncResidentsFromApi();
+        $job->handle();
+        
+        // دریافت آمار همگام‌سازی
+        $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
+        
+        // بررسی تعداد واقعی در دیتابیس
+        $totalInDb = \App\Models\Resident::count();
+        $lastSyncedResident = \App\Models\Resident::orderBy('last_synced_at', 'desc')->first();
+        $lastSyncTime = $lastSyncedResident && $lastSyncedResident->last_synced_at 
+            ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s') 
+            : 'نامشخص';
+        
+        // ساخت پیام با پاسخ دیتابیس
+        if ($lastSync) {
+            $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
+            $message .= "📊 آمار همگام‌سازی:\n";
+            $message .= "• تعداد همگام‌سازی شده: {$lastSync['synced_count']}\n";
+            $message .= "• ایجاد شده: {$lastSync['created_count']}\n";
+            $message .= "• به‌روزرسانی شده: {$lastSync['updated_count']}\n\n";
+            $message .= "💾 پاسخ دیتابیس:\n";
+            $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
+            $message .= "• آخرین همگام‌سازی: {$lastSyncTime}\n";
+            $message .= "• زمان همگام‌سازی: {$lastSync['time']}";
+        } else {
+            $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
+            $message .= "💾 پاسخ دیتابیس:\n";
+            $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
+            $message .= "• آخرین همگام‌سازی: {$lastSyncTime}";
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'data' => [
+                'synced_count' => $lastSync['synced_count'] ?? 0,
+                'created_count' => $lastSync['created_count'] ?? 0,
+                'updated_count' => $lastSync['updated_count'] ?? 0,
+                'total_in_db' => $totalInDb,
+                'last_sync_time' => $lastSyncTime,
+            ]
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error syncing residents from API route', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
+        ], 500);
+    }
+})->middleware('web');
+
 // API endpoint for last sync status
 Route::get('/api/residents/last-sync', function () {
     // ابتدا از cache بخوان

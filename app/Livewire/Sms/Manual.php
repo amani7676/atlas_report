@@ -39,8 +39,7 @@ class Manual extends Component
 
     public function mount()
     {
-        // همگام‌سازی خودکار هنگام لود شدن صفحه (بدون نمایش آلارم)
-        $this->syncResidents(false);
+        $this->loadUnits();
         $this->loadReports();
         $this->loadSmsMessages();
     }

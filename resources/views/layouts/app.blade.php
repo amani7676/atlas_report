@@ -836,9 +836,12 @@
                     @yield('title', 'سیستم گزارش‌گیری')
                 </h3>
                 <div style="margin-right: auto;"></div>
-                <div style="color: var(--primary-color);">
-                    <i class="fas fa-user"></i>
-                    <span>مدیر سیستم</span>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    @livewire('layout.sync-button')
+                    <div style="color: var(--primary-color);">
+                        <i class="fas fa-user"></i>
+                        <span>مدیر سیستم</span>
+                    </div>
                 </div>
             </nav>
 
@@ -1017,20 +1020,20 @@
                 });
         }
         @else
-        // Fallback: Poll for sync status every 10 seconds
-        let lastSyncTime = null;
-        setInterval(() => {
-            fetch('/api/residents/last-sync')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.time && data.time !== lastSyncTime) {
-                        lastSyncTime = data.time;
-                        const message = `${data.message || 'دیتابیس اقامت‌گران به‌روزرسانی شد'}\nایجاد شده: ${data.created_count || 0}\nبه‌روزرسانی شده: ${data.updated_count || 0}`;
-                        showToast('success', '✅ بروزرسانی شد', message, 5000);
-                    }
-                })
-                .catch(err => console.error('Error checking sync status:', err));
-        }, 10000); // Check every 10 seconds
+        // Fallback: Poll for sync status every 10 seconds (غیرفعال شده)
+        // let lastSyncTime = null;
+        // setInterval(() => {
+        //     fetch('/api/residents/last-sync')
+        //         .then(res => res.json())
+        //         .then(data => {
+        //             if (data.time && data.time !== lastSyncTime) {
+        //                 lastSyncTime = data.time;
+        //                 const message = `${data.message || 'دیتابیس اقامت‌گران به‌روزرسانی شد'}\nایجاد شده: ${data.created_count || 0}\nبه‌روزرسانی شده: ${data.updated_count || 0}`;
+        //                 showToast('success', '✅ بروزرسانی شد', message, 5000);
+        //             }
+        //         })
+        //         .catch(err => console.error('Error checking sync status:', err));
+        // }, 10000); // Check every 10 seconds
         @endif
 
         // تابع نمایش خطای کامل API ملی پیامک
@@ -1201,6 +1204,101 @@
                 sidebar.classList.remove('open');
                 overlay.classList.remove('active');
             }
+        });
+
+        // همگام‌سازی خودکار هنگام رفرش هر صفحه
+        (function() {
+            // بررسی نوع navigation برای تشخیص رفرش کامل صفحه
+            let shouldSync = false;
+            
+            // روش 1: استفاده از Performance Navigation Timing API (جدید - توصیه شده)
+            if (window.performance && window.performance.getEntriesByType) {
+                const navEntries = window.performance.getEntriesByType('navigation');
+                if (navEntries.length > 0) {
+                    const navType = navEntries[0].type;
+                    // فقط در صورت reload یا navigate کامل صفحه همگام‌سازی انجام شود
+                    shouldSync = navType === 'reload' || navType === 'navigate';
+                }
+            }
+            
+            // روش 2: استفاده از Performance Navigation API (قدیمی - fallback)
+            if (!shouldSync && window.performance && window.performance.navigation) {
+                const navType = window.performance.navigation.type;
+                shouldSync = navType === window.performance.navigation.TYPE_RELOAD ||
+                           navType === window.performance.navigation.TYPE_NAVIGATE;
+            }
+            
+            // اگر navigation type پیدا نشد، فرض می‌کنیم که این یک لود کامل صفحه است (اولین بار)
+            if (shouldSync || (typeof shouldSync === 'undefined' && !window.residentsSyncDone)) {
+                // استفاده از متغیر global برای جلوگیری از همگام‌سازی مکرر در همان session
+                if (window.residentsSyncInProgress) {
+                    return;
+                }
+                
+                // علامت‌گذاری که همگام‌سازی انجام شده است
+                window.residentsSyncDone = true;
+                window.residentsSyncInProgress = true;
+                
+                // همگام‌سازی داده‌ها از API
+                syncResidentsOnPageLoad();
+            }
+        })();
+
+        // تابع همگام‌سازی هنگام لود شدن صفحه
+        function syncResidentsOnPageLoad() {
+            console.log('🔄 شروع همگام‌سازی خودکار داده‌های اقامت‌گران از API...');
+            
+            // دریافت CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            if (!csrfToken) {
+                console.error('❌ CSRF token not found');
+                window.residentsSyncInProgress = false;
+                return;
+            }
+
+            // ارسال درخواست همگام‌سازی
+            fetch('/api/residents/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ همگام‌سازی با موفقیت انجام شد:', data.data);
+                    // نمایش آلارم موفقیت با پاسخ دیتابیس
+                    showToast('success', '✅ بروزرسانی شد', data.message, 8000);
+                } else {
+                    console.error('❌ خطا در همگام‌سازی:', data.message);
+                    // نمایش آلارم خطا
+                    showToast('error', '❌ خطا!', data.message || 'خطا در همگام‌سازی داده‌ها', 5000);
+                }
+            })
+            .catch(error => {
+                console.error('❌ خطا در همگام‌سازی:', error);
+                // نمایش آلارم خطا
+                showToast('error', '❌ خطا!', 'خطا در همگام‌سازی داده‌ها: ' + error.message, 5000);
+            })
+            .finally(() => {
+                // پاک کردن flag بعد از اتمام
+                window.residentsSyncInProgress = false;
+            });
+        }
+        
+        // پاک کردن flag هنگام رفرش کامل صفحه
+        window.addEventListener('beforeunload', function() {
+            // پاک کردن flag برای رفرش بعدی
+            window.residentsSyncDone = false;
+            window.residentsSyncInProgress = false;
         });
     </script>
     @livewireScripts
