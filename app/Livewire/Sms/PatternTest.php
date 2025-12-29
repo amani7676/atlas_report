@@ -20,13 +20,43 @@ class PatternTest extends Component
     public $showResult = false;
     public $previewMessage = ''; // پیش‌نمایش پیام با متغیرهای جایگزین شده
     public $senderNumber = ''; // شماره فرستنده
+    public $selectedSenderNumberId = null; // ID شماره فرستنده انتخاب شده
+    public $availableSenderNumbers = []; // لیست شماره‌های فرستنده موجود
 
     public function mount()
     {
-        // دریافت شماره فرستنده از config
-        $this->senderNumber = config('services.melipayamak.pattern_from') 
-                            ?? config('services.melipayamak.from') 
-                            ?? 'تنظیم نشده';
+        $this->loadSenderNumbers();
+    }
+
+    public function loadSenderNumbers()
+    {
+        $this->availableSenderNumbers = \App\Models\SenderNumber::getActivePatternNumbers();
+        
+        // اگر شماره‌ای انتخاب نشده، اولین شماره را به عنوان پیش‌فرض انتخاب کن
+        if ($this->availableSenderNumbers->count() > 0 && !$this->selectedSenderNumberId) {
+            $this->selectedSenderNumberId = $this->availableSenderNumbers->first()->id;
+            $this->updateSenderNumber();
+        } else {
+            // اگر شماره‌ای در دیتابیس نیست، از config استفاده کن
+            $this->senderNumber = config('services.melipayamak.pattern_from') 
+                                ?? config('services.melipayamak.from') 
+                                ?? 'تنظیم نشده';
+        }
+    }
+
+    public function updatedSelectedSenderNumberId()
+    {
+        $this->updateSenderNumber();
+    }
+
+    public function updateSenderNumber()
+    {
+        if ($this->selectedSenderNumberId) {
+            $senderNumber = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+            if ($senderNumber) {
+                $this->senderNumber = $senderNumber->number;
+            }
+        }
     }
 
     public function updatedSelectedPattern($value)
@@ -192,11 +222,23 @@ class PatternTest extends Component
                 'variables_count' => count($variablesArray),
             ]);
 
+            // دریافت شماره فرستنده و API Key از شماره انتخاب شده
+            $senderNumberObj = null;
+            $apiKey = null;
+            if ($this->selectedSenderNumberId) {
+                $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+                if ($senderNumberObj) {
+                    $apiKey = $senderNumberObj->api_key;
+                }
+            }
+
             // استفاده از متد SendByBaseNumber (SOAP API) برای تست
             $result = $melipayamakService->sendByBaseNumber(
                 $this->phone,
                 $pattern->pattern_code,
-                $variablesArray
+                $variablesArray,
+                $senderNumberObj ? $senderNumberObj->number : null, // شماره فرستنده
+                $apiKey // API Key مرتبط با شماره
             );
 
             $this->result = $result;

@@ -26,6 +26,9 @@ class Units extends Component
     public $notes = '';
     public $expandedUnits = [];
     public $reportModalLoading = false;
+    public $lastSubmittedReports = []; // آخرین گزارش‌های ثبت شده
+    public $showSubmissionResult = false; // نمایش نتیجه ثبت
+    public $databaseResponse = null; // پاسخ دیتابیس برای نمایش در مودال
 
     public function mount()
     {
@@ -192,88 +195,310 @@ class Units extends Component
     public function submitReport()
     {
         if (empty($this->selectedReports)) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'لطفاً حداقل یک گزارش را انتخاب کنید.'
-            ]);
+            $this->databaseResponse = [
+                'success' => false,
+                'message' => 'لطفاً حداقل یک گزارش را انتخاب کنید.'
+            ];
             return;
         }
 
+        $this->reportModalLoading = true;
+        $errors = [];
+        $successCount = 0;
+        $failedCount = 0;
+
         try {
             if ($this->reportType === 'individual') {
-                $this->submitIndividualReport();
+                $result = $this->submitIndividualReport();
+                $errors = $result['errors'] ?? [];
+                $successCount = $result['success'] ?? 0;
+                $failedCount = $result['failed'] ?? 0;
             } else {
-                $this->submitGroupReport();
+                $result = $this->submitGroupReport();
+                $errors = $result['errors'] ?? [];
+                $successCount = $result['success'] ?? 0;
+                $failedCount = $result['failed'] ?? 0;
+            }
+
+            if ($failedCount > 0) {
+                $errorMessage = "{$successCount} گزارش با موفقیت ثبت شد. {$failedCount} گزارش با خطا مواجه شد.\n\n";
+                $errorMessage .= "خطاها:\n";
+                
+                // پردازش خطاها - اگر آرایه است، آن را به رشته تبدیل می‌کنیم
+                $errorStrings = [];
+                foreach (array_slice($errors, 0, 5) as $error) {
+                    if (is_array($error)) {
+                        if (isset($error['error'])) {
+                            $errorStrings[] = $error['error'];
+                        } elseif (isset($error['report_id'])) {
+                            $errorStrings[] = "گزارش ID {$error['report_id']}: " . ($error['error'] ?? 'خطای نامشخص');
+                        } else {
+                            $errorStrings[] = json_encode($error, JSON_UNESCAPED_UNICODE);
+                        }
+                    } else {
+                        $errorStrings[] = (string)$error;
+                    }
+                }
+                
+                $errorMessage .= implode("\n", $errorStrings);
+                if (count($errors) > 5) {
+                    $errorMessage .= "\n... و " . (count($errors) - 5) . " خطای دیگر";
+                }
+                
+                $this->databaseResponse = [
+                    'success' => false,
+                    'message' => $errorMessage,
+                    'errors' => $errors
+                ];
+            } else {
+                // ذخیره پاسخ دیتابیس برای نمایش در مودال
+                $this->databaseResponse = [
+                    'success' => true,
+                    'message' => "{$successCount} گزارش با موفقیت در دیتابیس ثبت شد.",
+                    'reports' => $result['submitted_reports'] ?? []
+                ];
+                
+                // لاگ پاسخ دیتابیس در کنسول
+                $this->dispatch('logDatabaseResponse', [
+                    'success' => true,
+                    'count' => $successCount,
+                    'reports' => $result['submitted_reports'] ?? []
+                ]);
             }
         } catch (\Exception $e) {
-            $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'خطا!',
-                'text' => 'خطا در ثبت گزارش: ' . $e->getMessage()
+            \Log::error('Error submitting report', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'report_type' => $this->reportType,
+                'selected_reports' => $this->selectedReports,
+                'current_resident' => $this->currentResident,
             ]);
+
+            $this->databaseResponse = [
+                'success' => false,
+                'message' => 'خطا در ثبت گزارش: ' . $e->getMessage(),
+                'error_details' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ]
+            ];
+            
+            // لاگ خطا در کنسول
+            $this->dispatch('logDatabaseResponse', [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'error_details' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
+            ]);
+        } finally {
+            $this->reportModalLoading = false;
         }
     }
 
     private function submitIndividualReport()
     {
+        $errors = [];
+        $successCount = 0;
+        $failedCount = 0;
+        $submittedReports = [];
+
         foreach ($this->selectedReports as $reportId) {
-            \App\Models\ResidentReport::create([
-                'report_id' => $reportId,
-                'resident_id' => $this->currentResident['id'],
-                'resident_name' => $this->currentResident['name'],
-                'phone' => $this->currentResident['phone'],  // افزودن شماره تلفن
-                'unit_id' => $this->currentResident['unit_id'],
-                'unit_name' => $this->currentResident['unit_name'],
-                'room_id' => $this->currentResident['room_id'],
-                'room_name' => $this->currentResident['room_name'],
-                'bed_id' => $this->currentResident['bed_id'],
-                'bed_name' => $this->currentResident['bed_name'],
-                'notes' => $this->notes,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+            try {
+                // پیدا کردن ID واقعی resident در جدول residents
+                $residentDbId = null;
+                if (!empty($this->currentResident['id'])) {
+                    // resident_id از API است، باید id واقعی را از جدول residents پیدا کنیم
+                    $resident = \App\Models\Resident::where('resident_id', $this->currentResident['id'])->first();
+                    $residentDbId = $resident ? $resident->id : null;
+                }
+
+                // ایجاد رکورد در دیتابیس
+                $residentReport = \App\Models\ResidentReport::create([
+                    'report_id' => $reportId,
+                    'resident_id' => $residentDbId, // استفاده از id واقعی از جدول residents
+                    'resident_name' => $this->currentResident['name'] ?? null,
+                    'phone' => $this->currentResident['phone'] ?? null,
+                    'unit_id' => $this->currentResident['unit_id'] ?? null,
+                    'unit_name' => $this->currentResident['unit_name'] ?? null,
+                    'room_id' => $this->currentResident['room_id'] ?? null,
+                    'room_name' => $this->currentResident['room_name'] ?? null,
+                    'bed_id' => $this->currentResident['bed_id'] ?? null,
+                    'bed_name' => $this->currentResident['bed_name'] ?? null,
+                    'notes' => $this->notes,
+                ]);
+
+                // لاگ برای بررسی ذخیره‌سازی
+                \Log::info('گزارش در دیتابیس ذخیره شد', [
+                    'resident_report_id' => $residentReport->id,
+                    'report_id' => $reportId,
+                    'resident_id' => $residentReport->resident_id,
+                    'resident_name' => $residentReport->resident_name,
+                    'created_at' => $residentReport->created_at,
+                ]);
+
+                // بررسی اینکه آیا رکورد واقعاً در دیتابیس ذخیره شده است
+                $existsInDb = \App\Models\ResidentReport::where('id', $residentReport->id)->exists();
+                if (!$existsInDb) {
+                    throw new \Exception('رکورد در دیتابیس ذخیره نشد!');
+                }
+
+                // خواندن رکورد از دیتابیس برای نمایش پاسخ
+                $submittedReport = \App\Models\ResidentReport::with(['report', 'report.category'])
+                    ->find($residentReport->id);
+                
+                if (!$submittedReport) {
+                    throw new \Exception('رکورد از دیتابیس خوانده نشد!');
+                }
+                
+                $submittedReports[] = [
+                    'id' => $submittedReport->id,
+                    'report_id' => $submittedReport->report_id,
+                    'report_title' => $submittedReport->report->title ?? 'نامشخص',
+                    'category_name' => $submittedReport->report->category->name ?? 'بدون دسته',
+                    'resident_name' => $submittedReport->resident_name,
+                    'phone' => $submittedReport->phone,
+                    'unit_name' => $submittedReport->unit_name,
+                    'room_name' => $submittedReport->room_name,
+                    'bed_name' => $submittedReport->bed_name,
+                    'notes' => $submittedReport->notes,
+                    'created_at' => $submittedReport->created_at ? $submittedReport->created_at->toDateTimeString() : null,
+                    'all_data' => $this->prepareArrayForJson($submittedReport), // تمام داده‌های رکورد
+                ];
+
+                $successCount++;
+            } catch (\Exception $e) {
+                $failedCount++;
+                $errorMsg = "گزارش ID {$reportId}: " . $e->getMessage();
+                $errors[] = [
+                    'report_id' => $reportId,
+                    'error' => $e->getMessage(),
+                    'error_details' => [
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                        'code' => $e->getCode(),
+                    ]
+                ];
+            }
         }
 
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'موفقیت!',
-            'text' => 'گزارش برای اقامت‌گر ثبت شد.'
-        ]);
+        // ذخیره نتایج برای نمایش
+        $this->lastSubmittedReports = $submittedReports;
+        $this->showSubmissionResult = true;
 
-        $this->closeModal();
+        return [
+            'success' => $successCount,
+            'failed' => $failedCount,
+            'errors' => $errors,
+            'submitted_reports' => $submittedReports
+        ];
     }
 
     private function submitGroupReport()
     {
+        $errors = [];
+        $successCount = 0;
+        $failedCount = 0;
+        $submittedReports = [];
+
         foreach ($this->selectedResidents as $residentData) {
             foreach ($this->selectedReports as $reportId) {
-                \App\Models\ResidentReport::create([
-                    'report_id' => $reportId,
-                    'resident_id' => $residentData['resident_id'],
-                    'resident_name' => $residentData['resident_name'],
-                    'phone' => $residentData['phone'],  // افزودن شماره تلفن
-                    'unit_id' => $residentData['unit_id'],
-                    'unit_name' => $residentData['unit_name'],
-                    'room_id' => $residentData['room_id'],
-                    'room_name' => $residentData['room_name'],
-                    'bed_id' => $residentData['bed_id'],
-                    'bed_name' => $residentData['bed_name'],
-                    'notes' => $this->notes,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
+                try {
+                    // پیدا کردن ID واقعی resident در جدول residents
+                    $residentDbId = null;
+                    if (!empty($residentData['resident_id'])) {
+                        // resident_id از API است، باید id واقعی را از جدول residents پیدا کنیم
+                        $resident = \App\Models\Resident::where('resident_id', $residentData['resident_id'])->first();
+                        $residentDbId = $resident ? $resident->id : null;
+                    }
+
+                    // ایجاد رکورد در دیتابیس
+                    $residentReport = \App\Models\ResidentReport::create([
+                        'report_id' => $reportId,
+                        'resident_id' => $residentDbId, // استفاده از id واقعی از جدول residents
+                        'resident_name' => $residentData['resident_name'] ?? null,
+                        'phone' => $residentData['phone'] ?? null,
+                        'unit_id' => $residentData['unit_id'] ?? null,
+                        'unit_name' => $residentData['unit_name'] ?? null,
+                        'room_id' => $residentData['room_id'] ?? null,
+                        'room_name' => $residentData['room_name'] ?? null,
+                        'bed_id' => $residentData['bed_id'] ?? null,
+                        'bed_name' => $residentData['bed_name'] ?? null,
+                        'notes' => $this->notes,
+                    ]);
+
+                    // لاگ برای بررسی ذخیره‌سازی
+                    \Log::info('گزارش گروهی در دیتابیس ذخیره شد', [
+                        'resident_report_id' => $residentReport->id,
+                        'report_id' => $reportId,
+                        'resident_id' => $residentReport->resident_id,
+                        'resident_name' => $residentReport->resident_name,
+                        'created_at' => $residentReport->created_at,
+                    ]);
+
+                    // بررسی اینکه آیا رکورد واقعاً در دیتابیس ذخیره شده است
+                    $existsInDb = \App\Models\ResidentReport::where('id', $residentReport->id)->exists();
+                    if (!$existsInDb) {
+                        throw new \Exception('رکورد در دیتابیس ذخیره نشد!');
+                    }
+
+                    // خواندن رکورد از دیتابیس برای نمایش پاسخ
+                    $submittedReport = \App\Models\ResidentReport::with(['report', 'report.category'])
+                        ->find($residentReport->id);
+                    
+                    if (!$submittedReport) {
+                        throw new \Exception('رکورد از دیتابیس خوانده نشد!');
+                    }
+                    
+                    $submittedReports[] = [
+                        'id' => $submittedReport->id,
+                        'report_id' => $submittedReport->report_id,
+                        'report_title' => $submittedReport->report->title ?? 'نامشخص',
+                        'category_name' => $submittedReport->report->category->name ?? 'بدون دسته',
+                        'resident_name' => $submittedReport->resident_name,
+                        'phone' => $submittedReport->phone,
+                        'unit_name' => $submittedReport->unit_name,
+                        'room_name' => $submittedReport->room_name,
+                        'bed_name' => $submittedReport->bed_name,
+                        'notes' => $submittedReport->notes,
+                        'created_at' => $submittedReport->created_at ? $submittedReport->created_at->toDateTimeString() : null,
+                        'all_data' => $this->prepareArrayForJson($submittedReport), // تمام داده‌های رکورد
+                    ];
+
+                    $successCount++;
+                } catch (\Exception $e) {
+                    $failedCount++;
+                    $residentName = $residentData['resident_name'] ?? 'نامشخص';
+                    $errors[] = [
+                        'report_id' => $reportId,
+                        'resident_name' => $residentName,
+                        'error' => $e->getMessage(),
+                        'error_details' => [
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'code' => $e->getCode(),
+                        ]
+                    ];
+                }
             }
         }
 
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'موفقیت!',
-            'text' => 'گزارش‌ها برای اقامت‌گران انتخاب شده ثبت شد.'
-        ]);
+        // ذخیره نتایج برای نمایش
+        $this->lastSubmittedReports = $submittedReports;
+        $this->showSubmissionResult = true;
 
-        $this->closeModal();
-        $this->selectedResidents = [];
+        if ($failedCount === 0) {
+            $this->selectedResidents = [];
+        }
+
+        return [
+            'success' => $successCount,
+            'failed' => $failedCount,
+            'errors' => $errors,
+            'submitted_reports' => $submittedReports
+        ];
     }
 
     public function closeModal()
@@ -284,7 +509,68 @@ class Units extends Component
         $this->currentResident = null;
         $this->currentRoom = null;
         $this->reportModalLoading = false;
+        $this->databaseResponse = null; // پاک کردن پاسخ دیتابیس
     }
+
+    public function closeSubmissionResult()
+    {
+        $this->showSubmissionResult = false;
+        $this->lastSubmittedReports = [];
+    }
+
+    private function prepareArrayForJson($model)
+    {
+        $data = $model->toArray();
+        
+        // تبدیل Carbon instances به رشته
+        foreach ($data as $key => $value) {
+            if ($value instanceof \Carbon\Carbon) {
+                $data[$key] = $value->toDateTimeString();
+            } elseif (is_array($value)) {
+                $data[$key] = $this->convertCarbonInArray($value);
+            }
+        }
+        
+        // تبدیل روابط به آرایه
+        if ($model->relationLoaded('report')) {
+            $data['report'] = $this->convertModelToArray($model->report);
+        }
+        if ($model->relationLoaded('report') && $model->report && $model->report->relationLoaded('category')) {
+            $data['report']['category'] = $this->convertModelToArray($model->report->category);
+        }
+        
+        return $data;
+    }
+
+    private function convertCarbonInArray($array)
+    {
+        foreach ($array as $key => $value) {
+            if ($value instanceof \Carbon\Carbon) {
+                $array[$key] = $value->toDateTimeString();
+            } elseif (is_array($value)) {
+                $array[$key] = $this->convertCarbonInArray($value);
+            }
+        }
+        return $array;
+    }
+
+    private function convertModelToArray($model)
+    {
+        if (!$model) {
+            return null;
+        }
+        
+        $data = $model->toArray();
+        foreach ($data as $key => $value) {
+            if ($value instanceof \Carbon\Carbon) {
+                $data[$key] = $value->toDateTimeString();
+            } elseif (is_array($value)) {
+                $data[$key] = $this->convertCarbonInArray($value);
+            }
+        }
+        return $data;
+    }
+
 
     public function toggleSelectResident($key, $resident, $bed, $unitIndex, $roomIndex)
     {

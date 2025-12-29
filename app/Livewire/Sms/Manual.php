@@ -39,7 +39,8 @@ class Manual extends Component
 
     public function mount()
     {
-        $this->loadUnits();
+        // همگام‌سازی خودکار هنگام لود شدن صفحه (بدون نمایش آلارم)
+        $this->syncResidents(false);
         $this->loadReports();
         $this->loadSmsMessages();
     }
@@ -64,7 +65,7 @@ class Manual extends Component
     /**
      * همگام‌سازی دستی داده‌های اقامت‌گران از API
      */
-    public function syncResidents()
+    public function syncResidents($showToast = true)
     {
         $this->syncing = true;
         $this->syncMessage = 'در حال همگام‌سازی...';
@@ -77,25 +78,44 @@ class Manual extends Component
             // دریافت آمار همگام‌سازی
             $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
             
+            // بررسی تعداد واقعی در دیتابیس
+            $totalInDb = \App\Models\Resident::count();
+            $lastSyncedResident = \App\Models\Resident::orderBy('last_synced_at', 'desc')->first();
+            $lastSyncTime = $lastSyncedResident && $lastSyncedResident->last_synced_at 
+                ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s') 
+                : 'نامشخص';
+            
             // بارگذاری مجدد داده‌ها
             $this->loadUnits();
             
-            if ($lastSync) {
-                $message = "همگام‌سازی با موفقیت انجام شد. ";
-                $message .= "تعداد: {$lastSync['synced_count']}, ";
-                $message .= "ایجاد شده: {$lastSync['created_count']}, ";
-                $message .= "به‌روزرسانی شده: {$lastSync['updated_count']}";
-            } else {
-                $message = 'همگام‌سازی با موفقیت انجام شد.';
+            // نمایش آلارم فقط اگر showToast = true باشد (برای همگام‌سازی دستی)
+            if ($showToast) {
+                // ساخت پیام با پاسخ دیتابیس
+                if ($lastSync) {
+                    $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
+                    $message .= "📊 آمار همگام‌سازی:\n";
+                    $message .= "• تعداد همگام‌سازی شده: {$lastSync['synced_count']}\n";
+                    $message .= "• ایجاد شده: {$lastSync['created_count']}\n";
+                    $message .= "• به‌روزرسانی شده: {$lastSync['updated_count']}\n\n";
+                    $message .= "💾 پاسخ دیتابیس:\n";
+                    $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
+                    $message .= "• آخرین همگام‌سازی: {$lastSyncTime}\n";
+                    $message .= "• زمان همگام‌سازی: {$lastSync['time']}";
+                } else {
+                    $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
+                    $message .= "💾 پاسخ دیتابیس:\n";
+                    $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
+                    $message .= "• آخرین همگام‌سازی: {$lastSyncTime}";
+                }
+                
+                // نمایش آلارم در بالا سمت چپ با پاسخ دیتابیس
+                $this->dispatch('showToast', [
+                    'type' => 'success',
+                    'title' => 'بروزرسانی شد',
+                    'message' => $message,
+                    'duration' => 8000, // 8 ثانیه برای خواندن اطلاعات بیشتر
+                ]);
             }
-            
-            // نمایش آلارم در بالا سمت چپ
-            $this->dispatch('showToast', [
-                'type' => 'success',
-                'title' => 'بروزرسانی شد',
-                'message' => $message,
-                'duration' => 5000, // 5 ثانیه
-            ]);
             
             // پاک کردن پیام همگام‌سازی از صفحه
             $this->syncMessage = '';
@@ -105,13 +125,15 @@ class Manual extends Component
                 'trace' => $e->getTraceAsString(),
             ]);
             
-            // نمایش آلارم خطا در بالا سمت چپ
-            $this->dispatch('showToast', [
-                'type' => 'error',
-                'title' => 'خطا!',
-                'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
-                'duration' => 5000,
-            ]);
+            // نمایش آلارم خطا فقط اگر showToast = true باشد
+            if ($showToast) {
+                $this->dispatch('showToast', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
+                    'duration' => 5000,
+                ]);
+            }
             
             // پاک کردن پیام همگام‌سازی از صفحه
             $this->syncMessage = '';

@@ -1131,7 +1131,7 @@ class MelipayamakService
      * @param array $variables آرایه متغیرها به ترتیب (مثال: ['علی', '1404/10/07'])
      * @return array
      */
-    public function sendByBaseNumber($to, $bodyId, $variables = [])
+    public function sendByBaseNumber($to, $bodyId, $variables = [], $from = null, $apiKey = null)
     {
         try {
             // اعتبارسنجی شماره تلفن
@@ -1327,9 +1327,10 @@ class MelipayamakService
      * @param int $bodyId کد الگو (BodyId) از ملی پیامک
      * @param array $variables آرایه متغیرها به ترتیب (مثال: ['علی', '1404/10/07'])
      * @param string|null $from شماره فرستنده (اختیاری - اگر null باشد از config استفاده می‌شود)
+     * @param string|null $apiKey API Key مرتبط با شماره فرستنده (اختیاری)
      * @return array
      */
-    public function sendByBaseNumber2($to, $bodyId, $variables = [], $from = null)
+    public function sendByBaseNumber2($to, $bodyId, $variables = [], $from = null, $apiKey = null)
     {
         try {
             // اعتبارسنجی شماره تلفن
@@ -1360,10 +1361,12 @@ class MelipayamakService
             // توجه: API Key باید از پنل کاربری ملی پیامک (console.melipayamak.com) گرفته شود
             // این API Key با API Key قدیمی (rest.payamak-panel.com) متفاوت است
             
-            // ابتدا سعی می‌کنیم از config جدید استفاده کنیم
-            $apiKey = config('services.melipayamak.console_api_key') 
-                    ?: config('services.melipayamak.api_key') 
-                    ?: $this->password;
+            // استفاده از API Key ارسال شده (از شماره انتخاب شده) یا از config
+            if (empty($apiKey)) {
+                $apiKey = config('services.melipayamak.console_api_key') 
+                        ?: config('services.melipayamak.api_key') 
+                        ?: $this->password;
+            }
             
             // بررسی اینکه API Key وجود دارد
             if (empty($apiKey)) {

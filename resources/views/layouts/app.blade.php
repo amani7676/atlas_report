@@ -709,9 +709,15 @@
                             </a>
                         </li>
                         <li>
-                            <a href="/resident-reports" class="{{ request()->is('resident-reports*') ? 'active' : '' }}">
-                                <i class="fas fa-clipboard-list"></i>
-                                <span>گزارش‌های اقامت‌گران</span>
+                            <a href="/resident-reports" class="{{ request()->is('resident-reports') && !request()->is('resident-reports/notifications') ? 'active' : '' }}">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>گزارش‌های تخلفی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/resident-reports/notifications" class="{{ request()->is('resident-reports/notifications') ? 'active' : '' }}">
+                                <i class="fas fa-bell"></i>
+                                <span>گزارش‌های اطلاع‌رسانی</span>
                             </a>
                         </li>
                     </ul>
@@ -800,6 +806,12 @@
                             <a href="/variables" class="{{ request()->is('variables*') ? 'active' : '' }}">
                                 <i class="fas fa-code"></i>
                                 <span>مدیریت متغیرها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sender-numbers" class="{{ request()->is('sender-numbers*') ? 'active' : '' }}">
+                                <i class="fas fa-phone-alt"></i>
+                                <span>مدیریت شماره‌های فرستنده</span>
                             </a>
                         </li>
                         <li>

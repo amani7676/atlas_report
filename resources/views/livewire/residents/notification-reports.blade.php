@@ -208,8 +208,8 @@
         <div class="card mb-3">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    گزارش‌های تخلفی اقامت‌گران
+                    <i class="fas fa-bell me-2"></i>
+                    گزارش‌های اطلاع‌رسانی اقامت‌گران
                 </h5>
                 <div class="d-flex flex-column flex-md-row">
                     {{-- نمایش مجموع نمرات منفی و تعداد کل گزارش‌ها --}}
@@ -553,7 +553,7 @@
             </div>
         @endif
 
-        <!-- جدول اصلی گزارش‌های تخلفی -->
+        <!-- جدول اصلی گزارش‌های اطلاع‌رسانی -->
         <div class="card">
             <div class="card-body p-0">
                 <div class="table-responsive">

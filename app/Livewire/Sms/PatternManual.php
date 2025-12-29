@@ -23,8 +23,7 @@ class PatternManual extends Component
     public $search = '';
     public $expandedUnits = [];
     
-    // Modal properties
-    public $showModal = false;
+    // Selected resident properties (بدون مودال)
     public $selectedResident = null;
     public $selectedReport = null;
     public $selectedPattern = null;
@@ -39,17 +38,48 @@ class PatternManual extends Component
     public $previewMessage = ''; // پیش‌نمایش پیام با متغیرهای جایگزین شده
     public $previewVariables = []; // متغیرهای استخراج شده برای پیش‌نمایش
     public $senderNumber = ''; // شماره فرستنده
+    public $selectedSenderNumberId = null; // ID شماره فرستنده انتخاب شده
+    public $availableSenderNumbers = []; // لیست شماره‌های فرستنده موجود
 
     public function mount()
     {
         $this->reportPatterns = collect([]);
-        // دریافت شماره فرستنده از config
-        $this->senderNumber = config('services.melipayamak.pattern_from') 
-                            ?? config('services.melipayamak.from') 
-                            ?? 'تنظیم نشده';
-        $this->loadUnits();
+        $this->loadSenderNumbers();
+        // همگام‌سازی خودکار هنگام لود شدن صفحه (بدون نمایش آلارم)
+        $this->syncResidents(false);
         $this->loadReports();
         $this->loadPatterns();
+    }
+
+    public function loadSenderNumbers()
+    {
+        $this->availableSenderNumbers = \App\Models\SenderNumber::getActivePatternNumbers();
+        
+        // اگر شماره‌ای انتخاب نشده، اولین شماره را به عنوان پیش‌فرض انتخاب کن
+        if ($this->availableSenderNumbers->count() > 0 && !$this->selectedSenderNumberId) {
+            $this->selectedSenderNumberId = $this->availableSenderNumbers->first()->id;
+            $this->updateSenderNumber();
+        } else {
+            // اگر شماره‌ای در دیتابیس نیست، از config استفاده کن
+            $this->senderNumber = config('services.melipayamak.pattern_from') 
+                                ?? config('services.melipayamak.from') 
+                                ?? 'تنظیم نشده';
+        }
+    }
+
+    public function updatedSelectedSenderNumberId()
+    {
+        $this->updateSenderNumber();
+    }
+
+    public function updateSenderNumber()
+    {
+        if ($this->selectedSenderNumberId) {
+            $senderNumber = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+            if ($senderNumber) {
+                $this->senderNumber = $senderNumber->number;
+            }
+        }
     }
     
     public function loadPatterns()
@@ -163,7 +193,7 @@ class PatternManual extends Component
     /**
      * همگام‌سازی دستی داده‌های اقامت‌گران از API
      */
-    public function syncResidents()
+    public function syncResidents($showToast = true)
     {
         $this->syncing = true;
         $this->syncMessage = 'در حال همگام‌سازی...';
@@ -176,25 +206,44 @@ class PatternManual extends Component
             // دریافت آمار همگام‌سازی
             $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
             
+            // بررسی تعداد واقعی در دیتابیس
+            $totalInDb = \App\Models\Resident::count();
+            $lastSyncedResident = \App\Models\Resident::orderBy('last_synced_at', 'desc')->first();
+            $lastSyncTime = $lastSyncedResident && $lastSyncedResident->last_synced_at 
+                ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s') 
+                : 'نامشخص';
+            
             // بارگذاری مجدد داده‌ها
             $this->loadUnits();
             
-            if ($lastSync) {
-                $message = "همگام‌سازی با موفقیت انجام شد. ";
-                $message .= "تعداد: {$lastSync['synced_count']}, ";
-                $message .= "ایجاد شده: {$lastSync['created_count']}, ";
-                $message .= "به‌روزرسانی شده: {$lastSync['updated_count']}";
-            } else {
-                $message = 'همگام‌سازی با موفقیت انجام شد.';
+            // نمایش آلارم فقط اگر showToast = true باشد (برای همگام‌سازی دستی)
+            if ($showToast) {
+                // ساخت پیام با پاسخ دیتابیس
+                if ($lastSync) {
+                    $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
+                    $message .= "📊 آمار همگام‌سازی:\n";
+                    $message .= "• تعداد همگام‌سازی شده: {$lastSync['synced_count']}\n";
+                    $message .= "• ایجاد شده: {$lastSync['created_count']}\n";
+                    $message .= "• به‌روزرسانی شده: {$lastSync['updated_count']}\n\n";
+                    $message .= "💾 پاسخ دیتابیس:\n";
+                    $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
+                    $message .= "• آخرین همگام‌سازی: {$lastSyncTime}\n";
+                    $message .= "• زمان همگام‌سازی: {$lastSync['time']}";
+                } else {
+                    $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
+                    $message .= "💾 پاسخ دیتابیس:\n";
+                    $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
+                    $message .= "• آخرین همگام‌سازی: {$lastSyncTime}";
+                }
+                
+                // نمایش آلارم در بالا سمت چپ با پاسخ دیتابیس
+                $this->dispatch('showToast', [
+                    'type' => 'success',
+                    'title' => 'بروزرسانی شد',
+                    'message' => $message,
+                    'duration' => 8000, // 8 ثانیه برای خواندن اطلاعات بیشتر
+                ]);
             }
-            
-            // نمایش آلارم در بالا سمت چپ
-            $this->dispatch('showToast', [
-                'type' => 'success',
-                'title' => 'بروزرسانی شد',
-                'message' => $message,
-                'duration' => 5000, // 5 ثانیه
-            ]);
             
             // پاک کردن پیام همگام‌سازی از صفحه
             $this->syncMessage = '';
@@ -204,13 +253,15 @@ class PatternManual extends Component
                 'trace' => $e->getTraceAsString(),
             ]);
             
-            // نمایش آلارم خطا در بالا سمت چپ
-            $this->dispatch('showToast', [
-                'type' => 'error',
-                'title' => 'خطا!',
-                'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
-                'duration' => 5000,
-            ]);
+            // نمایش آلارم خطا فقط اگر showToast = true باشد
+            if ($showToast) {
+                $this->dispatch('showToast', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
+                    'duration' => 5000,
+                ]);
+            }
             
             // پاک کردن پیام همگام‌سازی از صفحه
             $this->syncMessage = '';
@@ -239,7 +290,7 @@ class PatternManual extends Component
         $this->reports = Report::with('category')->get();
     }
 
-    public function openModal($resident, $bed, $unitIndex, $roomIndex)
+    public function selectResident($resident, $bed, $unitIndex, $roomIndex)
     {
         $unit = $this->units[$unitIndex];
         $room = $unit['rooms'][$roomIndex];
@@ -270,7 +321,9 @@ class PatternManual extends Component
         $this->previewVariables = [];
         $this->result = null; // پاک کردن نتیجه قبلی
         $this->showResult = false;
-        $this->showModal = true;
+        
+        // اسکرول به فرم ارسال
+        $this->dispatch('scrollToForm');
     }
 
     public function submit()
@@ -318,27 +371,43 @@ class PatternManual extends Component
             $report = Report::with('category')->find($this->selectedReport);
             
             // ثبت گزارش در جدول resident_reports
-            $residentReport = ResidentReport::create([
-                'report_id' => $this->selectedReport,
-                'resident_id' => $residentDbId, // استفاده از id جدول residents
-                'resident_name' => $this->selectedResident['name'],
-                'phone' => $this->selectedResident['phone'],
-                'unit_id' => $this->selectedResident['unit_id'],
-                'unit_name' => $this->selectedResident['unit_name'],
-                'room_id' => $this->selectedResident['room_id'],
-                'room_name' => $this->selectedResident['room_name'],
-                'bed_id' => $this->selectedResident['bed_id'],
-                'bed_name' => $this->selectedResident['bed_name'],
-                'notes' => $this->notes,
-            ]);
+            $reportCreated = false;
+            $reportError = null;
+            $residentReportId = null;
             
-            \Log::info('Resident report created', [
-                'resident_report_id' => $residentReport->id,
-                'report_id' => $this->selectedReport,
-                'report_type' => $report->type ?? 'violation',
-                'report_title' => $report->title ?? '',
-                'resident_id' => $residentDbId,
-            ]);
+            try {
+                $residentReport = ResidentReport::create([
+                    'report_id' => $this->selectedReport,
+                    'resident_id' => $residentDbId, // استفاده از id جدول residents
+                    'resident_name' => $this->selectedResident['name'],
+                    'phone' => $this->selectedResident['phone'],
+                    'unit_id' => $this->selectedResident['unit_id'],
+                    'unit_name' => $this->selectedResident['unit_name'],
+                    'room_id' => $this->selectedResident['room_id'],
+                    'room_name' => $this->selectedResident['room_name'],
+                    'bed_id' => $this->selectedResident['bed_id'],
+                    'bed_name' => $this->selectedResident['bed_name'],
+                    'notes' => $this->notes,
+                ]);
+                $reportCreated = true;
+                $residentReportId = $residentReport->id;
+                
+                \Log::info('Resident report created successfully', [
+                    'resident_report_id' => $residentReportId,
+                    'report_id' => $this->selectedReport,
+                    'report_type' => $report->type ?? 'violation',
+                    'report_title' => $report->title ?? '',
+                    'resident_id' => $residentDbId,
+                ]);
+            } catch (\Exception $e) {
+                $reportError = $e->getMessage();
+                \Log::error('Error creating resident report', [
+                    'report_id' => $this->selectedReport,
+                    'resident_id' => $residentDbId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
 
             $melipayamakService = new MelipayamakService();
             $result = null;
@@ -422,6 +491,7 @@ class PatternManual extends Component
             // استفاده از residentDbId که قبلاً پیدا شده
             // ایجاد رکورد در جدول sms_message_residents
             $smsMessageResident = SmsMessageResident::create([
+                'sms_message_id' => null, // برای پیام‌های الگویی sms_message_id نداریم
                 'report_id' => $this->selectedReport,
                 'pattern_id' => $pattern->id,
                 'is_pattern' => true,
@@ -460,80 +530,56 @@ class PatternManual extends Component
             // اطمینان از اینکه pattern_code عدد است
             $bodyId = (int)$pattern->pattern_code;
             
-            \Log::info('Calling sendByBaseNumber2', [
-                'to' => $phone,
-                'bodyId' => $bodyId,
+            \Log::info('PatternManual - Sending SMS', [
+                'pattern_id' => $pattern->id,
+                'pattern_code' => $pattern->pattern_code,
+                'phone' => $phone,
                 'variables' => $variables,
                 'variables_count' => count($variables),
             ]);
-            
-            $result = $melipayamakService->sendByBaseNumber2(
-                $phone,
-                $bodyId,
-                $variables // آرایه متغیرها: ['علی احمدی', '1404/10/07']
-            );
-            
-            \Log::info('Pattern-based SMS result', [
-                'success' => $result['success'] ?? false,
-                'message' => $result['message'] ?? 'No message',
-                'response_code' => $result['response_code'] ?? null,
-                'rec_id' => $result['rec_id'] ?? null,
-                'raw_response' => $result['raw_response'] ?? null,
-                'http_status_code' => $result['http_status_code'] ?? null,
-                'full_result' => $result,
-            ]);
 
-            // ارسال پاسخ به console.log
-            $this->dispatch('logMelipayamakResponse', $result);
-
-            // لاگ کامل نتیجه برای دیباگ
-            \Log::info('Full SMS result before processing', [
-                'result' => $result,
-                'result_type' => gettype($result),
-                'is_array' => is_array($result),
-            ]);
-
-            // بررسی اینکه آیا result تعریف شده است
-            if (!$result || !is_array($result)) {
-                \Log::error('SMS result is null', [
-                    'selected_pattern' => $this->selectedPattern,
+            // دریافت شماره فرستنده و API Key از شماره انتخاب شده
+            $senderNumberObj = null;
+            $apiKey = null;
+            if ($this->selectedSenderNumberId) {
+                $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+                if ($senderNumberObj) {
+                    $apiKey = $senderNumberObj->api_key;
+                    
+                    \Log::info('PatternManual - Sender Number Selected', [
+                        'sender_number_id' => $this->selectedSenderNumberId,
+                        'sender_number' => $senderNumberObj->number,
+                        'has_api_key' => !empty($apiKey),
+                        'api_key_length' => $apiKey ? strlen($apiKey) : 0,
+                    ]);
+                }
+            } else {
+                \Log::warning('PatternManual - No sender number selected', [
+                    'selected_sender_number_id' => $this->selectedSenderNumberId,
+                    'available_sender_numbers_count' => $this->availableSenderNumbers->count(),
                 ]);
-                
-                $errorHtml = '<div style="text-align: right; direction: rtl;">';
-                $errorHtml .= '<p><strong>خطا در ارسال پیامک</strong></p>';
-                $errorHtml .= '<div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-radius: 5px; border-right: 3px solid #dc3545;">';
-                $errorHtml .= '<strong style="color: #dc3545; display: block; margin-bottom: 8px;">✗ خطا:</strong>';
-                $errorHtml .= '<div style="font-size: 13px; line-height: 1.8;">';
-                $errorHtml .= '<span style="color: #dc3545;">نتیجه ارسال تعریف نشده است. لطفاً لاگ‌های سیستم را بررسی کنید.</span>';
-                $errorHtml .= '</div>';
-                $errorHtml .= '</div>';
-                $errorHtml .= '</div>';
-                
-                $this->dispatch('showAlert', [
-                    'type' => 'error',
-                    'title' => 'خطا!',
-                    'text' => 'خطا در ارسال پیامک: نتیجه ارسال تعریف نشده است. لطفاً لاگ‌های سیستم را بررسی کنید.',
-                    'html' => $errorHtml,
-                ]);
-                return;
             }
 
-            // ذخیره نتیجه برای نمایش (مشابه PatternTest)
+            // استفاده از sendByBaseNumber (SOAP API) - مشابه PatternTest
+            $result = $melipayamakService->sendByBaseNumber(
+                $phone,
+                $bodyId,
+                $variables, // آرایه متغیرها: ['علی احمدی', '1404/10/07']
+                $senderNumberObj ? $senderNumberObj->number : null, // شماره فرستنده
+                $apiKey // API Key مرتبط با شماره (اختیاری - در SOAP از username/password استفاده می‌شود)
+            );
+
+            // اضافه کردن اطلاعات ثبت گزارش به نتیجه
+            $result['report_created'] = $reportCreated;
+            $result['report_error'] = $reportError;
+            $result['resident_report_id'] = $residentReportId;
+
+            // ذخیره نتیجه برای نمایش (دقیقاً مشابه PatternTest)
             $this->result = $result;
             $this->showResult = true;
 
             // بررسی موفقیت ارسال
             $isSuccess = isset($result['success']) && $result['success'] === true;
-            
-            \Log::info('PatternManual - SMS result saved', [
-                'result' => $this->result,
-                'showResult' => $this->showResult,
-                'is_success' => $isSuccess,
-                'result_keys' => is_array($this->result) ? array_keys($this->result) : 'not array',
-            ]);
-            
-            // اطمینان از اینکه Livewire re-render می‌شود
-            $this->dispatch('$refresh');
             
             if ($isSuccess) {
                 $smsMessageResident->update([
@@ -543,46 +589,69 @@ class PatternManual extends Component
                     'error_message' => null,
                 ]);
                 
+                $alertText = 'پیامک با موفقیت ارسال شد.';
+                if ($reportCreated) {
+                    $alertText .= ' گزارش نیز با موفقیت ثبت شد.';
+                } else {
+                    $alertText .= ' اما ثبت گزارش با خطا مواجه شد: ' . ($reportError ?? 'خطای نامشخص');
+                }
+                
                 $this->dispatch('showAlert', [
-                    'type' => 'success',
-                    'title' => 'موفقیت!',
-                    'text' => 'گزارش ثبت شد و پیامک با موفقیت ارسال شد.',
+                    'type' => $reportCreated ? 'success' : 'warning',
+                    'title' => $reportCreated ? 'موفقیت!' : 'هشدار!',
+                    'text' => $alertText,
                 ]);
             } else {
                 $smsMessageResident->update([
                     'status' => 'failed',
-                    'error_message' => $result['message'],
+                    'error_message' => $result['message'] ?? 'خطای نامشخص',
                     'response_code' => $result['response_code'] ?? null,
                     'api_response' => $result['api_response'] ?? null,
                     'raw_response' => $result['raw_response'] ?? null,
                 ]);
                 
+                $alertText = $result['message'] ?? 'خطا در ارسال پیامک';
+                if (!$reportCreated) {
+                    $alertText .= ' | ثبت گزارش نیز ناموفق بود: ' . ($reportError ?? 'خطای نامشخص');
+                }
+                
                 $this->dispatch('showAlert', [
-                    'type' => 'warning',
-                    'title' => 'توجه!',
-                    'text' => 'گزارش ثبت شد اما ارسال پیامک با خطا مواجه شد.',
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'text' => $alertText,
                 ]);
             }
         } catch (\Exception $e) {
-            \Log::error('Error in PatternManual SMS submit', [
+            \Log::error('PatternManual - Exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'selected_resident' => $this->selectedResident ?? null,
-                'selected_report' => $this->selectedReport ?? null,
             ]);
+
+            // بررسی اینکه آیا گزارش ثبت شده بود یا نه
+            $reportCreated = isset($reportCreated) ? $reportCreated : false;
+            $reportError = isset($reportError) ? $reportError : null;
+            $residentReportId = isset($residentReportId) ? $residentReportId : null;
             
+            $this->result = [
+                'success' => false,
+                'message' => 'خطا در ارسال: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'report_created' => $reportCreated,
+                'report_error' => $reportError,
+                'resident_report_id' => $residentReportId,
+            ];
+            $this->showResult = true;
+
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'title' => 'خطا!',
-                'text' => 'خطا در ثبت گزارش و ارسال پیامک: ' . $e->getMessage(),
-                'html' => '<div style="text-align: right; direction: rtl;"><p><strong>خطا در ثبت گزارش و ارسال پیامک</strong></p><p style="color: #f72585;">' . htmlspecialchars($e->getMessage()) . '</p><p style="font-size: 11px; color: #666; margin-top: 10px;">لطفاً لاگ‌های سیستم را بررسی کنید.</p></div>'
+                'text' => 'خطا در ارسال پیامک: ' . $e->getMessage(),
             ]);
         }
     }
 
-    public function closeModal()
+    public function clearSelection()
     {
-        $this->showModal = false;
         $this->selectedResident = null;
         $this->selectedReport = null;
         $this->selectedPattern = null;

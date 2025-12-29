@@ -23,6 +23,7 @@ Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edi
 
 Route::get('/residents', Units::class)->name('residents.units');
 Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
+Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports');
 // پیام‌های ساده
 Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
 Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
@@ -38,6 +39,7 @@ Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.ind
 Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');
 Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index');
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
+Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index');
 
 // API endpoint for last sync status
 Route::get('/api/residents/last-sync', function () {

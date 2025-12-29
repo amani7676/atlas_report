@@ -8,9 +8,9 @@ use App\Models\Report;
 use App\Models\Category;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str; // اضافه شده
+use Illuminate\Support\Str;
 
-class ResidentReports extends Component
+class NotificationReports extends Component
 {
     use WithPagination;
 
@@ -45,7 +45,7 @@ class ResidentReports extends Component
     public function getTotalScoreProperty()
     {
         $query = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
-            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->where('reports.category_id', 2) // دسته‌بندی اطلاع‌رسانی
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('resident_reports.resident_name', 'like', '%' . $this->search . '%')
@@ -84,7 +84,7 @@ class ResidentReports extends Component
     public function getDistinctResidentsCountProperty()
     {
         $query = ResidentReport::whereHas('report', function($q) {
-            $q->where('category_id', 1); // دسته‌بندی تخلف
+            $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
         })
         ->whereNotNull('resident_id')
         ->when($this->filters['unit_id'], function ($query) {
@@ -115,7 +115,7 @@ class ResidentReports extends Component
     {
         $query = ResidentReport::selectRaw('unit_name, COUNT(*) as count, SUM(reports.negative_score) as total_score')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
-            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->where('reports.category_id', 2) // دسته‌بندی اطلاع‌رسانی
             ->whereNotNull('unit_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
@@ -146,7 +146,7 @@ class ResidentReports extends Component
             SUM(reports.negative_score) as total_score
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
-            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->where('reports.category_id', 2) // دسته‌بندی اطلاع‌رسانی
             ->whereNotNull('resident_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
@@ -171,7 +171,7 @@ class ResidentReports extends Component
     {
         $query = ResidentReport::with(['report', 'report.category'])
             ->whereHas('report', function ($q) {
-                $q->where('category_id', 1); // دسته‌بندی تخلف
+                $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -205,7 +205,6 @@ class ResidentReports extends Component
         return $query->orderBy($this->sortField, $this->sortDirection);
     }
 
-
     public function mount()
     {
         $this->loadFilterData();
@@ -213,14 +212,14 @@ class ResidentReports extends Component
 
     public function loadFilterData()
     {
-        // فقط دسته‌بندی تخلف (ID = 1)
-        $this->categories = Category::where('id', 1)->get();
+        // فقط دسته‌بندی اطلاع‌رسانی (ID = 2)
+        $this->categories = Category::where('id', 2)->get();
         
-        $this->reportsList = Report::where('category_id', 1)->get(); // دسته‌بندی تخلف
+        $this->reportsList = Report::where('category_id', 2)->get(); // دسته‌بندی اطلاع‌رسانی
 
         $this->units = ResidentReport::select('unit_id', 'unit_name')
             ->whereHas('report', function($q) {
-                $q->where('category_id', 1); // دسته‌بندی تخلف
+                $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
             ->whereNotNull('unit_id')
             ->distinct()
@@ -231,15 +230,15 @@ class ResidentReports extends Component
                     'id' => $item->unit_id,
                     'name' => $item->unit_name
                 ];
-            })->toArray();
+            })
+            ->toArray();
 
         $this->rooms = ResidentReport::select('room_id', 'room_name', 'unit_id')
             ->whereHas('report', function($q) {
-                $q->where('category_id', 1); // دسته‌بندی تخلف
+                $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
             ->whereNotNull('room_id')
             ->distinct()
-            ->orderBy('room_name')
             ->get()
             ->map(function ($item) {
                 return [
@@ -247,7 +246,8 @@ class ResidentReports extends Component
                     'name' => $item->room_name,
                     'unit_id' => $item->unit_id
                 ];
-            })->toArray();
+            })
+            ->toArray();
     }
 
     public function getFilteredRooms()
@@ -281,109 +281,71 @@ class ResidentReports extends Component
             'date_from' => null,
             'date_to' => null
         ];
-        $this->search = '';
-        $this->gotoPage(1);
+        $this->resetPage();
     }
 
-    // متدهای جدید برای جستجوی اقامت‌گران
+    public function deleteReport($id)
+    {
+        $report = ResidentReport::whereHas('report', function($q) {
+            $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
+        })->findOrFail($id);
+        
+        $report->delete();
+        
+        $this->dispatch('showAlert', [
+            'type' => 'success',
+            'title' => 'موفقیت!',
+            'text' => 'گزارش اطلاع‌رسانی حذف شد.'
+        ]);
+    }
+
     public function searchResidents()
     {
-        if (empty($this->residentSearch) || strlen($this->residentSearch) < 2) {
+        if (empty($this->residentSearch)) {
             return [];
         }
 
         return ResidentReport::whereHas('report', function($q) {
-            $q->where('category_id', 1); // دسته‌بندی تخلف
+            $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
         })
-        ->where('resident_name', 'like', '%' . $this->residentSearch . '%')
+        ->where(function($query) {
+            $query->where('resident_name', 'like', '%' . $this->residentSearch . '%')
+                  ->orWhere('phone', 'like', '%' . $this->residentSearch . '%');
+        })
         ->distinct('resident_name')
-        ->orderBy('resident_name')
-        ->pluck('resident_name')
+        ->limit(10)
+        ->get()
+        ->map(function ($report) {
+            return [
+                'name' => $report->resident_name,
+                'phone' => $report->phone,
+                'unit_name' => $report->unit_name,
+                'room_name' => $report->room_name
+            ];
+        })
         ->toArray();
     }
 
     public function selectResident($residentName)
     {
         $this->selectedResident = $residentName;
-        $this->showResidentDetails = true;
-        $this->residentSearch = $residentName; // برای نمایش نام در اینپوت
-
         $this->residentReports = ResidentReport::whereHas('report', function($q) {
-            $q->where('category_id', 1); // دسته‌بندی تخلف
+            $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
         })
-        ->with(['report', 'report.category'])
         ->where('resident_name', $residentName)
+        ->with(['report', 'report.category'])
         ->orderBy('created_at', 'desc')
         ->get();
+        $this->showResidentDetails = true;
+        $this->residentSearch = '';
     }
 
     public function closeResidentDetails()
     {
+        $this->showResidentDetails = false;
         $this->selectedResident = null;
         $this->residentReports = [];
-        $this->showResidentDetails = false;
         $this->residentSearch = '';
-    }
-
-    public function deleteReport($id)
-    {
-        $report = ResidentReport::whereHas('report', function($q) {
-            $q->where('category_id', 1); // دسته‌بندی تخلف
-        })->findOrFail($id);
-        
-        $report->delete();
-
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'موفقیت!',
-            'text' => 'گزارش تخلف حذف شد.'
-        ]);
-    }
-
-    public function deleteMultipleReports()
-    {
-        if (empty($this->selectedReports)) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'لطفاً حداقل یک گزارش را انتخاب کنید.'
-            ]);
-            return;
-        }
-
-        // فقط گزارش‌های تخلفی را حذف می‌کنیم (دسته‌بندی ID = 1)
-        ResidentReport::whereIn('id', $this->selectedReports)
-            ->whereHas('report', function($q) {
-                $q->where('category_id', 1); // دسته‌بندی تخلف
-            })
-            ->delete();
-        
-        $this->selectedReports = [];
-
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'موفقیت!',
-            'text' => 'گزارش‌های تخلف انتخاب شده حذف شدند.'
-        ]);
-    }
-
-    public function executeBulkAction()
-    {
-        if ($this->bulkAction === 'delete' && !empty($this->selectedReports)) {
-            $this->dispatch('confirmBulkDelete', [
-                'type' => 'resident_reports',
-                'count' => count($this->selectedReports)
-            ]);
-        }
-    }
-
-    public function updatedSelectAll($value)
-    {
-        if ($value) {
-            $this->selectedReports = $this->reportsQuery->pluck('id')->toArray();
-        } else {
-            $this->selectedReports = [];
-        }
     }
 
     public function render()
@@ -401,7 +363,7 @@ class ResidentReports extends Component
         $filteredRooms = $this->getFilteredRooms();
         $residentsList = $this->searchResidents();
 
-        return view('livewire.residents.resident-reports', [
+        return view('livewire.residents.notification-reports', [
             'reports' => $reports,
             'filteredRooms' => $filteredRooms,
             'totalScore' => $this->totalScore,
@@ -414,3 +376,4 @@ class ResidentReports extends Component
         ]);
     }
 }
+

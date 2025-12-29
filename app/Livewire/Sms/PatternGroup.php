@@ -3,12 +3,12 @@
 namespace App\Livewire\Sms;
 
 use Livewire\Component;
-use Illuminate\Support\Facades\Http;
 use App\Models\Report;
 use App\Models\Resident;
 use App\Models\Pattern;
 use App\Models\PatternVariable;
 use App\Models\SmsMessageResident;
+use App\Models\ResidentReport;
 use App\Services\MelipayamakService;
 use App\Services\ResidentService;
 
@@ -21,18 +21,66 @@ class PatternGroup extends Component
     public $expandedUnits = [];
     public $selectedResidents = [];
     
-    // Modal properties
-    public $showSendModal = false;
+    // Form properties (بدون مودال)
     public $selectedPattern = null;
     public $selectedReport = null;
     public $patterns = [];
     public $reports = [];
+    public $reportPatterns; // الگوهای مرتبط با گزارش انتخاب شده
+    public $previewMessage = ''; // پیش‌نمایش پیام با متغیرهای جایگزین شده
+    public $previewVariables = []; // متغیرهای استخراج شده برای پیش‌نمایش
+    public $senderNumber = ''; // شماره فرستنده
+    public $selectedSenderNumberId = null; // ID شماره فرستنده انتخاب شده
+    public $availableSenderNumbers = []; // لیست شماره‌های فرستنده موجود
+    
+    // Sending progress
+    public $isSending = false;
+    public $sendingProgress = [
+        'total' => 0,
+        'sent' => 0,
+        'failed' => 0,
+        'current' => null,
+    ];
+    public $sendResults = []; // نتایج ارسال برای هر resident
 
     public function mount()
     {
+        $this->reportPatterns = collect([]);
+        $this->loadSenderNumbers();
         $this->loadUnits();
         $this->loadPatterns();
         $this->loadReports();
+    }
+
+    public function loadSenderNumbers()
+    {
+        $this->availableSenderNumbers = \App\Models\SenderNumber::getActivePatternNumbers();
+        
+        // اگر شماره‌ای انتخاب نشده، اولین شماره را به عنوان پیش‌فرض انتخاب کن
+        if ($this->availableSenderNumbers->count() > 0 && !$this->selectedSenderNumberId) {
+            $this->selectedSenderNumberId = $this->availableSenderNumbers->first()->id;
+            $this->updateSenderNumber();
+        } else {
+            // اگر شماره‌ای در دیتابیس نیست، از config استفاده کن
+            $this->senderNumber = config('services.melipayamak.pattern_from') 
+                                ?? config('services.melipayamak.from') 
+                                ?? 'تنظیم نشده';
+        }
+    }
+
+    public function updatedSelectedSenderNumberId()
+    {
+        $this->updateSenderNumber();
+    }
+
+    public function updateSenderNumber()
+    {
+        if ($this->selectedSenderNumberId) {
+            $senderNumber = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+            if ($senderNumber) {
+                $this->senderNumber = $senderNumber->number;
+            }
+        }
     }
 
     public function loadUnits()
@@ -80,44 +128,90 @@ class PatternGroup extends Component
         $this->reports = Report::with('category')->get();
     }
 
-    /**
-     * تبدیل تاریخ میلادی به شمسی
-     */
-    protected function formatJalaliDate($date)
+    public function loadReportPatterns()
     {
-        if (!$date) {
-            return '';
-        }
-
-        try {
-            if (is_string($date)) {
-                $date = \Carbon\Carbon::parse($date);
+        if ($this->selectedReport) {
+            $report = Report::find($this->selectedReport);
+            if ($report) {
+                $this->reportPatterns = $report->activePatterns()->get();
+            } else {
+                $this->reportPatterns = collect([]);
             }
-
-            if (class_exists(\Morilog\Jalali\Jalalian::class)) {
-                return \Morilog\Jalali\Jalalian::fromCarbon($date)->format('Y/m/d');
-            }
-
-            return $date->format('Y/m/d');
-        } catch (\Exception $e) {
-            return $date;
+        } else {
+            $this->reportPatterns = collect([]);
         }
     }
-
-    public function openSendModal()
+    
+    public function updatedSelectedReport($value)
     {
-        if (empty($this->selectedResidents)) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'لطفاً حداقل یک اقامت‌گر را انتخاب کنید.'
-            ]);
+        $this->loadReportPatterns();
+        // اگر الگوهای مرتبط وجود داشت، اولین الگو را به صورت پیش‌فرض انتخاب کن
+        if ($this->reportPatterns && $this->reportPatterns->count() > 0 && !$this->selectedPattern) {
+            $this->selectedPattern = $this->reportPatterns->first()->id;
+        }
+        $this->updatePreview();
+    }
+    
+    public function updatedSelectedPattern($value)
+    {
+        $this->updatePreview();
+    }
+
+    /**
+     * به‌روزرسانی پیش‌نمایش پیام با متغیرهای جایگزین شده
+     */
+    public function updatePreview()
+    {
+        $this->previewMessage = '';
+        $this->previewVariables = [];
+        
+        if (!$this->selectedPattern || empty($this->selectedResidents)) {
             return;
         }
-
-        $this->selectedPattern = null;
-        $this->selectedReport = null;
-        $this->showSendModal = true;
+        
+        $pattern = Pattern::find($this->selectedPattern);
+        if (!$pattern || !$pattern->pattern_code) {
+            return;
+        }
+        
+        try {
+            // استفاده از اولین resident برای پیش‌نمایش
+            $firstResident = reset($this->selectedResidents);
+            
+            // استخراج متغیرها
+            $variables = $this->extractPatternVariables($pattern->text, $firstResident);
+            $this->previewVariables = $variables;
+            
+            // ساخت پیش‌نمایش پیام با جایگزینی متغیرها
+            $previewText = $pattern->text;
+            
+            // جایگزینی متغیرها در متن
+            preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+            if (!empty($matches[0])) {
+                $usedIndices = array_unique(array_map('intval', $matches[1]));
+                sort($usedIndices);
+                
+                foreach ($usedIndices as $varIndex) {
+                    $match = '{' . $varIndex . '}';
+                    $arrayIndex = array_search($varIndex, $usedIndices);
+                    
+                    if (isset($variables[$arrayIndex]) && !empty($variables[$arrayIndex])) {
+                        $value = htmlspecialchars($variables[$arrayIndex]);
+                        $previewText = str_replace($match, '<strong style="color: #4361ee; background: #e0e7ff; padding: 2px 6px; border-radius: 3px;">{' . $varIndex . '}: ' . $value . '</strong>', $previewText);
+                    } else {
+                        $previewText = str_replace($match, '<span style="color: #dc3545; background: #ffe0e0; padding: 2px 6px; border-radius: 3px;">{' . $varIndex . '}: [مقدار یافت نشد]</span>', $previewText);
+                    }
+                }
+            }
+            
+            $this->previewMessage = $previewText;
+        } catch (\Exception $e) {
+            \Log::error('Error updating preview in PatternGroup', [
+                'error' => $e->getMessage(),
+                'pattern_id' => $this->selectedPattern,
+            ]);
+            $this->previewMessage = '<span style="color: #dc3545;">خطا در ساخت پیش‌نمایش: ' . htmlspecialchars($e->getMessage()) . '</span>';
+        }
     }
 
     public function toggleSelectResident($key, $resident, $bed, $unitIndex, $roomIndex)
@@ -134,8 +228,8 @@ class PatternGroup extends Component
             $residentDbId = $residentDb ? $residentDb->id : null;
             
             $this->selectedResidents[$key] = [
-                'id' => $resident['id'], // resident_id از API
-                'db_id' => $residentDbId, // id از جدول residents
+                'id' => $resident['id'],
+                'db_id' => $residentDbId,
                 'resident_id' => $resident['id'],
                 'resident_name' => $resident['full_name'],
                 'name' => $resident['full_name'],
@@ -148,6 +242,8 @@ class PatternGroup extends Component
                 'room_name' => $room['name']
             ];
         }
+        
+        $this->updatePreview();
     }
 
     public function selectAllInRoom($unitIndex, $roomIndex)
@@ -169,7 +265,6 @@ class PatternGroup extends Component
         foreach ($room['beds'] as $bed) {
             if ($bed['resident']) {
                 $key = $unitIndex . '_' . $roomIndex . '_' . $bed['id'];
-                // پیدا کردن resident در جدول residents بر اساس resident_id از API
                 $residentApiId = $bed['resident']['id'];
                 $residentDb = Resident::where('resident_id', $residentApiId)->first();
                 $residentDbId = $residentDb ? $residentDb->id : null;
@@ -178,8 +273,8 @@ class PatternGroup extends Component
                     unset($this->selectedResidents[$key]);
                 } else {
                     $this->selectedResidents[$key] = [
-                        'id' => $bed['resident']['id'], // resident_id از API
-                        'db_id' => $residentDbId, // id از جدول residents
+                        'id' => $bed['resident']['id'],
+                        'db_id' => $residentDbId,
                         'resident_id' => $bed['resident']['id'],
                         'resident_name' => $bed['resident']['full_name'],
                         'name' => $bed['resident']['full_name'],
@@ -194,6 +289,8 @@ class PatternGroup extends Component
                 }
             }
         }
+        
+        $this->updatePreview();
     }
 
     public function sendSms()
@@ -233,9 +330,26 @@ class PatternGroup extends Component
             return;
         }
 
+        // دریافت شماره فرستنده و API Key از شماره انتخاب شده
+        $senderNumberObj = null;
+        $apiKey = null;
+        if ($this->selectedSenderNumberId) {
+            $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+            if ($senderNumberObj) {
+                $apiKey = $senderNumberObj->api_key;
+            }
+        }
+
         $melipayamakService = new MelipayamakService();
-        $sentCount = 0;
-        $failedCount = 0;
+        
+        // Reset progress
+        $this->isSending = true;
+        $this->sendingProgress = [
+            'total' => count($this->selectedResidents),
+            'sent' => 0,
+            'failed' => 0,
+            'current' => null,
+        ];
         $this->sendResults = [];
 
         // دریافت اطلاعات گزارش
@@ -253,11 +367,26 @@ class PatternGroup extends Component
             }
         }
 
-        foreach ($this->selectedResidents as $residentData) {
+        // ارسال به صورت تکی در حلقه
+        foreach ($this->selectedResidents as $key => $residentData) {
             if (empty($residentData['phone'])) {
-                $failedCount++;
+                $this->sendingProgress['failed']++;
+                $this->sendResults[] = [
+                    'key' => $key,
+                    'resident_name' => $residentData['name'] ?? $residentData['resident_name'] ?? 'بدون نام',
+                    'phone' => $residentData['phone'] ?? 'بدون شماره',
+                    'result' => [
+                        'success' => false,
+                        'message' => 'شماره تلفن موجود نیست',
+                    ],
+                ];
                 continue;
             }
+
+            $this->sendingProgress['current'] = $residentData['name'] ?? $residentData['resident_name'] ?? 'بدون نام';
+            
+            // Force Livewire to update UI
+            $this->dispatch('$refresh');
 
             try {
                 // استخراج متغیرها از متن الگو برای هر resident
@@ -272,35 +401,78 @@ class PatternGroup extends Component
                     $residentDbId = $resident ? $resident->id : null;
                 }
 
+                // ثبت گزارش در جدول resident_reports
+                $reportCreated = false;
+                $reportError = null;
+                $residentReportId = null;
+                
+                if ($this->selectedReport) {
+                    try {
+                        $residentReport = ResidentReport::create([
+                            'report_id' => $this->selectedReport,
+                            'resident_id' => $residentDbId,
+                            'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
+                            'phone' => $residentData['phone'],
+                            'unit_id' => $residentData['unit_id'] ?? null,
+                            'unit_name' => $residentData['unit_name'] ?? null,
+                            'room_id' => $residentData['room_id'] ?? null,
+                            'room_name' => $residentData['room_name'] ?? null,
+                            'bed_id' => $residentData['bed_id'] ?? null,
+                            'bed_name' => $residentData['bed_name'] ?? null,
+                        ]);
+                        $reportCreated = true;
+                        $residentReportId = $residentReport->id;
+                        
+                        \Log::info('Resident report created successfully', [
+                            'resident_report_id' => $residentReportId,
+                            'report_id' => $this->selectedReport,
+                            'resident_id' => $residentDbId,
+                            'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
+                        ]);
+                    } catch (\Exception $e) {
+                        $reportError = $e->getMessage();
+                        \Log::error('Error creating resident report', [
+                            'report_id' => $this->selectedReport,
+                            'resident_id' => $residentDbId,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                    }
+                }
+
                 // ایجاد رکورد در جدول sms_message_residents
                 $smsMessageResident = SmsMessageResident::create([
+                    'sms_message_id' => null,
                     'report_id' => $this->selectedReport,
                     'pattern_id' => $pattern->id,
                     'is_pattern' => true,
                     'pattern_variables' => implode(';', $variables),
                     'resident_id' => $residentDbId,
-                    'resident_name' => $residentData['resident_name'] ?? $residentData['name'],
+                    'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
                     'phone' => $residentData['phone'],
                     'title' => $pattern->title,
                     'description' => $pattern->text,
                     'status' => 'pending',
                 ]);
 
-                // ارسال پیامک با الگو
-                $result = $melipayamakService->sendByBaseNumber2(
+                // ارسال پیامک با الگو (استفاده از sendByBaseNumber - SOAP)
+                $result = $melipayamakService->sendByBaseNumber(
                     $residentData['phone'],
                     $pattern->pattern_code,
-                    $variables
+                    $variables,
+                    $senderNumberObj ? $senderNumberObj->number : null,
+                    $apiKey
                 );
 
-                // ارسال پاسخ به console.log
-                $this->dispatch('logMelipayamakResponse', $result);
-                
-                // ذخیره نتیجه برای نمایش در پاپاپ
+                // ذخیره نتیجه
                 $this->sendResults[] = [
-                    'resident_name' => $residentData['resident_name'] ?? $residentData['name'],
+                    'key' => $key,
+                    'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
                     'phone' => $residentData['phone'],
-                    'result' => $result
+                    'result' => $result,
+                    'report_created' => $reportCreated,
+                    'report_error' => $reportError,
+                    'resident_report_id' => $residentReportId,
                 ];
 
                 if ($result['success']) {
@@ -310,75 +482,260 @@ class PatternGroup extends Component
                         'response_code' => $result['response_code'] ?? null,
                         'error_message' => null,
                     ]);
-                    $sentCount++;
+                    $this->sendingProgress['sent']++;
                 } else {
                     $smsMessageResident->update([
                         'status' => 'failed',
-                        'error_message' => $result['message'],
+                        'error_message' => $result['message'] ?? 'خطای نامشخص',
                         'response_code' => $result['response_code'] ?? null,
                         'api_response' => $result['api_response'] ?? null,
                         'raw_response' => $result['raw_response'] ?? null,
                     ]);
-                    $failedCount++;
+                    $this->sendingProgress['failed']++;
                 }
             } catch (\Exception $e) {
                 \Log::error('Error sending pattern SMS to resident', [
                     'resident_id' => $residentData['id'] ?? null,
                     'phone' => $residentData['phone'] ?? null,
                     'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
                 ]);
-                $failedCount++;
+                
+                // بررسی اینکه آیا گزارش ثبت شده بود یا نه
+                $reportCreated = isset($reportCreated) ? $reportCreated : false;
+                $reportError = isset($reportError) ? $reportError : null;
+                $residentReportId = isset($residentReportId) ? $residentReportId : null;
+                
+                $this->sendResults[] = [
+                    'key' => $key,
+                    'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
+                    'phone' => $residentData['phone'],
+                    'result' => [
+                        'success' => false,
+                        'message' => 'خطا در ارسال: ' . $e->getMessage(),
+                        'error' => $e->getMessage(),
+                    ],
+                    'report_created' => $reportCreated,
+                    'report_error' => $reportError,
+                    'resident_report_id' => $residentReportId,
+                ];
+                $this->sendingProgress['failed']++;
             }
+            
+            // Force Livewire to update UI
+            $this->dispatch('$refresh');
         }
 
-        // ساخت HTML برای نمایش نتایج و پاسخ‌های سرور
-        $responseHtml = '<div style="text-align: right; direction: rtl;">';
-        $responseHtml .= '<p><strong>' . ($failedCount > 0 ? 'توجه!' : 'موفقیت!') . '</strong></p>';
-        $responseHtml .= '<p>' . $sentCount . ' پیامک با موفقیت ارسال شد.' . ($failedCount > 0 ? ' ' . $failedCount . ' پیامک با خطا مواجه شد.' : '') . '</p>';
-        
-        // نمایش جزئیات پاسخ‌های سرور
-        if (!empty($this->sendResults)) {
-            $responseHtml .= '<div style="margin-top: 15px; max-height: 300px; overflow-y: auto;">';
-            $responseHtml .= '<strong>جزئیات پاسخ‌های سرور:</strong>';
-            foreach ($this->sendResults as $index => $sendResult) {
-                $result = $sendResult['result'];
-                $responseHtml .= '<div style="margin-top: 10px; padding: 8px; background: ' . ($result['success'] ? '#f0f9ff' : '#fff3cd') . '; border-radius: 5px; border-right: 3px solid ' . ($result['success'] ? '#28a745' : '#f72585') . ';">';
-                $responseHtml .= '<strong>' . ($index + 1) . '. ' . htmlspecialchars($sendResult['resident_name']) . ' (' . htmlspecialchars($sendResult['phone']) . ')</strong><br>';
-                $responseHtml .= '<span style="color: ' . ($result['success'] ? '#28a745' : '#f72585') . ';">';
-                $responseHtml .= ($result['success'] ? '✓ ' : '✗ ') . htmlspecialchars($result['message'] ?? 'بدون پیام');
-                $responseHtml .= '</span><br>';
-                if (isset($result['response_code'])) {
-                    $responseHtml .= '<span style="color: #666; font-size: 11px;">کد: ' . htmlspecialchars($result['response_code']) . '</span><br>';
-                }
-                if (isset($result['rec_id'])) {
-                    $responseHtml .= '<span style="color: #666; font-size: 11px;">RecId: ' . htmlspecialchars($result['rec_id']) . '</span><br>';
-                }
-                if (isset($result['raw_response']) && !$result['success']) {
-                    $responseHtml .= '<span style="color: #666; font-size: 10px; margin-top: 3px; display: block;">پاسخ خام: ' . htmlspecialchars($result['raw_response']) . '</span>';
-                }
-                $responseHtml .= '</div>';
-            }
-            $responseHtml .= '</div>';
-        }
-        
-        $responseHtml .= '</div>';
-        
+        $this->isSending = false;
+        $this->sendingProgress['current'] = null;
+
         $this->dispatch('showAlert', [
-            'type' => $failedCount > 0 ? 'warning' : 'success',
-            'title' => $failedCount > 0 ? 'توجه!' : 'موفقیت!',
-            'text' => "{$sentCount} پیامک با موفقیت ارسال شد." . ($failedCount > 0 ? " {$failedCount} پیامک با خطا مواجه شد." : ''),
-            'html' => $responseHtml
+            'type' => $this->sendingProgress['failed'] > 0 ? 'warning' : 'success',
+            'title' => $this->sendingProgress['failed'] > 0 ? 'توجه!' : 'موفقیت!',
+            'text' => "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد." . ($this->sendingProgress['failed'] > 0 ? " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد." : ''),
         ]);
-
-        $this->closeSendModal();
-        $this->selectedResidents = [];
     }
 
-    public function closeSendModal()
+    public function removeResident($key)
     {
-        $this->showSendModal = false;
-        $this->selectedPattern = null;
+        if (isset($this->selectedResidents[$key])) {
+            unset($this->selectedResidents[$key]);
+            $this->updatePreview();
+        }
+    }
+
+    public function resendSms($resultIndex)
+    {
+        if (!isset($this->sendResults[$resultIndex])) {
+            return;
+        }
+
+        $sendResult = $this->sendResults[$resultIndex];
+        $result = $sendResult['result'];
+
+        // اگر قبلاً موفق بوده، نیازی به ارسال مجدد نیست
+        if ($result['success'] ?? false) {
+            $this->dispatch('showAlert', [
+                'type' => 'info',
+                'title' => 'اطلاع',
+                'text' => 'این پیامک قبلاً با موفقیت ارسال شده است.',
+            ]);
+            return;
+        }
+
+        // پیدا کردن resident در selectedResidents
+        $residentKey = $sendResult['key'] ?? null;
+        if (!$residentKey || !isset($this->selectedResidents[$residentKey])) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'اطلاعات اقامت‌گر یافت نشد.',
+            ]);
+            return;
+        }
+
+        $residentData = $this->selectedResidents[$residentKey];
+        $pattern = Pattern::find($this->selectedPattern);
+        
+        if (!$pattern || !$pattern->pattern_code) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'الگوی انتخاب شده معتبر نیست.',
+            ]);
+            return;
+        }
+
+        // دریافت شماره فرستنده و API Key
+        $senderNumberObj = null;
+        $apiKey = null;
+        if ($this->selectedSenderNumberId) {
+            $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+            if ($senderNumberObj) {
+                $apiKey = $senderNumberObj->api_key;
+            }
+        }
+
+        // دریافت اطلاعات گزارش
+        $reportData = null;
+        if ($this->selectedReport) {
+            $report = Report::with('category')->find($this->selectedReport);
+            if ($report) {
+                $reportData = [
+                    'title' => $report->title,
+                    'description' => $report->description,
+                    'category_name' => $report->category->name ?? '',
+                    'negative_score' => $report->negative_score,
+                    'type' => $report->type ?? 'violation',
+                ];
+            }
+        }
+
+        try {
+            // استخراج متغیرها
+            $variables = $this->extractPatternVariables($pattern->text, $residentData, $reportData);
+
+            // پیدا کردن resident در جدول residents
+            $residentApiId = $residentData['id'] ?? $residentData['resident_id'];
+            $residentDbId = $residentData['db_id'] ?? null;
+            
+            if (!$residentDbId) {
+                $resident = Resident::where('resident_id', $residentApiId)->first();
+                $residentDbId = $resident ? $resident->id : null;
+            }
+
+            // پیدا کردن رکورد قبلی در sms_message_residents
+            $smsMessageResident = SmsMessageResident::where('phone', $residentData['phone'])
+                ->where('pattern_id', $pattern->id)
+                ->where('report_id', $this->selectedReport)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if (!$smsMessageResident) {
+                // اگر رکوردی پیدا نشد، یک رکورد جدید ایجاد کن
+                $smsMessageResident = SmsMessageResident::create([
+                    'sms_message_id' => null,
+                    'report_id' => $this->selectedReport,
+                    'pattern_id' => $pattern->id,
+                    'is_pattern' => true,
+                    'pattern_variables' => implode(';', $variables),
+                    'resident_id' => $residentDbId,
+                    'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
+                    'phone' => $residentData['phone'],
+                    'title' => $pattern->title,
+                    'description' => $pattern->text,
+                    'status' => 'pending',
+                ]);
+            } else {
+                // به‌روزرسانی رکورد موجود
+                $smsMessageResident->update([
+                    'pattern_variables' => implode(';', $variables),
+                    'status' => 'pending',
+                ]);
+            }
+
+            $melipayamakService = new MelipayamakService();
+
+            // ارسال مجدد
+            $newResult = $melipayamakService->sendByBaseNumber(
+                $residentData['phone'],
+                $pattern->pattern_code,
+                $variables,
+                $senderNumberObj ? $senderNumberObj->number : null,
+                $apiKey
+            );
+
+            // به‌روزرسانی نتیجه در sendResults
+            $this->sendResults[$resultIndex]['result'] = $newResult;
+
+            // به‌روزرسانی رکورد در دیتابیس
+            if ($newResult['success']) {
+                $smsMessageResident->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'response_code' => $newResult['response_code'] ?? null,
+                    'error_message' => null,
+                ]);
+                
+                // به‌روزرسانی آمار
+                $this->sendingProgress['sent']++;
+                $this->sendingProgress['failed']--;
+                
+                $this->dispatch('showAlert', [
+                    'type' => 'success',
+                    'title' => 'موفقیت!',
+                    'text' => 'پیامک با موفقیت ارسال شد.',
+                ]);
+            } else {
+                $smsMessageResident->update([
+                    'status' => 'failed',
+                    'error_message' => $newResult['message'] ?? 'خطای نامشخص',
+                    'response_code' => $newResult['response_code'] ?? null,
+                    'api_response' => $newResult['api_response'] ?? null,
+                    'raw_response' => $newResult['raw_response'] ?? null,
+                ]);
+                
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'text' => $newResult['message'] ?? 'خطا در ارسال مجدد پیامک',
+                ]);
+            }
+
+            // Force Livewire to update UI
+            $this->dispatch('$refresh');
+
+        } catch (\Exception $e) {
+            \Log::error('Error resending SMS', [
+                'resident_id' => $residentData['id'] ?? null,
+                'phone' => $residentData['phone'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در ارسال مجدد: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function clearSelection()
+    {
+        $this->selectedResidents = [];
         $this->selectedReport = null;
+        $this->selectedPattern = null;
+        $this->reportPatterns = collect([]);
+        $this->previewMessage = '';
+        $this->previewVariables = [];
+        $this->sendResults = [];
+        $this->isSending = false;
+        $this->sendingProgress = [
+            'total' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'current' => null,
+        ];
     }
 
     public function toggleUnitExpansion($unitIndex)
@@ -419,29 +776,24 @@ class PatternGroup extends Component
 
     /**
      * استخراج و جایگزینی متغیرها در الگو
-     * متغیرها به ترتیب {0}, {1}, {2} و ... استخراج می‌شوند
-     * و مقادیر آنها از دیتابیس (pattern_variables) و داده‌های کاربر/گزارش استخراج می‌شود
      */
     protected function extractPatternVariables($patternText, $resident, $reportData = null)
     {
-        // پیدا کردن تمام متغیرها در الگو (مثل {0}, {1}, {2})
         preg_match_all('/\{(\d+)\}/', $patternText, $matches);
         
         if (empty($matches[1])) {
-            return []; // اگر متغیری وجود نداشت
+            return [];
         }
 
-        // دریافت اطلاعات کامل resident از دیتابیس
         $residentData = $this->getResidentData($resident);
 
-        // بارگذاری متغیرها از دیتابیس
         $variables = PatternVariable::where('is_active', true)
             ->get()
-            ->keyBy('code'); // کلید بر اساس کد (مثل {0}, {1})
+            ->keyBy('code');
 
         $result = [];
         $usedIndices = array_unique(array_map('intval', $matches[1]));
-        sort($usedIndices); // مرتب‌سازی بر اساس ترتیب در الگو
+        sort($usedIndices);
 
         foreach ($usedIndices as $index) {
             $code = '{' . $index . '}';
@@ -451,7 +803,6 @@ class PatternGroup extends Component
                 $value = $this->getVariableValue($variable, $residentData, $reportData);
                 $result[] = $value;
             } else {
-                // اگر متغیر در دیتابیس پیدا نشد، مقدار خالی
                 $result[] = '';
             }
         }
@@ -459,14 +810,11 @@ class PatternGroup extends Component
         return $result;
     }
 
-    /**
-     * دریافت اطلاعات کامل resident از API
-     */
     protected function getResidentData($resident)
     {
         try {
             $residentService = new ResidentService();
-            $data = $residentService->getResidentById($resident['id'] ?? $resident['resident_id']); // resident_id از API
+            $data = $residentService->getResidentById($resident['id'] ?? $resident['resident_id']);
             
             if ($data) {
                 return $data;
@@ -478,7 +826,6 @@ class PatternGroup extends Component
             ]);
         }
 
-        // در صورت خطا، از داده‌های موجود استفاده می‌کنیم
         return [
             'resident' => [
                 'id' => $resident['id'] ?? $resident['resident_id'] ?? null,
@@ -501,68 +848,70 @@ class PatternGroup extends Component
         ];
     }
 
-    /**
-     * دریافت مقدار متغیر بر اساس فیلد جدول
-     * این متد مقدار متغیر را از داده‌های resident یا report استخراج می‌کند
-     */
     protected function getVariableValue($variable, $residentData, $reportData)
     {
         $field = $variable->table_field;
         $type = $variable->variable_type;
 
         if ($type === 'user') {
-            // فیلدهای کاربر
             if (strpos($field, 'unit_') === 0) {
-                $key = substr($field, 5); // حذف 'unit_' از ابتدا
-                $value = $residentData['unit'][$key] ?? '';
-                return $value;
+                $key = substr($field, 5);
+                return $residentData['unit'][$key] ?? '';
             } elseif (strpos($field, 'room_') === 0) {
-                $key = substr($field, 5); // حذف 'room_' از ابتدا
-                $value = $residentData['room'][$key] ?? '';
-                return $value;
+                $key = substr($field, 5);
+                return $residentData['room'][$key] ?? '';
             } elseif (strpos($field, 'bed_') === 0) {
-                $key = substr($field, 4); // حذف 'bed_' از ابتدا
-                $value = $residentData['bed'][$key] ?? '';
-                return $value;
+                $key = substr($field, 4);
+                return $residentData['bed'][$key] ?? '';
             } else {
-                // فیلدهای مستقیم resident (مثل full_name, phone, name, national_id, etc.)
                 $value = $residentData['resident'][$field] ?? '';
                 
-                // اگر مقدار پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
                 if (empty($value)) {
                     if ($field === 'full_name' || $field === 'name') {
                         $value = $residentData['resident']['name'] ?? 
-                                 $residentData['resident']['full_name'] ?? 
-                                 ($residentData['resident']['id'] ?? '');
+                                 $residentData['resident']['full_name'] ?? '';
                     } elseif ($field === 'phone') {
                         $value = $residentData['resident']['phone'] ?? '';
-                    } elseif ($field === 'national_id' || $field === 'national_code') {
-                        $value = $residentData['resident']['national_id'] ?? 
-                                 $residentData['resident']['national_code'] ?? '';
                     }
                 }
                 
                 return $value;
             }
         } elseif ($type === 'report' && $reportData) {
-            // فیلدهای گزارش
             if (strpos($field, 'category.') === 0) {
-                $key = substr($field, 9); // حذف 'category.' از ابتدا
-                $value = $reportData['category_' . $key] ?? '';
-                return $value;
+                $key = substr($field, 9);
+                return $reportData['category_' . $key] ?? '';
             } else {
-                $value = $reportData[$field] ?? '';
-                return $value;
+                return $reportData[$field] ?? '';
             }
         } elseif ($type === 'general') {
-            // فیلدهای عمومی
             if ($field === 'today') {
-                $value = $this->formatJalaliDate(now()->toDateString());
-                return $value;
+                return $this->formatJalaliDate(now()->toDateString());
             }
         }
 
         return '';
+    }
+
+    protected function formatJalaliDate($date)
+    {
+        if (!$date) {
+            return '';
+        }
+
+        try {
+            if (is_string($date)) {
+                $date = \Carbon\Carbon::parse($date);
+            }
+
+            if (class_exists(\Morilog\Jalali\Jalalian::class)) {
+                return \Morilog\Jalali\Jalalian::fromCarbon($date)->format('Y/m/d');
+            }
+
+            return $date->format('Y/m/d');
+        } catch (\Exception $e) {
+            return $date;
+        }
     }
 
     public function render()
