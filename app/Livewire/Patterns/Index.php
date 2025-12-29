@@ -394,24 +394,37 @@ class Index extends Component
 
                 if ($result['success']) {
                     // به‌روزرسانی در دیتابیس
+                    // بعد از ویرایش موفق در API، وضعیت به pending تغییر می‌کند
+                    // چون باید دوباره توسط مدیر سامانه تأیید شود
                     $pattern->update([
                         'title' => $this->title,
                         'text' => $this->text,
                         'blacklist_id' => $this->blacklist_id,
-                        'status' => $this->status,
-                        'rejection_reason' => $this->rejection_reason ?: null,
+                        'status' => 'pending', // بعد از ویرایش، باید دوباره تأیید شود
+                        'rejection_reason' => null, // دلیل رد قبلی پاک می‌شود
                         'is_active' => $this->is_active,
-                        'api_response' => $result['raw_response'],
-                        'http_status_code' => $result['http_status_code'],
+                        'api_response' => $result['raw_response'] ?? null,
+                        'http_status_code' => $result['http_status_code'] ?? null,
                     ]);
+
+                    // نمایش پاسخ API در مودال
+                    $this->apiResponseData = [
+                        'success' => true,
+                        'message' => 'الگو با موفقیت در سامانه ملی پیامک ویرایش شد و برای تأیید ارسال شد.',
+                        'api_response' => $result['raw_response'] ?? null,
+                        'http_status_code' => $result['http_status_code'] ?? null,
+                        'status' => 'pending',
+                        'status_message' => 'در انتظار تأیید مدیر سامانه',
+                    ];
+                    $this->showApiResponseModal = true;
 
                     $this->dispatch('showAlert', [
                         'type' => 'success',
                         'title' => 'موفقیت!',
-                        'text' => 'الگو با موفقیت در API و دیتابیس به‌روزرسانی شد.'
+                        'text' => 'الگو با موفقیت در سامانه ملی پیامک ویرایش شد و برای تأیید ارسال شد. وضعیت: در انتظار تأیید'
                     ]);
                 } else {
-                    // فقط در دیتابیس به‌روزرسانی می‌کنیم
+                    // اگر خطا در API بود، فقط در دیتابیس به‌روزرسانی می‌کنیم
                     $pattern->update([
                         'title' => $this->title,
                         'text' => $this->text,
@@ -419,7 +432,18 @@ class Index extends Component
                         'status' => $this->status,
                         'rejection_reason' => $this->rejection_reason ?: null,
                         'is_active' => $this->is_active,
+                        'api_response' => $result['raw_response'] ?? null,
+                        'http_status_code' => $result['http_status_code'] ?? null,
                     ]);
+
+                    // نمایش پاسخ خطا در مودال
+                    $this->apiResponseData = [
+                        'success' => false,
+                        'message' => $result['message'] ?? 'خطای نامشخص در API',
+                        'api_response' => $result['raw_response'] ?? null,
+                        'http_status_code' => $result['http_status_code'] ?? null,
+                    ];
+                    $this->showApiResponseModal = true;
 
                     $this->dispatch('showAlert', [
                         'type' => 'warning',
@@ -441,12 +465,18 @@ class Index extends Component
                 $this->dispatch('showAlert', [
                     'type' => 'success',
                     'title' => 'موفقیت!',
-                    'text' => 'الگو در دیتابیس به‌روزرسانی شد. (کد الگو وجود ندارد)'
+                    'text' => 'الگو در دیتابیس به‌روزرسانی شد. (کد الگو وجود ندارد - ابتدا باید الگو را در سامانه ملی پیامک ایجاد کنید)'
                 ]);
             }
 
             $this->closeModal();
         } catch (\Exception $e) {
+            \Log::error('Error updating pattern', [
+                'pattern_id' => $this->editingId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'title' => 'خطا!',

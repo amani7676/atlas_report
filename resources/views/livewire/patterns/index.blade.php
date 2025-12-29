@@ -439,32 +439,67 @@
         <div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
             <div style="background: white; border-radius: 10px; width: 100%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 30px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3>پاسخ API - {{ $apiResponseData['title'] }}</h3>
+                    <h3>پاسخ API - {{ $apiResponseData['title'] ?? 'ویرایش الگو' }}</h3>
                     <button wire:click="closeApiResponseModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 15px;">
-                    <div style="margin-bottom: 10px;">
-                        <strong>کد الگو:</strong> 
-                        @if($apiResponseData['pattern_code'])
+                <div style="background: {{ isset($apiResponseData['success']) && $apiResponseData['success'] ? '#d4edda' : '#f8d7da' }}; padding: 20px; border-radius: 6px; margin-bottom: 15px; border: 1px solid {{ isset($apiResponseData['success']) && $apiResponseData['success'] ? '#c3e6cb' : '#f5c6cb' }};">
+                    <div style="margin-bottom: 15px;">
+                        <strong style="display: block; margin-bottom: 8px; color: {{ isset($apiResponseData['success']) && $apiResponseData['success'] ? '#155724' : '#721c24' }};">
+                            @if(isset($apiResponseData['success']) && $apiResponseData['success'])
+                                <i class="fas fa-check-circle"></i> موفق
+                            @else
+                                <i class="fas fa-times-circle"></i> ناموفق
+                            @endif
+                        </strong>
+                        <p style="margin: 0; color: {{ isset($apiResponseData['success']) && $apiResponseData['success'] ? '#155724' : '#721c24' }};">
+                            {{ $apiResponseData['message'] ?? 'پاسخ دریافت شد' }}
+                        </p>
+                    </div>
+                    
+                    @if(isset($apiResponseData['status']))
+                        <div style="margin-bottom: 10px;">
+                            <strong>وضعیت الگو:</strong> 
+                            <span style="background: {{ $apiResponseData['status'] === 'pending' ? '#ffc107' : ($apiResponseData['status'] === 'approved' ? '#28a745' : '#dc3545') }}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                                @if($apiResponseData['status'] === 'pending')
+                                    در انتظار تأیید
+                                @elseif($apiResponseData['status'] === 'approved')
+                                    تأیید شده
+                                @else
+                                    رد شده
+                                @endif
+                            </span>
+                        </div>
+                        @if(isset($apiResponseData['status_message']))
+                            <div style="margin-bottom: 10px; color: #666; font-size: 13px;">
+                                <i class="fas fa-info-circle"></i> {{ $apiResponseData['status_message'] }}
+                            </div>
+                        @endif
+                    @endif
+                    
+                    @if(isset($apiResponseData['pattern_code']))
+                        <div style="margin-bottom: 10px;">
+                            <strong>کد الگو:</strong> 
                             <span style="background: #4361ee; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
                                 {{ $apiResponseData['pattern_code'] }}
                             </span>
-                        @else
-                            <span style="color: #dc3545;">دریافت نشد</span>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
+                    
                     <div style="margin-bottom: 10px;">
                         <strong>کد وضعیت HTTP:</strong> {{ $apiResponseData['http_status_code'] ?? '-' }}
                     </div>
-                    <div style="margin-bottom: 10px;">
-                        <strong>تاریخ ایجاد:</strong> {{ $apiResponseData['created_at'] }}
-                    </div>
+                    
+                    @if(isset($apiResponseData['created_at']))
+                        <div style="margin-bottom: 10px;">
+                            <strong>تاریخ ایجاد:</strong> {{ $apiResponseData['created_at'] }}
+                        </div>
+                    @endif
                 </div>
 
-                @if($apiResponseData['parsed_response'])
+                @if(isset($apiResponseData['parsed_response']) && $apiResponseData['parsed_response'])
                     <div style="margin-bottom: 15px;">
                         <strong>اطلاعات الگو از API:</strong>
                         <div style="background: #fff; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 10px;">
@@ -478,12 +513,14 @@
                     </div>
                 @endif
 
-                <div style="margin-bottom: 15px;">
-                    <strong>پاسخ خام API (این الگو):</strong>
-                    <div style="background: #fff; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 10px; max-height: 400px; overflow-y: auto;">
-                        <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px; direction: ltr; text-align: left;">{{ $apiResponseData['api_response'] }}</pre>
+                @if(isset($apiResponseData['api_response']) && $apiResponseData['api_response'])
+                    <div style="margin-bottom: 15px;">
+                        <strong>پاسخ خام API:</strong>
+                        <div style="background: #fff; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 10px; max-height: 400px; overflow-y: auto;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px; direction: ltr; text-align: left;">{{ $apiResponseData['api_response'] }}</pre>
+                        </div>
                     </div>
-                </div>
+                @endif
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
                     <button wire:click="closeApiResponseModal" class="btn btn-primary">

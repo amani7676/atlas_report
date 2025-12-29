@@ -28,4 +28,11 @@ class Pattern extends Model
         // If it refers to local ID, change to $this->belongsTo(Blacklist::class);
         return $this->belongsTo(Blacklist::class, 'blacklist_id', 'blacklist_id');
     }
+    
+    public function reports()
+    {
+        return $this->belongsToMany(Report::class, 'report_pattern')
+            ->withPivot('sort_order', 'is_active')
+            ->withTimestamps();
+    }
 }

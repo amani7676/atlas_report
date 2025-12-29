@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Http;
 use App\Models\SmsMessage;
 use App\Models\SmsMessageResident;
 use App\Services\MelipayamakService;
+use App\Services\ResidentService;
 
 class Group extends Component
 {
@@ -34,17 +35,11 @@ class Group extends Component
         $this->error = null;
 
         try {
-            $response = Http::timeout(30)->get('http://atlas2.test/api/residents');
-
-            if ($response->successful()) {
-                $this->units = $response->json();
-                $this->sortData();
-            } else {
-                $this->error = 'خطا در دریافت اطلاعات از API';
-                $this->units = [];
-            }
+            $residentService = new ResidentService();
+            $this->units = $residentService->getAllResidents();
+            $this->sortData();
         } catch (\Exception $e) {
-            $this->error = 'خطا در اتصال به API: ' . $e->getMessage();
+            $this->error = 'خطا در دریافت اطلاعات از دیتابیس: ' . $e->getMessage();
             $this->units = [];
         }
 
@@ -230,6 +225,7 @@ class Group extends Component
 
         // متن پایه پیام
         $baseMessageText = $smsMessage->text;
+        $this->sendResults = [];
 
         foreach ($this->selectedResidents as $residentData) {
             if (empty($residentData['phone'])) {
@@ -261,6 +257,13 @@ class Group extends Component
 
             // ارسال پاسخ به console.log
             $this->dispatch('logMelipayamakResponse', $result);
+            
+            // ذخیره نتیجه برای نمایش در پاپاپ
+            $this->sendResults[] = [
+                'resident_name' => $residentData['resident_name'],
+                'phone' => $residentData['phone'],
+                'result' => $result
+            ];
 
             if ($result['success']) {
                 $smsMessageResident->update([
@@ -282,10 +285,43 @@ class Group extends Component
             }
         }
 
+        // ساخت HTML برای نمایش نتایج و پاسخ‌های سرور
+        $responseHtml = '<div style="text-align: right; direction: rtl;">';
+        $responseHtml .= '<p><strong>' . ($failedCount > 0 ? 'توجه!' : 'موفقیت!') . '</strong></p>';
+        $responseHtml .= '<p>' . $sentCount . ' پیامک با موفقیت ارسال شد.' . ($failedCount > 0 ? ' ' . $failedCount . ' پیامک با خطا مواجه شد.' : '') . '</p>';
+        
+        // نمایش جزئیات پاسخ‌های سرور
+        if (!empty($this->sendResults)) {
+            $responseHtml .= '<div style="margin-top: 15px; max-height: 300px; overflow-y: auto;">';
+            $responseHtml .= '<strong>جزئیات پاسخ‌های سرور:</strong>';
+            foreach ($this->sendResults as $index => $sendResult) {
+                $result = $sendResult['result'];
+                $responseHtml .= '<div style="margin-top: 10px; padding: 8px; background: ' . ($result['success'] ? '#f0f9ff' : '#fff3cd') . '; border-radius: 5px; border-right: 3px solid ' . ($result['success'] ? '#28a745' : '#f72585') . ';">';
+                $responseHtml .= '<strong>' . ($index + 1) . '. ' . htmlspecialchars($sendResult['resident_name']) . ' (' . htmlspecialchars($sendResult['phone']) . ')</strong><br>';
+                $responseHtml .= '<span style="color: ' . ($result['success'] ? '#28a745' : '#f72585') . ';">';
+                $responseHtml .= ($result['success'] ? '✓ ' : '✗ ') . htmlspecialchars($result['message'] ?? 'بدون پیام');
+                $responseHtml .= '</span><br>';
+                if (isset($result['response_code'])) {
+                    $responseHtml .= '<span style="color: #666; font-size: 11px;">کد: ' . htmlspecialchars($result['response_code']) . '</span><br>';
+                }
+                if (isset($result['rec_id'])) {
+                    $responseHtml .= '<span style="color: #666; font-size: 11px;">RecId: ' . htmlspecialchars($result['rec_id']) . '</span><br>';
+                }
+                if (isset($result['raw_response']) && !$result['success']) {
+                    $responseHtml .= '<span style="color: #666; font-size: 10px; margin-top: 3px; display: block;">پاسخ خام: ' . htmlspecialchars($result['raw_response']) . '</span>';
+                }
+                $responseHtml .= '</div>';
+            }
+            $responseHtml .= '</div>';
+        }
+        
+        $responseHtml .= '</div>';
+        
         $this->dispatch('showAlert', [
             'type' => $failedCount > 0 ? 'warning' : 'success',
             'title' => $failedCount > 0 ? 'توجه!' : 'موفقیت!',
-            'text' => "{$sentCount} پیامک با موفقیت ارسال شد." . ($failedCount > 0 ? " {$failedCount} پیامک با خطا مواجه شد." : '')
+            'text' => "{$sentCount} پیامک با موفقیت ارسال شد." . ($failedCount > 0 ? " {$failedCount} پیامک با خطا مواجه شد." : ''),
+            'html' => $responseHtml
         ]);
 
         $this->closeSendModal();

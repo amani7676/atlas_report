@@ -90,6 +90,7 @@
                                 <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                             @endif
                         </th>
+                        <th>گزارش</th>
                         <th>نوع</th>
                         <th wire:click="sortBy('status')" style="cursor: pointer;">
                             وضعیت
@@ -137,6 +138,15 @@
                                         <small style="color: #666;">{{ \Illuminate\Support\Str::limit($sentMessage->description, 50) }}</small>
                                     @endif
                                 </div>
+                            </td>
+                            <td>
+                                @if($sentMessage->report)
+                                    <span style="background: #4361ee; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block;">
+                                        <i class="fas fa-file-alt"></i> {{ $sentMessage->report->title }}
+                                    </span>
+                                @else
+                                    <span style="color: #999;">-</span>
+                                @endif
                             </td>
                             <td>
                                 @if($sentMessage->is_pattern)

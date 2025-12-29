@@ -8,8 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// همگام‌سازی خودکار اطلاعات اقامت‌گران از API هر ساعت
+// همگام‌سازی خودکار اطلاعات اقامت‌گران از API هر 1 دقیقه
 Schedule::command('residents:sync')
-    ->hourly()
+    ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();

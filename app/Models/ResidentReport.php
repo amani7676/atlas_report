@@ -50,6 +50,11 @@ class ResidentReport extends Model
     {
         return $this->belongsTo(Report::class);
     }
+    
+    public function resident(): BelongsTo
+    {
+        return $this->belongsTo(Resident::class);
+    }
 
     public function category()
     {

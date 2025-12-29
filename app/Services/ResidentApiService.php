@@ -14,30 +14,15 @@ class ResidentApiService
 
     /**
      * دریافت اطلاعات اقامت‌گر از API بر اساس ID
+     * @deprecated استفاده از ResidentService::getResidentById() به جای این متد
      */
     public function getResidentById($residentId)
     {
         try {
-            $residents = $this->getAllResidents();
-            
-            foreach ($residents as $unit) {
-                foreach ($unit['rooms'] ?? [] as $room) {
-                    foreach ($room['beds'] ?? [] as $bed) {
-                        if (isset($bed['resident']) && $bed['resident']['id'] == $residentId) {
-                            return [
-                                'resident' => $bed['resident'],
-                                'unit' => $unit['unit'] ?? null,
-                                'room' => $room ?? null,
-                                'bed' => $bed ?? null,
-                            ];
-                        }
-                    }
-                }
-            }
-            
-            return null;
+            $residentService = new \App\Services\ResidentService();
+            return $residentService->getResidentById($residentId);
         } catch (\Exception $e) {
-            Log::error('Error getting resident from API', [
+            Log::error('Error getting resident from database', [
                 'resident_id' => $residentId,
                 'error' => $e->getMessage()
             ]);
@@ -47,27 +32,16 @@ class ResidentApiService
 
     /**
      * دریافت همه اقامت‌گران از API
+     * @deprecated استفاده از ResidentService::getAllResidents() به جای این متد
      */
     public function getAllResidents()
     {
         try {
-            // استفاده از cache برای کاهش درخواست‌ها
-            return Cache::remember($this->cacheKey, $this->cacheTime, function () {
-                $response = Http::timeout(30)->get($this->apiUrl);
-                
-                if ($response->successful()) {
-                    return $response->json();
-                }
-                
-                Log::error('Failed to fetch residents from API', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-                
-                return [];
-            });
+            // استفاده از دیتابیس به جای API
+            $residentService = new \App\Services\ResidentService();
+            return $residentService->getAllResidents();
         } catch (\Exception $e) {
-            Log::error('Error fetching residents from API', [
+            Log::error('Error fetching residents from database', [
                 'error' => $e->getMessage()
             ]);
             return [];

@@ -6,6 +6,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Http;
 use App\Models\Report;
 use App\Models\Category;
+use App\Services\ResidentService;
 
 class Units extends Component
 {
@@ -38,17 +39,11 @@ class Units extends Component
         $this->error = null;
 
         try {
-            $response = Http::timeout(30)->get('http://atlas2.test/api/residents');
-
-            if ($response->successful()) {
-                $this->units = $response->json();
-                $this->sortData();
-            } else {
-                $this->error = 'خطا در دریافت اطلاعات از API';
-                $this->units = $this->getSampleData();
-            }
+            $residentService = new ResidentService();
+            $this->units = $residentService->getAllResidents();
+            $this->sortData();
         } catch (\Exception $e) {
-            $this->error = 'خطا در اتصال به API: ' . $e->getMessage();
+            $this->error = 'خطا در دریافت اطلاعات از دیتابیس: ' . $e->getMessage();
             $this->units = $this->getSampleData();
         }
 

@@ -10,6 +10,7 @@ class SmsMessageResident extends Model
 {
     protected $fillable = [
         'sms_message_id',
+        'report_id',
         'pattern_id',
         'is_pattern',
         'pattern_variables',
@@ -51,6 +52,16 @@ class SmsMessageResident extends Model
     public function smsMessage(): BelongsTo
     {
         return $this->belongsTo(SmsMessage::class);
+    }
+    
+    public function resident(): BelongsTo
+    {
+        return $this->belongsTo(Resident::class);
+    }
+    
+    public function report(): BelongsTo
+    {
+        return $this->belongsTo(Report::class);
     }
 
     /**

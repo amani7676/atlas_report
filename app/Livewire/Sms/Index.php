@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\SmsMessage;
 use App\Models\SmsMessageResident;
 use App\Services\MelipayamakService;
+use App\Services\ResidentService;
 use App\Jobs\SendSmsJob;
 use Illuminate\Support\Facades\Http;
 use Livewire\WithPagination;
@@ -91,10 +92,10 @@ class Index extends Component
     {
         $this->loadingResidents = true;
         try {
-            $response = Http::timeout(30)->get('http://atlas2.test/api/residents');
+            $residentService = new ResidentService();
+            $units = $residentService->getAllResidents();
             
-            if ($response->successful()) {
-                $units = $response->json();
+            if (!empty($units)) {
                 $this->residents = [];
                 
                 foreach ($units as $unit) {
@@ -103,17 +104,7 @@ class Index extends Component
                             if (isset($bed['resident']) && $bed['resident']) {
                                 $resident = $bed['resident'];
                                 
-                                // لاگ برای دیباگ - فقط برای اولین رکورد
-                                if (empty($this->residents)) {
-                                    \Log::info('API Resident Data Sample', [
-                                        'resident' => $resident,
-                                        'unit' => $unit['unit'] ?? null,
-                                        'room' => $room,
-                                        'bed' => $bed
-                                    ]);
-                                }
-                                
-                                // دریافت همه فیلدهای ممکن از API
+                                // دریافت همه فیلدهای ممکن
                                 $residentData = [
                                     'id' => $resident['id'] ?? null,
                                     'name' => $resident['full_name'] ?? $resident['name'] ?? '',
@@ -123,27 +114,10 @@ class Index extends Component
                                     'room_name' => $room['name'] ?? '',
                                     'bed_name' => $bed['name'] ?? '',
                                     'national_id' => $resident['national_id'] ?? $resident['national_code'] ?? '',
+                                    'contract_start_date' => $resident['contract_start_date'] ?? null,
+                                    'contract_end_date' => $resident['contract_end_date'] ?? null,
+                                    'contract_expiry_date' => $resident['contract_expiry_date'] ?? null,
                                 ];
-                                
-                                // دریافت تاریخ‌ها با بررسی نام‌های مختلف
-                                $contractStartDate = $resident['contract_start_date'] 
-                                    ?? $resident['start_date'] 
-                                    ?? $resident['contract_start']
-                                    ?? $resident['contract']['start_date'] ?? null;
-                                    
-                                $contractEndDate = $resident['contract_end_date'] 
-                                    ?? $resident['end_date'] 
-                                    ?? $resident['contract_end']
-                                    ?? $resident['contract']['end_date'] ?? null;
-                                    
-                                $contractExpiryDate = $resident['contract_expiry_date'] 
-                                    ?? $resident['expiry_date'] 
-                                    ?? $resident['contract_expiry']
-                                    ?? $resident['contract']['expiry_date'] ?? null;
-                                
-                                $residentData['contract_start_date'] = $contractStartDate;
-                                $residentData['contract_end_date'] = $contractEndDate;
-                                $residentData['contract_expiry_date'] = $contractExpiryDate;
                                 
                                 $this->residents[] = $residentData;
                             }
@@ -368,6 +342,7 @@ class Index extends Component
 
         // متن پایه پیام
         $baseMessageText = $smsMessage->text;
+        $sendResults = [];
 
         foreach ($this->selectedResidents as $residentId) {
             $resident = collect($this->residents)->firstWhere('id', $residentId);
@@ -414,6 +389,13 @@ class Index extends Component
 
             // ارسال پاسخ به console.log
             $this->dispatch('logMelipayamakResponse', $result);
+            
+            // ذخیره نتیجه برای نمایش در پاپاپ
+            $sendResults[] = [
+                'resident_name' => $resident['name'],
+                'phone' => $resident['phone'],
+                'result' => $result
+            ];
 
             if ($result['success']) {
                 $smsMessageResident->update([
@@ -435,10 +417,43 @@ class Index extends Component
             }
         }
 
+        // ساخت HTML برای نمایش نتایج و پاسخ‌های سرور
+        $responseHtml = '<div style="text-align: right; direction: rtl;">';
+        $responseHtml .= '<p><strong>' . ($failedCount > 0 ? 'توجه!' : 'موفقیت!') . '</strong></p>';
+        $responseHtml .= '<p>' . $sentCount . ' پیامک با موفقیت ارسال شد.' . ($failedCount > 0 ? ' ' . $failedCount . ' پیامک با خطا مواجه شد.' : '') . '</p>';
+        
+        // نمایش جزئیات پاسخ‌های سرور
+        if (!empty($sendResults)) {
+            $responseHtml .= '<div style="margin-top: 15px; max-height: 300px; overflow-y: auto;">';
+            $responseHtml .= '<strong>جزئیات پاسخ‌های سرور:</strong>';
+            foreach ($sendResults as $index => $sendResult) {
+                $result = $sendResult['result'];
+                $responseHtml .= '<div style="margin-top: 10px; padding: 8px; background: ' . ($result['success'] ? '#f0f9ff' : '#fff3cd') . '; border-radius: 5px; border-right: 3px solid ' . ($result['success'] ? '#28a745' : '#f72585') . ';">';
+                $responseHtml .= '<strong>' . ($index + 1) . '. ' . htmlspecialchars($sendResult['resident_name']) . ' (' . htmlspecialchars($sendResult['phone']) . ')</strong><br>';
+                $responseHtml .= '<span style="color: ' . ($result['success'] ? '#28a745' : '#f72585') . ';">';
+                $responseHtml .= ($result['success'] ? '✓ ' : '✗ ') . htmlspecialchars($result['message'] ?? 'بدون پیام');
+                $responseHtml .= '</span><br>';
+                if (isset($result['response_code'])) {
+                    $responseHtml .= '<span style="color: #666; font-size: 11px;">کد: ' . htmlspecialchars($result['response_code']) . '</span><br>';
+                }
+                if (isset($result['rec_id'])) {
+                    $responseHtml .= '<span style="color: #666; font-size: 11px;">RecId: ' . htmlspecialchars($result['rec_id']) . '</span><br>';
+                }
+                if (isset($result['raw_response']) && !$result['success']) {
+                    $responseHtml .= '<span style="color: #666; font-size: 10px; margin-top: 3px; display: block;">پاسخ خام: ' . htmlspecialchars($result['raw_response']) . '</span>';
+                }
+                $responseHtml .= '</div>';
+            }
+            $responseHtml .= '</div>';
+        }
+        
+        $responseHtml .= '</div>';
+        
         $this->dispatch('showAlert', [
             'type' => $failedCount > 0 ? 'warning' : 'success',
             'title' => $failedCount > 0 ? 'توجه!' : 'موفقیت!',
-            'text' => "{$sentCount} پیامک با موفقیت ارسال شد." . ($failedCount > 0 ? " {$failedCount} پیامک با خطا مواجه شد." : '')
+            'text' => "{$sentCount} پیامک با موفقیت ارسال شد." . ($failedCount > 0 ? " {$failedCount} پیامک با خطا مواجه شد." : ''),
+            'html' => $responseHtml
         ]);
 
         $this->closeSendModal();

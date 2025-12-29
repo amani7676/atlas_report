@@ -45,7 +45,7 @@ class SentMessages extends Component
 
     public function resendSms($id)
     {
-        $smsMessageResident = SmsMessageResident::with(['smsMessage', 'pattern'])->findOrFail($id);
+        $smsMessageResident = SmsMessageResident::with(['smsMessage', 'pattern', 'report'])->findOrFail($id);
 
         if (empty($smsMessageResident->phone)) {
             $this->dispatch('showAlert', [
@@ -127,7 +127,7 @@ class SentMessages extends Component
             return;
         }
 
-        $smsMessageResidents = SmsMessageResident::with(['smsMessage', 'pattern'])
+        $smsMessageResidents = SmsMessageResident::with(['smsMessage', 'pattern', 'report'])
             ->whereIn('id', $this->selectedIds)
             ->where('status', 'failed')
             ->get();
@@ -220,7 +220,7 @@ class SentMessages extends Component
 
     public function getSentMessagesQueryProperty()
     {
-        return SmsMessageResident::with(['smsMessage', 'pattern'])
+        return SmsMessageResident::with(['smsMessage', 'pattern', 'report'])
             ->when($this->search, function ($query) {
                 $query->where('resident_name', 'like', '%' . $this->search . '%')
                       ->orWhere('phone', 'like', '%' . $this->search . '%')

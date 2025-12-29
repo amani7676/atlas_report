@@ -1,7 +1,7 @@
 <div>
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>ارسال SMS دستی</h2>
+            <h2 style="color: #10b981;"><i class="fas fa-file-code"></i> ارسال SMS الگویی دستی</h2>
             <button 
                 wire:click="syncResidents" 
                 wire:loading.attr="disabled"
@@ -15,11 +15,9 @@
             </button>
         </div>
         
-        {{-- پیام همگام‌سازی حذف شد - اکنون به صورت آلارم در بالا سمت چپ نمایش داده می‌شود --}}
-
         @if($loading)
             <div style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #4361ee;"></i>
+                <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #10b981;"></i>
                 <p>در حال بارگذاری...</p>
             </div>
         @elseif($error)
@@ -47,7 +45,7 @@
                     @foreach($unit['rooms'] as $roomIndex => $room)
                         @if(isset($room['beds']) && count(array_filter($room['beds'], fn($bed) => $bed['resident'])) > 0)
                             <div class="card" style="border: 1px solid #ddd;">
-                                <div style="background: #4361ee; color: white; padding: 10px; border-radius: 6px 6px 0 0;">
+                                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 10px; border-radius: 6px 6px 0 0;">
                                     <strong>{{ $room['name'] }}</strong> - {{ $unit['unit']['name'] }}
                                 </div>
                                 <div style="padding: 15px;">
@@ -67,7 +65,8 @@
                                                             {{ $unitIndex }},
                                                             {{ $roomIndex }}
                                                         )"
-                                                        class="btn btn-primary btn-sm"
+                                                        class="btn btn-sm"
+                                                        style="background: #10b981; color: white; border: none;"
                                                         style="font-size: 12px;"
                                                     >
                                                         <i class="fas fa-paper-plane"></i> ارسال
@@ -92,12 +91,12 @@
         @endif
     </div>
 
-    <!-- Modal for sending SMS -->
+    <!-- Modal for sending Pattern SMS -->
     @if($showModal && $selectedResident)
         <div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
             <div style="background: white; border-radius: 10px; padding: 30px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3>ارسال SMS به {{ $selectedResident['name'] }}</h3>
+                    <h3 style="color: #10b981;"><i class="fas fa-file-code"></i> ارسال SMS الگویی به {{ $selectedResident['name'] }}</h3>
                     <button wire:click="closeModal" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
                 </div>
 
@@ -111,17 +110,93 @@
                             @endforeach
                         </select>
                         @error('selectedReport') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        
+                        @if($selectedReport && $reportPatterns && $reportPatterns->count() > 0)
+                            <div style="background: #d1fae5; padding: 10px; border-radius: 6px; margin-top: 10px; border-right: 3px solid #10b981;">
+                                <strong style="display: block; margin-bottom: 8px;">الگوهای مرتبط با این گزارش:</strong>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                    @foreach($reportPatterns as $pattern)
+                                        <span 
+                                            style="background: #10b981; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px;"
+                                        >
+                                            {{ $pattern->title }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                     
                     <div class="form-group" style="margin-bottom: 20px;">
-                        <label class="form-label">پیام SMS *</label>
-                        <select wire:model="selectedSmsMessage" class="form-control" required>
-                            <option value="">انتخاب پیام</option>
-                            @foreach($smsMessages as $sms)
-                                <option value="{{ $sms->id }}">{{ $sms->title }}</option>
-                            @endforeach
+                        <label class="form-label">الگوی پیامک *</label>
+                        <select wire:model.live="selectedPattern" class="form-control" required>
+                            <option value="">انتخاب الگو</option>
+                            @if($selectedReport && $reportPatterns && $reportPatterns->count() > 0)
+                                <optgroup label="الگوهای مرتبط با گزارش">
+                                    @foreach($reportPatterns as $pattern)
+                                        <option value="{{ $pattern->id }}">
+                                            {{ $pattern->title }} 
+                                            @if($pattern->pattern_code)
+                                                (کد: {{ $pattern->pattern_code }})
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                            <optgroup label="همه الگوها">
+                                @foreach($patterns as $pattern)
+                                    <option value="{{ $pattern->id }}">
+                                        {{ $pattern->title }} 
+                                        @if($pattern->pattern_code)
+                                            (کد: {{ $pattern->pattern_code }})
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </optgroup>
                         </select>
-                        @error('selectedSmsMessage') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        @if($selectedPattern)
+                            @php
+                                $selectedPatternObj = $patterns->firstWhere('id', $selectedPattern);
+                            @endphp
+                            @if($selectedPatternObj)
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                                    <strong>متن الگو:</strong>
+                                    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">{{ $selectedPatternObj->text }}</p>
+                                </div>
+                                
+                                {{-- پیش‌نمایش پیام با متغیرهای جایگزین شده --}}
+                                @if($previewMessage)
+                                    <div style="background: #d1fae5; padding: 15px; border-radius: 6px; margin-top: 10px; border-right: 3px solid #10b981;">
+                                        <strong style="color: #059669; display: block; margin-bottom: 10px;">
+                                            <i class="fas fa-eye"></i> پیش‌نمایش پیام ارسالی:
+                                        </strong>
+                                        <div style="background: white; padding: 12px; border-radius: 5px; border: 1px solid #dee2e6; font-size: 14px; line-height: 1.8;">
+                                            {!! $previewMessage !!}
+                                        </div>
+                                        
+                                        @if(count($previewVariables) > 0)
+                                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #dee2e6;">
+                                                <strong style="color: #666; font-size: 12px; display: block; margin-bottom: 5px;">متغیرهای ارسالی به API:</strong>
+                                                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                                    @foreach($previewVariables as $index => $variable)
+                                                        <span style="background: #a7f3d0; color: #059669; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-family: monospace;">
+                                                            { {{ $index }} }: {{ $variable }}
+                                                        </span>
+                                                    @endforeach
+                                                </div>
+                                                <div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 3px;">
+                                                    <strong style="color: #666; font-size: 11px;">رشته ارسالی به API (با جداکننده ;):</strong>
+                                                    <code style="display: block; margin-top: 5px; padding: 5px; background: white; border-radius: 3px; font-size: 11px; direction: ltr; text-align: left; word-break: break-all;">
+                                                        {{ implode(';', $previewVariables) }}
+                                                    </code>
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+                            @endif
+                        @endif
+                        @error('selectedPattern') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="form-group" style="margin-bottom: 20px;">
@@ -131,9 +206,9 @@
 
                     <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
                         <button type="button" wire:click="closeModal" class="btn" style="background: #6c757d; color: white;">لغو</button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn" style="background: #10b981; color: white; border: none;">
                             <i class="fas fa-paper-plane"></i>
-                            ثبت گزارش و ارسال SMS
+                            ثبت گزارش و ارسال SMS الگویی
                         </button>
                     </div>
                 </form>
@@ -146,7 +221,7 @@
         <div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
             <div style="background: white; border-radius: 10px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 30px; direction: rtl;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 15px;">
-                    <h3 style="margin: 0; color: #4361ee;">
+                    <h3 style="margin: 0; color: #10b981;">
                         <i class="fas fa-info-circle"></i> پاسخ API ملی پیامک
                     </h3>
                     <button wire:click="closeApiResponseModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
@@ -178,7 +253,7 @@
                         @if($apiResponseData['rec_id'])
                             <div>
                                 <strong style="color: #666; display: block; margin-bottom: 5px;">RecId:</strong>
-                                <span style="color: #4361ee; font-weight: bold; font-family: monospace;">
+                                <span style="color: #10b981; font-weight: bold; font-family: monospace;">
                                     {{ $apiResponseData['rec_id'] }}
                                 </span>
                             </div>
@@ -202,10 +277,10 @@
                     </div>
                 </div>
 
-                {{-- اطلاعات الگو (اگر پیامک الگویی باشد) --}}
+                {{-- اطلاعات الگو --}}
                 @if($apiResponseData['is_pattern'] && $apiResponseData['pattern_code'])
-                    <div style="background: #e7f3ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-right: 4px solid #4361ee;">
-                        <h4 style="margin: 0 0 15px 0; color: #4361ee;">
+                    <div style="background: #d1fae5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-right: 4px solid #10b981;">
+                        <h4 style="margin: 0 0 15px 0; color: #059669;">
                             <i class="fas fa-file-alt"></i> اطلاعات الگو
                         </h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
@@ -215,7 +290,7 @@
                             </div>
                             <div>
                                 <strong style="color: #666; display: block; margin-bottom: 5px;">کد الگو:</strong>
-                                <span style="background: #4361ee; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-family: monospace;">
+                                <span style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-family: monospace;">
                                     {{ $apiResponseData['pattern_code'] }}
                                 </span>
                             </div>
@@ -233,8 +308,8 @@
                                     <div style="background: white; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6;">
                                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                             @foreach($apiResponseData['variables'] as $index => $variable)
-                                                <span style="background: #e0e7ff; color: #4361ee; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                                                    {{{ $index }}}: {{ $variable }}
+                                                <span style="background: #a7f3d0; color: #059669; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                    { {{ $index }} }: {{ $variable }}
                                                 </span>
                                             @endforeach
                                         </div>
@@ -288,21 +363,9 @@
                     </div>
                 @endif
 
-                {{-- پاسخ API (JSON) --}}
-                @if($apiResponseData['api_response'])
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin: 0 0 10px 0; color: #666;">
-                            <i class="fas fa-file-code"></i> پاسخ API (JSON)
-                        </h4>
-                        <div style="background: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; border-radius: 5px; max-height: 300px; overflow-y: auto;">
-                            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; font-size: 12px; direction: ltr; text-align: left; color: #333;">{{ is_array($apiResponseData['api_response']) ? json_encode($apiResponseData['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $apiResponseData['api_response'] }}</pre>
-                        </div>
-                    </div>
-                @endif
-
                 {{-- دکمه بستن --}}
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 20px; border-top: 2px solid #e9ecef;">
-                    <button wire:click="closeApiResponseModal" class="btn btn-primary" style="min-width: 120px;">
+                    <button wire:click="closeApiResponseModal" class="btn" style="background: #10b981; color: white; border: none; min-width: 120px;">
                         <i class="fas fa-times"></i> بستن
                     </button>
                 </div>

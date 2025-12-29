@@ -23,15 +23,70 @@ Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edi
 
 Route::get('/residents', Units::class)->name('residents.units');
 Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
+// پیام‌های ساده
 Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
 Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
 Route::get('/sms/group', \App\Livewire\Sms\Group::class)->name('sms.group');
 Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent');
+
+// پیام‌های الگویی
+Route::get('/sms/pattern-manual', \App\Livewire\Sms\PatternManual::class)->name('sms.pattern-manual');
+Route::get('/sms/pattern-group', \App\Livewire\Sms\PatternGroup::class)->name('sms.pattern-group');
+Route::get('/sms/pattern-test', \App\Livewire\Sms\PatternTest::class)->name('sms.pattern-test');
 Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
 Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
 Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');
 Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index');
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
+
+// API endpoint for last sync status
+Route::get('/api/residents/last-sync', function () {
+    // ابتدا از cache بخوان
+    $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
+    
+    if ($lastSync && isset($lastSync['time']) && $lastSync['time'] !== null) {
+        return response()->json([
+            'time' => $lastSync['time'],
+            'synced_count' => $lastSync['synced_count'] ?? 0,
+            'created_count' => $lastSync['created_count'] ?? 0,
+            'updated_count' => $lastSync['updated_count'] ?? 0,
+            'message' => $lastSync['message'] ?? 'همگام‌سازی انجام شده است',
+        ]);
+    }
+    
+    // اگر cache وجود نداشت یا خالی بود، از آخرین sync در دیتابیس استفاده کن
+    try {
+        $lastSyncedResident = \App\Models\Resident::orderBy('last_synced_at', 'desc')->first();
+        $totalCount = \App\Models\Resident::count();
+        
+        if ($lastSyncedResident && $lastSyncedResident->last_synced_at) {
+            $time = $lastSyncedResident->last_synced_at instanceof \Carbon\Carbon 
+                ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s')
+                : $lastSyncedResident->last_synced_at;
+                
+            return response()->json([
+                'time' => $time,
+                'synced_count' => $totalCount,
+                'created_count' => $totalCount,
+                'updated_count' => 0,
+                'message' => 'همگام‌سازی انجام شده است (از دیتابیس)',
+            ]);
+        }
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error getting last sync from database', [
+            'error' => $e->getMessage()
+        ]);
+    }
+    
+    // اگر هیچ داده‌ای پیدا نشد
+    return response()->json([
+        'time' => null,
+        'synced_count' => 0,
+        'created_count' => 0,
+        'updated_count' => 0,
+        'message' => 'هنوز همگام‌سازی انجام نشده است',
+    ]);
+});
 
 
 // Route های API برای حذف

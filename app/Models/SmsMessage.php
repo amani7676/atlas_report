@@ -24,4 +24,11 @@ class SmsMessage extends Model
     {
         return $this->hasMany(SmsMessageResident::class);
     }
+    
+    public function reports()
+    {
+        return $this->belongsToMany(Report::class, 'report_sms_message')
+            ->withPivot('send_type')
+            ->withTimestamps();
+    }
 }

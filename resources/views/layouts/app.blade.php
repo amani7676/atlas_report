@@ -257,6 +257,133 @@
             background: #f8f9fa;
         }
 
+        /* Toast Notification Styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            min-width: 300px;
+            max-width: 450px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 16px 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: slideInLeft 0.3s ease-out;
+            direction: rtl;
+            border-right: 4px solid;
+        }
+
+        .toast.success {
+            border-color: #28a745;
+        }
+
+        .toast.error {
+            border-color: #dc3545;
+        }
+
+        .toast.warning {
+            border-color: #ffc107;
+        }
+
+        .toast.info {
+            border-color: #17a2b8;
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .toast.success .toast-icon {
+            color: #28a745;
+        }
+
+        .toast.error .toast-icon {
+            color: #dc3545;
+        }
+
+        .toast.warning .toast-icon {
+            color: #ffc107;
+        }
+
+        .toast.info .toast-icon {
+            color: #17a2b8;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+            color: #212529;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            color: #6c757d;
+            line-height: 1.5;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: color 0.2s;
+        }
+
+        .toast-close:hover {
+            color: #333;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutLeft {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+        }
+
+        .toast.hiding {
+            animation: slideOutLeft 0.3s ease-out forwards;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -590,16 +717,16 @@
                     </ul>
                 </li>
 
-                <!-- پیام‌ها -->
-                <div class="menu-section">پیام‌ها</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') || request()->is('blacklists*') || request()->is('patterns*') || request()->is('variables*') ? 'open' : '' }}">
+                <!-- پیام‌های ساده -->
+                <div class="menu-section">پیام‌های ساده</div>
+                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-sms"></i>
-                        <span>پیام‌ها</span>
+                        <span>پیام‌های ساده</span>
                     </a>
                     <ul class="submenu">
                         <li>
-                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') ? 'active' : '' }}">
+                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') ? 'active' : '' }}">
                                 <i class="fas fa-sms"></i>
                                 <span>مدیریت پیام‌های SMS</span>
                             </a>
@@ -622,10 +749,33 @@
                                 <span>پیام‌های ارسال شده</span>
                             </a>
                         </li>
+                    </ul>
+                </li>
+
+                <!-- پیام‌های الگویی -->
+                <div class="menu-section">پیام‌های الگویی</div>
+                <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('patterns*') || request()->is('variables*') || request()->is('blacklists*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
+                        <i class="fas fa-file-code"></i>
+                        <span>پیام‌های الگویی</span>
+                    </a>
+                    <ul class="submenu">
                         <li>
-                            <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
-                                <i class="fas fa-ban"></i>
-                                <span>لیست‌های سیاه</span>
+                            <a href="/sms/pattern-manual" class="{{ request()->is('sms/pattern-manual') ? 'active' : '' }}">
+                                <i class="fas fa-user"></i>
+                                <span>ارسال الگویی دستی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/pattern-group" class="{{ request()->is('sms/pattern-group') ? 'active' : '' }}">
+                                <i class="fas fa-users"></i>
+                                <span>ارسال الگویی گروهی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/pattern-test" class="{{ request()->is('sms/pattern-test') ? 'active' : '' }}">
+                                <i class="fas fa-vial"></i>
+                                <span>تست ارسال الگویی</span>
                             </a>
                         </li>
                         <li>
@@ -650,6 +800,12 @@
                             <a href="/variables" class="{{ request()->is('variables*') ? 'active' : '' }}">
                                 <i class="fas fa-code"></i>
                                 <span>مدیریت متغیرها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
+                                <i class="fas fa-ban"></i>
+                                <span>لیست‌های سیاه</span>
                             </a>
                         </li>
                     </ul>
@@ -680,6 +836,9 @@
             </main>
         </div>
     </div>
+
+    {{-- Toast Container --}}
+    <div id="toast-container" class="toast-container"></div>
 
     <script>
         // Check if we're on mobile and close sidebar by default
@@ -738,15 +897,86 @@
             });
         });
 
+        // Toast Notification System
+        function showToast(type, title, message, duration = 5000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-times-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info} toast-icon"></i>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto remove after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    toast.classList.add('hiding');
+                    setTimeout(() => {
+                        if (toast.parentElement) {
+                            toast.remove();
+                        }
+                    }, 300);
+                }, duration);
+            }
+        }
+
+        // Listen for toast events
+        window.addEventListener('showToast', event => {
+            const detail = event.detail;
+            showToast(
+                detail.type || 'info',
+                detail.title || 'اعلان',
+                detail.message || '',
+                detail.duration || 5000
+            );
+        });
+
         // SweetAlert2 configuration
         window.addEventListener('showAlert', event => {
-            Swal.fire({
-                icon: event.detail.type,
-                title: event.detail.title,
-                text: event.detail.text,
+            const detail = event.detail;
+            console.log('showAlert event received:', detail);
+            
+            const config = {
+                icon: detail.type,
+                title: detail.title,
                 confirmButtonText: 'باشه',
-                confirmButtonColor: '#4361ee'
-            });
+                confirmButtonColor: '#4361ee',
+                width: '600px',
+                allowOutsideClick: true,
+                allowEscapeKey: true,
+            };
+            
+            // اگر HTML وجود داشت، از آن استفاده کن، در غیر این صورت از text
+            if (detail.html) {
+                console.log('Using HTML content, length:', detail.html.length);
+                config.html = detail.html;
+                // برای اطمینان از نمایش HTML، از html به جای text استفاده می‌کنیم
+                delete config.text;
+            } else if (detail.text) {
+                console.log('Using text content');
+                config.text = detail.text;
+            }
+            
+            console.log('SweetAlert2 config:', config);
+            Swal.fire(config);
         });
 
         // Log Melipayamak API Response to Console
@@ -763,6 +993,33 @@
             }
             console.log('===================');
         });
+
+        // Listen for residents sync notification
+        @if(config('broadcasting.default') !== 'log')
+        window.Echo = window.Echo || {};
+        if (typeof Echo !== 'undefined' && Echo.channel) {
+            Echo.channel('residents-sync')
+                .listen('.residents.synced', (e) => {
+                    const message = `${e.message || 'دیتابیس اقامت‌گران به‌روزرسانی شد'}\nایجاد شده: ${e.created_count || 0}\nبه‌روزرسانی شده: ${e.updated_count || 0}`;
+                    showToast('success', '✅ بروزرسانی شد', message, 5000);
+                });
+        }
+        @else
+        // Fallback: Poll for sync status every 10 seconds
+        let lastSyncTime = null;
+        setInterval(() => {
+            fetch('/api/residents/last-sync')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.time && data.time !== lastSyncTime) {
+                        lastSyncTime = data.time;
+                        const message = `${data.message || 'دیتابیس اقامت‌گران به‌روزرسانی شد'}\nایجاد شده: ${data.created_count || 0}\nبه‌روزرسانی شده: ${data.updated_count || 0}`;
+                        showToast('success', '✅ بروزرسانی شد', message, 5000);
+                    }
+                })
+                .catch(err => console.error('Error checking sync status:', err));
+        }, 10000); // Check every 10 seconds
+        @endif
 
         // تابع نمایش خطای کامل API ملی پیامک
         window.showError = function(errorData) {

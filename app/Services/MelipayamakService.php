@@ -1021,11 +1021,20 @@ class MelipayamakService
             if (is_numeric(trim($responseBody))) {
                 $result = trim($responseBody);
             }
-            // تلاش برای استخراج از تگ XML
+            // تلاش برای استخراج از تگ XML (مثل <int>-1</int>)
+            elseif (preg_match('/<int[^>]*>(-?\d+)<\/int>/i', $responseBody, $matches)) {
+                $result = $matches[1];
+            }
+            // تلاش برای استخراج از تگ XML (مثل <SharedServiceBodyEditResult>-1</SharedServiceBodyEditResult>)
             elseif (preg_match('/<SharedServiceBodyEditResult[^>]*>(-?\d+)<\/SharedServiceBodyEditResult>/i', $responseBody, $matches)) {
                 $result = $matches[1];
             }
+            // تلاش برای استخراج از تگ XML (مثل <ReturnValue>-1</ReturnValue>)
             elseif (preg_match('/<ReturnValue[^>]*>(-?\d+)<\/ReturnValue>/i', $responseBody, $matches)) {
+                $result = $matches[1];
+            }
+            // تلاش برای استخراج از تگ XML (مثل <string>-1</string>)
+            elseif (preg_match('/<string[^>]*>(-?\d+)<\/string>/i', $responseBody, $matches)) {
                 $result = $matches[1];
             }
 
@@ -1043,6 +1052,16 @@ class MelipayamakService
                         'raw_response' => $responseBody,
                     ];
                 } 
+                // اگر -1 باشد، یعنی دسترسی برای استفاده از این وب‌سرویس غیرفعال است
+                elseif ($resultInt === -1) {
+                    return [
+                        'success' => false,
+                        'message' => 'دسترسی برای استفاده از این وب‌سرویس غیرفعال است. با پشتیبانی تماس بگیرید',
+                        'api_response' => $responseBody,
+                        'http_status_code' => $httpStatus,
+                        'raw_response' => $responseBody,
+                    ];
+                }
                 // اگر -2 باشد، یعنی شناسه لیست سیاه اشتباه است
                 elseif ($resultInt === -2) {
                     return [
@@ -1058,6 +1077,17 @@ class MelipayamakService
                     return [
                         'success' => false,
                         'message' => 'نام کاربری و یا رمز عبور اشتباه است',
+                        'api_response' => $responseBody,
+                        'http_status_code' => $httpStatus,
+                        'raw_response' => $responseBody,
+                    ];
+                }
+                // سایر کدهای خطا
+                else {
+                    $errorMessage = $this->getPatternErrorMessage((string)$resultInt);
+                    return [
+                        'success' => false,
+                        'message' => $errorMessage,
                         'api_response' => $responseBody,
                         'http_status_code' => $httpStatus,
                         'raw_response' => $responseBody,
@@ -1129,7 +1159,8 @@ class MelipayamakService
             }
 
             // ساخت URL با query parameters
-            $baseUrl = 'http://api.payamak-panel.com/post/Send.asmx/SendByBaseNumber2';
+            // بر اساس مستندات: https://api.payamak-panel.com/post/send.asmx/SendByBaseNumber2
+            $baseUrl = 'https://api.payamak-panel.com/post/Send.asmx/SendByBaseNumber2';
             
             $params = [
                 'username' => $this->username,
@@ -1163,16 +1194,58 @@ class MelipayamakService
             
             $errorCodes = ['-111', '-110', '-109', '-108', '-10', '-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '2', '6', '7', '10', '11', '12', '16', '17', '18', '19', '35'];
             
-            // اگر پاسخ یک عدد است
-            if (is_numeric($responseBody)) {
-                $responseCode = (string)$responseBody;
+            // استخراج عدد از پاسخ (ممکن است XML باشد)
+            $responseCode = null;
+            $extractedValue = null;
+            
+            // بر اساس مستندات ملی پیامک: پاسخ می‌تواند XML باشد با تگ SendByBaseNumber2Result
+            // یا می‌تواند یک عدد مستقیم باشد (recId یا کد خطا)
+            $extractedValue = null;
+            
+            // اگر پاسخ XML است، استخراج مقدار از تگ SendByBaseNumber2Result
+            if (strpos($responseBody, '<?xml') !== false || strpos($responseBody, '<') !== false) {
+                // استخراج از تگ SendByBaseNumber2Result (مستندات ملی پیامک)
+                if (preg_match('/<SendByBaseNumber2Result[^>]*>([^<]+)<\/SendByBaseNumber2Result>/i', $responseBody, $matches)) {
+                    $extractedValue = trim($matches[1]);
+                }
+                // استخراج از تگ <string> (فرمت SOAP)
+                elseif (preg_match('/<string[^>]*>([^<]+)<\/string>/i', $responseBody, $matches)) {
+                    $extractedValue = trim($matches[1]);
+                }
+                // استخراج از هر تگ XML
+                elseif (preg_match('/<[^>]+>([^<]+)<\/[^>]+>/i', $responseBody, $matches)) {
+                    $extractedValue = trim($matches[1]);
+                }
+                // اگر نتوانستیم استخراج کنیم، از کل پاسخ استفاده می‌کنیم
+                else {
+                    $extractedValue = trim(strip_tags($responseBody));
+                }
+            } else {
+                // اگر پاسخ عدد مستقیم است
+                $extractedValue = trim($responseBody);
+            }
+            
+            $responseCode = $extractedValue;
+            
+            // بررسی اینکه آیا مقدار استخراج شده یک عدد است
+            if ($extractedValue && is_numeric($extractedValue)) {
+                $responseCode = (string)$extractedValue;
                 
-                // اگر کد خطا نباشد و عدد مثبت باشد (و بیش از 15 رقم = recId)
-                if (!in_array($responseCode, $errorCodes)) {
+                // بررسی اینکه آیا کد خطا است
+                if (in_array($responseCode, $errorCodes)) {
+                    // این یک کد خطا است، در ادامه خطا را برمی‌گردانیم
+                } else {
+                    // اگر کد خطا نباشد
                     $responseInt = (int)$responseCode;
                     if ($responseInt > 0) {
-                        // اگر بیش از 15 رقم باشد، یعنی recId است
+                        // بر اساس مستندات ملی پیامک:
+                        // - recId یک عدد یکتا (معمولاً بیش از 15 رقم) به معنای ارسال موفق است
+                        // - اما ممکن است recId کمتر از 15 رقم هم باشد
+                        // - اگر عدد مثبت باشد و کد خطا نباشد، احتمالاً موفق است
+                        // برای اطمینان بیشتر، اعداد بیش از 15 رقم را قطعاً موفق می‌دانیم
+                        // و برای اعداد کوچکتر (بیش از 1000)، اگر کد خطا نباشد، احتمالاً موفق است
                         if (strlen($responseCode) > 15) {
+                            // قطعاً recId است و موفق است
                             return [
                                 'success' => true,
                                 'rec_id' => $responseCode,
@@ -1180,14 +1253,29 @@ class MelipayamakService
                                 'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
                                 'raw_response' => $responseBody,
                                 'api_response' => $responseBody,
+                                'http_status_code' => $httpStatus,
+                            ];
+                        } elseif ($responseInt >= 1000) {
+                            // اگر عدد مثبت بزرگ باشد (بیش از 1000) و کد خطا نباشد، احتمالاً recId است
+                            // اما برای اطمینان، آن را به عنوان موفق در نظر می‌گیریم
+                            return [
+                                'success' => true,
+                                'rec_id' => $responseCode,
+                                'response_code' => $responseCode,
+                                'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
+                                'raw_response' => $responseBody,
+                                'api_response' => $responseBody,
+                                'http_status_code' => $httpStatus,
                             ];
                         }
+                        // برای اعداد کوچکتر (کمتر از 1000)، آن‌ها را به عنوان خطا در نظر می‌گیریم
+                        // چون ممکن است کد خطای جدیدی باشد که در لیست نیست
                     }
                 }
             }
 
             // در صورت خطا
-            $errorMessage = $this->getPatternErrorMessage($responseBody);
+            $errorMessage = $this->getPatternErrorMessage($responseCode ?? $responseBody);
             
             Log::error('Melipayamak SendByBaseNumber2 Error', [
                 'to' => $normalizedPhone,
@@ -1200,10 +1288,11 @@ class MelipayamakService
 
             return [
                 'success' => false,
-                'response_code' => $responseBody,
+                'response_code' => $responseCode ?? $responseBody,
                 'message' => $errorMessage,
                 'raw_response' => $responseBody,
                 'api_response' => $responseBody,
+                'http_status_code' => $httpStatus,
             ];
         } catch (\Exception $e) {
             Log::error('Melipayamak SendByBaseNumber2 Exception', [
@@ -1216,6 +1305,8 @@ class MelipayamakService
             return [
                 'success' => false,
                 'message' => 'خطا در اتصال به سرویس: ' . $e->getMessage(),
+                'raw_response' => $e->getMessage(),
+                'http_status_code' => null,
             ];
         }
     }
