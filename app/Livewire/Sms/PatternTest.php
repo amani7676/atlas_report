@@ -19,10 +19,14 @@ class PatternTest extends Component
     public $result = null;
     public $showResult = false;
     public $previewMessage = ''; // پیش‌نمایش پیام با متغیرهای جایگزین شده
+    public $senderNumber = ''; // شماره فرستنده
 
     public function mount()
     {
-        // بارگذاری اولیه
+        // دریافت شماره فرستنده از config
+        $this->senderNumber = config('services.melipayamak.pattern_from') 
+                            ?? config('services.melipayamak.from') 
+                            ?? 'تنظیم نشده';
     }
 
     public function updatedSelectedPattern($value)
@@ -188,7 +192,8 @@ class PatternTest extends Component
                 'variables_count' => count($variablesArray),
             ]);
 
-            $result = $melipayamakService->sendByBaseNumber2(
+            // استفاده از متد SendByBaseNumber (SOAP API) برای تست
+            $result = $melipayamakService->sendByBaseNumber(
                 $this->phone,
                 $pattern->pattern_code,
                 $variablesArray

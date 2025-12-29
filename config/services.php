@@ -38,8 +38,10 @@ return [
     'melipayamak' => [
         'username' => env('MELIPAYAMAK_USERNAME', '9961351938'),
         'password' => env('MELIPAYAMAK_PASSWORD'), // استفاده نمی‌شود، فقط برای سازگاری
-        'api_key' => env('MELIPAYAMAK_API_KEY', '7fd3d795-9a79-4b1b-a90f-8d675dd082ea'), // APIKey اصلی
-        'from' => env('MELIPAYAMAK_FROM', '50002710051938'),
+        'api_key' => env('MELIPAYAMAK_API_KEY', '7fd3d795-9a79-4b1b-a90f-8d675dd082ea'), // APIKey برای rest.payamak-panel.com
+        'console_api_key' => env('MELIPAYAMAK_CONSOLE_API_KEY'), // APIKey برای console.melipayamak.com (ارسال الگویی)
+        'from' => env('MELIPAYAMAK_FROM', '50002710051938'), // شماره فرستنده برای پیامک‌های ساده
+        'pattern_from' => env('MELIPAYAMAK_PATTERN_FROM', '90001429'), // شماره فرستنده برای پیامک‌های الگویی
     ],
 
 ];

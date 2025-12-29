@@ -105,6 +105,24 @@
                     @endif
                 @endif
 
+                <!-- شماره فرستنده -->
+                <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-phone-alt text-yellow-600"></i> شماره فرستنده:
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg font-bold text-gray-800 font-mono">{{ $senderNumber }}</span>
+                        @if($senderNumber === 'تنظیم نشده')
+                            <span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                                (لطفاً در فایل .env تنظیم کنید)
+                            </span>
+                        @endif
+                    </div>
+                    <p class="mt-2 text-xs text-gray-600">
+                        این شماره برای ارسال پیامک الگویی استفاده می‌شود. برای تغییر، متغیر <code class="bg-gray-100 px-1 rounded">MELIPAYAMAK_PATTERN_FROM</code> را در فایل <code class="bg-gray-100 px-1 rounded">.env</code> تنظیم کنید.
+                    </p>
+                </div>
+
                 <!-- شماره تلفن -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">

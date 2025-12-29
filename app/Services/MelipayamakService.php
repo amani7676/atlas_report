@@ -1122,16 +1122,214 @@ class MelipayamakService
     }
 
     /**
-     * ارسال پیامک با استفاده از الگو (Pattern)
-     * متد SendByBaseNumber2
-     * بر اساس مستندات: https://api.payamak-panel.com/post/send.asmx
+     * ارسال پیامک با استفاده از الگو (Pattern) - متد SendByBaseNumber
+     * بر اساس مستندات: http://api.payamak-panel.com/post/send.asmx
+     * این متد برای ارسال پیامک با متن پیشفرض از خط خدماتی اشتراکی استفاده می‌شود
      * 
      * @param string $to شماره گیرنده
      * @param int $bodyId کد الگو (BodyId) از ملی پیامک
      * @param array $variables آرایه متغیرها به ترتیب (مثال: ['علی', '1404/10/07'])
      * @return array
      */
-    public function sendByBaseNumber2($to, $bodyId, $variables = [])
+    public function sendByBaseNumber($to, $bodyId, $variables = [])
+    {
+        try {
+            // اعتبارسنجی شماره تلفن
+            if (!$this->validatePhoneNumber($to)) {
+                $normalized = $this->normalizePhoneNumber($to);
+                Log::error('Melipayamak SendByBaseNumber Invalid Phone Number', [
+                    'original' => $to,
+                    'normalized' => $normalized,
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => '18',
+                    'message' => 'شماره موبایل گیرنده نامعتبر است. شماره باید با 09 شروع شود و 11 رقم باشد.',
+                ];
+            }
+
+            // نرمال‌سازی شماره تلفن
+            $normalizedPhone = $this->normalizePhoneNumber($to);
+
+            // اطمینان از اینکه variables یک آرایه است
+            if (!is_array($variables)) {
+                $variables = [];
+            }
+
+            // استفاده از SOAP API
+            // بر اساس مستندات: http://api.payamak-panel.com/post/send.asmx
+            $wsdlUrl = 'http://api.payamak-panel.com/post/Send.asmx?wsdl';
+            
+            // ساخت داده‌های SOAP
+            $soapData = [
+                'username' => $this->username,
+                'password' => $this->password, // APIKey
+                'text' => $variables, // آرایه متغیرها
+                'to' => $normalizedPhone,
+                'bodyId' => (int)$bodyId,
+            ];
+
+            Log::debug('Melipayamak SendByBaseNumber Request (SOAP)', [
+                'wsdl_url' => $wsdlUrl,
+                'to' => $normalizedPhone,
+                'bodyId' => $bodyId,
+                'variables' => $variables,
+                'variables_count' => count($variables),
+            ]);
+
+            // بررسی اینکه SOAP extension فعال است
+            if (!extension_loaded('soap')) {
+                Log::error('SOAP extension is not loaded');
+                return [
+                    'success' => false,
+                    'response_code' => 'soap_not_available',
+                    'message' => 'افزونه SOAP در PHP فعال نیست. لطفاً آن را در php.ini فعال کنید.',
+                ];
+            }
+
+            // ایجاد SOAP Client
+            ini_set("soap.wsdl_cache_enabled", "0");
+            $soapClient = new \SoapClient($wsdlUrl, [
+                'encoding' => 'UTF-8',
+                'cache_wsdl' => WSDL_CACHE_NONE,
+                'exceptions' => true,
+            ]);
+
+            // فراخوانی متد SendByBaseNumber
+            $soapResult = $soapClient->SendByBaseNumber($soapData);
+            
+            // استخراج نتیجه
+            // پاسخ SOAP می‌تواند به صورت object یا string باشد
+            if (is_object($soapResult)) {
+                $responseBody = isset($soapResult->SendByBaseNumberResult) 
+                    ? (string)$soapResult->SendByBaseNumberResult 
+                    : (string)$soapResult;
+            } else {
+                $responseBody = (string)$soapResult;
+            }
+
+            Log::debug('Melipayamak SendByBaseNumber Response (SOAP)', [
+                'response_body' => $responseBody,
+                'response_type' => gettype($responseBody),
+            ]);
+
+            // بررسی پاسخ
+            // بر اساس مستندات: recId یک عدد یکتا (بیش از 15 رقم) به معنای ارسال موفق است
+            $errorCodes = ['-110', '-109', '-108', '-10', '-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '2', '6', '7', '10', '11', '12', '16', '17', '18', '19'];
+            
+            $responseCode = trim($responseBody);
+            
+            // بررسی اینکه آیا کد خطا است
+            if (in_array($responseCode, $errorCodes)) {
+                // این یک کد خطا است
+                $errorMessage = $this->getPatternErrorMessage($responseCode);
+                
+                Log::error('Melipayamak SendByBaseNumber Error', [
+                    'to' => $normalizedPhone,
+                    'bodyId' => $bodyId,
+                    'error' => $errorMessage,
+                    'response_code' => $responseCode,
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => $responseCode,
+                    'message' => $errorMessage,
+                    'raw_response' => $responseBody,
+                    'api_response' => $responseBody,
+                ];
+            }
+            
+            // بررسی موفقیت: اگر عدد بیش از 15 رقم باشد، موفق است
+            // بر اساس مستندات: recId یک عدد یکتا (بیش از 15 رقم) به معنای ارسال موفق است
+            if (is_numeric($responseCode) && strlen($responseCode) > 15) {
+                // ارسال موفق
+                return [
+                    'success' => true,
+                    'rec_id' => $responseCode,
+                    'response_code' => $responseCode,
+                    'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
+                    'raw_response' => $responseBody,
+                    'api_response' => $responseBody,
+                ];
+            }
+            
+            // اگر عدد مثبت باشد اما کمتر از 15 رقم، بررسی می‌کنیم
+            // بر اساس مستندات، فقط اعداد بیش از 15 رقم recId هستند
+            // اما برای اطمینان، اگر عدد مثبت بزرگ باشد (بیش از 1000) و کد خطا نباشد، احتمالاً موفق است
+            if (is_numeric($responseCode) && (int)$responseCode > 1000 && strlen($responseCode) >= 4) {
+                // احتمالاً موفق است (برای اطمینان بیشتر، فقط اعداد بزرگ را قبول می‌کنیم)
+                return [
+                    'success' => true,
+                    'rec_id' => $responseCode,
+                    'response_code' => $responseCode,
+                    'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
+                    'raw_response' => $responseBody,
+                    'api_response' => $responseBody,
+                ];
+            }
+            
+            // در صورت خطا
+            $errorMessage = $this->getPatternErrorMessage($responseCode);
+            
+            Log::error('Melipayamak SendByBaseNumber Unknown Response', [
+                'to' => $normalizedPhone,
+                'bodyId' => $bodyId,
+                'response_code' => $responseCode,
+                'response_body' => $responseBody,
+            ]);
+            
+            return [
+                'success' => false,
+                'response_code' => $responseCode,
+                'message' => $errorMessage ?: 'پاسخ نامعتبر از سرور دریافت شد: ' . $responseBody,
+                'raw_response' => $responseBody,
+                'api_response' => $responseBody,
+            ];
+        } catch (\SoapFault $e) {
+            Log::error('Melipayamak SendByBaseNumber SOAP Exception', [
+                'to' => $to,
+                'bodyId' => $bodyId,
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در اتصال به سرویس SOAP: ' . $e->getMessage(),
+                'raw_response' => $e->getMessage(),
+                'error' => $e->getMessage(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Melipayamak SendByBaseNumber Exception', [
+                'to' => $to,
+                'bodyId' => $bodyId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در ارسال: ' . $e->getMessage(),
+                'raw_response' => $e->getMessage(),
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * ارسال پیامک با استفاده از الگو (Pattern) - متد SendByBaseNumber2
+     * بر اساس مستندات: https://console.melipayamak.com/api/send/shared/{api_key}
+     * 
+     * @param string $to شماره گیرنده
+     * @param int $bodyId کد الگو (BodyId) از ملی پیامک
+     * @param array $variables آرایه متغیرها به ترتیب (مثال: ['علی', '1404/10/07'])
+     * @param string|null $from شماره فرستنده (اختیاری - اگر null باشد از config استفاده می‌شود)
+     * @return array
+     */
+    public function sendByBaseNumber2($to, $bodyId, $variables = [], $from = null)
     {
         try {
             // اعتبارسنجی شماره تلفن
@@ -1152,148 +1350,165 @@ class MelipayamakService
             // نرمال‌سازی شماره تلفن
             $normalizedPhone = $this->normalizePhoneNumber($to);
 
-            // تبدیل آرایه متغیرها به رشته با جداکننده ;
-            $text = '';
-            if (!empty($variables)) {
-                $text = implode(';', $variables);
+            // اطمینان از اینکه variables یک آرایه است
+            if (!is_array($variables)) {
+                $variables = [];
             }
 
-            // ساخت URL با query parameters
-            // بر اساس مستندات: https://api.payamak-panel.com/post/send.asmx/SendByBaseNumber2
-            $baseUrl = 'https://api.payamak-panel.com/post/Send.asmx/SendByBaseNumber2';
+            // استفاده از API جدید ملی پیامک
+            // بر اساس مستندات: https://console.melipayamak.com/api/send/shared/{api_key}
+            // توجه: API Key باید از پنل کاربری ملی پیامک (console.melipayamak.com) گرفته شود
+            // این API Key با API Key قدیمی (rest.payamak-panel.com) متفاوت است
             
-            $params = [
-                'username' => $this->username,
-                'password' => $this->password,
-                'text' => $text,
-                'to' => $normalizedPhone,
+            // ابتدا سعی می‌کنیم از config جدید استفاده کنیم
+            $apiKey = config('services.melipayamak.console_api_key') 
+                    ?: config('services.melipayamak.api_key') 
+                    ?: $this->password;
+            
+            // بررسی اینکه API Key وجود دارد
+            if (empty($apiKey)) {
+                Log::error('Melipayamak Console API Key is empty', [
+                    'config_console_api_key' => config('services.melipayamak.console_api_key'),
+                    'config_api_key' => config('services.melipayamak.api_key'),
+                    'config_password' => config('services.melipayamak.password'),
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => 'no_api_key',
+                    'message' => 'API Key کنسول تنظیم نشده است. لطفاً MELIPAYAMAK_CONSOLE_API_KEY را در فایل .env تنظیم کنید. این API Key باید از پنل کاربری console.melipayamak.com گرفته شود.',
+                ];
+            }
+            
+            $baseUrl = 'https://console.melipayamak.com/api/send/shared/' . $apiKey;
+            
+            // دریافت شماره فرستنده
+            // برای پیامک‌های الگویی، از pattern_from استفاده می‌کنیم
+            $senderNumber = $from ?? config('services.melipayamak.pattern_from') ?? config('services.melipayamak.from');
+            
+            // ساخت داده‌های JSON
+            $data = [
                 'bodyId' => (int)$bodyId,
-            ];
-
-            Log::debug('Melipayamak SendByBaseNumber2 Request', [
                 'to' => $normalizedPhone,
+                'args' => $variables, // آرایه متغیرها (نه رشته با ;)
+            ];
+            
+            // اگر شماره فرستنده تنظیم شده باشد، اضافه می‌کنیم
+            // توجه: ممکن است API جدید از پارامتر 'from' یا 'sender' استفاده کند
+            // بر اساس مستندات، اگر پارامتر وجود داشته باشد، اضافه می‌کنیم
+            if (!empty($senderNumber)) {
+                $data['from'] = $senderNumber;
+            }
+
+            Log::debug('Melipayamak SendByBaseNumber2 Request (New API)', [
+                'url' => $baseUrl,
+                'api_key_length' => strlen($apiKey),
+                'api_key_preview' => substr($apiKey, 0, 8) . '...', // فقط 8 کاراکتر اول برای امنیت
+                'to' => $normalizedPhone,
+                'from' => $senderNumber,
                 'bodyId' => $bodyId,
+                'bodyId_type' => gettype($bodyId),
+                'variables' => $variables,
                 'variables_count' => count($variables),
-                'text' => $text,
+                'data' => $data,
             ]);
 
-            // ارسال درخواست GET
-            $response = Http::get($baseUrl, $params);
+            // ارسال درخواست POST با JSON
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post($baseUrl, $data);
 
             $responseBody = trim($response->body());
             $httpStatus = $response->status();
 
-            Log::debug('Melipayamak SendByBaseNumber2 Response', [
+            Log::debug('Melipayamak SendByBaseNumber2 Response (New API)', [
                 'response_body' => $responseBody,
                 'http_status' => $httpStatus,
+                'response_length' => strlen($responseBody),
             ]);
 
-            // بررسی پاسخ
-            // بر اساس مستندات: recId یک عدد یکتا (بیش از 15 رقم) به معنای ارسال موفق است
-            // کدهای خطا: -111, -110, -109, -108, -10, -7, -6, -5, -4, -3, -2, -1, 0, 2, 6, 7, 10, 11, 12, 16, 17, 18, 19, 35
+            // بررسی پاسخ API جدید
+            // بر اساس مستندات: پاسخ JSON است با ساختار:
+            // {
+            //   "recId": 3741437414,
+            //   "status": "شرح خطا در صورت بروز"
+            // }
             
-            $errorCodes = ['-111', '-110', '-109', '-108', '-10', '-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '2', '6', '7', '10', '11', '12', '16', '17', '18', '19', '35'];
+            $jsonData = json_decode($responseBody, true);
+            $recId = null;
+            $status = null;
             
-            // استخراج عدد از پاسخ (ممکن است XML باشد)
-            $responseCode = null;
-            $extractedValue = null;
-            
-            // بر اساس مستندات ملی پیامک: پاسخ می‌تواند XML باشد با تگ SendByBaseNumber2Result
-            // یا می‌تواند یک عدد مستقیم باشد (recId یا کد خطا)
-            $extractedValue = null;
-            
-            // اگر پاسخ XML است، استخراج مقدار از تگ SendByBaseNumber2Result
-            if (strpos($responseBody, '<?xml') !== false || strpos($responseBody, '<') !== false) {
-                // استخراج از تگ SendByBaseNumber2Result (مستندات ملی پیامک)
-                if (preg_match('/<SendByBaseNumber2Result[^>]*>([^<]+)<\/SendByBaseNumber2Result>/i', $responseBody, $matches)) {
-                    $extractedValue = trim($matches[1]);
-                }
-                // استخراج از تگ <string> (فرمت SOAP)
-                elseif (preg_match('/<string[^>]*>([^<]+)<\/string>/i', $responseBody, $matches)) {
-                    $extractedValue = trim($matches[1]);
-                }
-                // استخراج از هر تگ XML
-                elseif (preg_match('/<[^>]+>([^<]+)<\/[^>]+>/i', $responseBody, $matches)) {
-                    $extractedValue = trim($matches[1]);
-                }
-                // اگر نتوانستیم استخراج کنیم، از کل پاسخ استفاده می‌کنیم
-                else {
-                    $extractedValue = trim(strip_tags($responseBody));
+            if (json_last_error() === JSON_ERROR_NONE && is_array($jsonData)) {
+                // پاسخ JSON است
+                $recId = isset($jsonData['recId']) ? (string)$jsonData['recId'] : null;
+                $status = isset($jsonData['status']) ? trim($jsonData['status']) : null;
+                
+                Log::debug('New API JSON Response parsed', [
+                    'recId' => $recId,
+                    'status' => $status,
+                ]);
+                
+                // بررسی موفقیت: اگر recId وجود داشته باشد و status خالی باشد یا null باشد، موفق است
+                if ($recId && (empty($status) || $status === null)) {
+                    // ارسال موفق
+                    return [
+                        'success' => true,
+                        'rec_id' => $recId,
+                        'response_code' => $recId,
+                        'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $recId . ')',
+                        'raw_response' => $responseBody,
+                        'api_response' => $jsonData,
+                        'http_status_code' => $httpStatus,
+                        'status' => $status,
+                    ];
+                } else {
+                    // خطا در ارسال
+                    $errorMessage = $status ?: 'خطا در ارسال پیامک';
+                    
+                    Log::error('Melipayamak SendByBaseNumber2 Error (New API)', [
+                        'to' => $normalizedPhone,
+                        'bodyId' => $bodyId,
+                        'error' => $errorMessage,
+                        'recId' => $recId,
+                        'status' => $status,
+                        'response_body' => $responseBody,
+                        'http_status_code' => $httpStatus,
+                    ]);
+                    
+                    return [
+                        'success' => false,
+                        'response_code' => $recId ?? 'error',
+                        'message' => $errorMessage,
+                        'raw_response' => $responseBody,
+                        'api_response' => $jsonData,
+                        'http_status_code' => $httpStatus,
+                        'status' => $status,
+                    ];
                 }
             } else {
-                // اگر پاسخ عدد مستقیم است
-                $extractedValue = trim($responseBody);
-            }
-            
-            $responseCode = $extractedValue;
-            
-            // بررسی اینکه آیا مقدار استخراج شده یک عدد است
-            if ($extractedValue && is_numeric($extractedValue)) {
-                $responseCode = (string)$extractedValue;
+                // اگر پاسخ JSON نبود، خطا است
+                $errorMessage = 'پاسخ نامعتبر از سرور دریافت شد';
                 
-                // بررسی اینکه آیا کد خطا است
-                if (in_array($responseCode, $errorCodes)) {
-                    // این یک کد خطا است، در ادامه خطا را برمی‌گردانیم
-                } else {
-                    // اگر کد خطا نباشد
-                    $responseInt = (int)$responseCode;
-                    if ($responseInt > 0) {
-                        // بر اساس مستندات ملی پیامک:
-                        // - recId یک عدد یکتا (معمولاً بیش از 15 رقم) به معنای ارسال موفق است
-                        // - اما ممکن است recId کمتر از 15 رقم هم باشد
-                        // - اگر عدد مثبت باشد و کد خطا نباشد، احتمالاً موفق است
-                        // برای اطمینان بیشتر، اعداد بیش از 15 رقم را قطعاً موفق می‌دانیم
-                        // و برای اعداد کوچکتر (بیش از 1000)، اگر کد خطا نباشد، احتمالاً موفق است
-                        if (strlen($responseCode) > 15) {
-                            // قطعاً recId است و موفق است
-                            return [
-                                'success' => true,
-                                'rec_id' => $responseCode,
-                                'response_code' => $responseCode,
-                                'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
-                                'raw_response' => $responseBody,
-                                'api_response' => $responseBody,
-                                'http_status_code' => $httpStatus,
-                            ];
-                        } elseif ($responseInt >= 1000) {
-                            // اگر عدد مثبت بزرگ باشد (بیش از 1000) و کد خطا نباشد، احتمالاً recId است
-                            // اما برای اطمینان، آن را به عنوان موفق در نظر می‌گیریم
-                            return [
-                                'success' => true,
-                                'rec_id' => $responseCode,
-                                'response_code' => $responseCode,
-                                'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
-                                'raw_response' => $responseBody,
-                                'api_response' => $responseBody,
-                                'http_status_code' => $httpStatus,
-                            ];
-                        }
-                        // برای اعداد کوچکتر (کمتر از 1000)، آن‌ها را به عنوان خطا در نظر می‌گیریم
-                        // چون ممکن است کد خطای جدیدی باشد که در لیست نیست
-                    }
-                }
+                Log::error('Melipayamak SendByBaseNumber2 Invalid Response', [
+                    'to' => $normalizedPhone,
+                    'bodyId' => $bodyId,
+                    'error' => $errorMessage,
+                    'response_body' => $responseBody,
+                    'http_status_code' => $httpStatus,
+                ]);
+                
+                return [
+                    'success' => false,
+                    'response_code' => 'invalid_response',
+                    'message' => $errorMessage . ': ' . substr($responseBody, 0, 200),
+                    'raw_response' => $responseBody,
+                    'api_response' => null,
+                    'http_status_code' => $httpStatus,
+                ];
             }
 
-            // در صورت خطا
-            $errorMessage = $this->getPatternErrorMessage($responseCode ?? $responseBody);
-            
-            Log::error('Melipayamak SendByBaseNumber2 Error', [
-                'to' => $normalizedPhone,
-                'bodyId' => $bodyId,
-                'error' => $errorMessage,
-                'response_code' => $responseBody,
-                'response_body' => $responseBody,
-                'http_status_code' => $httpStatus,
-            ]);
-
-            return [
-                'success' => false,
-                'response_code' => $responseCode ?? $responseBody,
-                'message' => $errorMessage,
-                'raw_response' => $responseBody,
-                'api_response' => $responseBody,
-                'http_status_code' => $httpStatus,
-            ];
+            // این بخش دیگر استفاده نمی‌شود چون خطاها در بخش بالا مدیریت می‌شوند
+            // اما برای سازگاری نگه داشته شده است
         } catch (\Exception $e) {
             Log::error('Melipayamak SendByBaseNumber2 Exception', [
                 'to' => $to,

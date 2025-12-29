@@ -34,14 +34,19 @@ class PatternManual extends Component
     public $notes = '';
     public $syncing = false;
     public $syncMessage = '';
-    public $showApiResponseModal = false; // نمایش مودال پاسخ API
-    public $apiResponseData = null; // داده‌های پاسخ API
+    public $result = null; // نتیجه ارسال SMS (مشابه PatternTest)
+    public $showResult = false; // نمایش نتیجه (مشابه PatternTest)
     public $previewMessage = ''; // پیش‌نمایش پیام با متغیرهای جایگزین شده
     public $previewVariables = []; // متغیرهای استخراج شده برای پیش‌نمایش
+    public $senderNumber = ''; // شماره فرستنده
 
     public function mount()
     {
         $this->reportPatterns = collect([]);
+        // دریافت شماره فرستنده از config
+        $this->senderNumber = config('services.melipayamak.pattern_from') 
+                            ?? config('services.melipayamak.from') 
+                            ?? 'تنظیم نشده';
         $this->loadUnits();
         $this->loadReports();
         $this->loadPatterns();
@@ -263,6 +268,8 @@ class PatternManual extends Component
         $this->notes = '';
         $this->previewMessage = '';
         $this->previewVariables = [];
+        $this->result = null; // پاک کردن نتیجه قبلی
+        $this->showResult = false;
         $this->showModal = true;
     }
 
@@ -511,34 +518,22 @@ class PatternManual extends Component
                 return;
             }
 
-            // ذخیره داده‌های پاسخ API برای نمایش در مودال
-            $this->apiResponseData = [
-                'success' => $result['success'] ?? false,
-                'message' => $result['message'] ?? 'پیام نامشخص',
-                'response_code' => $result['response_code'] ?? null,
-                'rec_id' => $result['rec_id'] ?? null,
-                'raw_response' => $result['raw_response'] ?? null,
-                'api_response' => $result['api_response'] ?? null,
-                'http_status_code' => $result['http_status_code'] ?? null,
-                'is_pattern' => true,
-                'pattern_id' => $this->selectedPattern,
-                'pattern_code' => $pattern->pattern_code,
-                'pattern_title' => $pattern->title,
-                'pattern_text' => $pattern->text,
-                'variables' => $variables,
-                'variables_string' => implode(';', $variables),
-                'phone' => $this->selectedResident['phone'] ?? null,
-                'resident_name' => $this->selectedResident['name'] ?? null,
-            ];
+            // ذخیره نتیجه برای نمایش (مشابه PatternTest)
+            $this->result = $result;
+            $this->showResult = true;
 
             // بررسی موفقیت ارسال
             $isSuccess = isset($result['success']) && $result['success'] === true;
             
-            \Log::info('Checking SMS result success', [
+            \Log::info('PatternManual - SMS result saved', [
+                'result' => $this->result,
+                'showResult' => $this->showResult,
                 'is_success' => $isSuccess,
-                'result_success' => $result['success'] ?? 'not set',
-                'result_message' => $result['message'] ?? 'no message',
+                'result_keys' => is_array($this->result) ? array_keys($this->result) : 'not array',
             ]);
+            
+            // اطمینان از اینکه Livewire re-render می‌شود
+            $this->dispatch('$refresh');
             
             if ($isSuccess) {
                 $smsMessageResident->update([
@@ -548,42 +543,10 @@ class PatternManual extends Component
                     'error_message' => null,
                 ]);
                 
-                // ساخت HTML برای نمایش پاسخ سرور در آلارم
-                $responseHtml = '<div style="text-align: right; direction: rtl;">';
-                $responseHtml .= '<p><strong>گزارش ثبت شد و پیامک با موفقیت ارسال شد.</strong></p>';
-                $responseHtml .= '<div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 5px; border-right: 3px solid #28a745;">';
-                $responseHtml .= '<strong style="color: #28a745; display: block; margin-bottom: 8px;">✓ پاسخ سرور:</strong>';
-                $responseHtml .= '<div style="font-size: 13px; line-height: 1.8;">';
-                $responseHtml .= '<span style="color: #28a745;">✓ پیام: ' . htmlspecialchars($result['message'] ?? 'ارسال موفق') . '</span><br>';
-                if (isset($result['rec_id'])) {
-                    $responseHtml .= '<span style="color: #666;">RecId: <strong style="font-family: monospace;">' . htmlspecialchars($result['rec_id']) . '</strong></span><br>';
-                }
-                if (isset($result['response_code'])) {
-                    $responseHtml .= '<span style="color: #666;">کد پاسخ: <strong style="font-family: monospace;">' . htmlspecialchars($result['response_code']) . '</strong></span><br>';
-                }
-                if (isset($result['http_status_code'])) {
-                    $responseHtml .= '<span style="color: #666;">کد HTTP: <strong>' . htmlspecialchars($result['http_status_code']) . '</strong></span><br>';
-                }
-                if (isset($result['raw_response'])) {
-                    $responseHtml .= '<div style="margin-top: 8px; padding: 8px; background: white; border-radius: 3px; border: 1px solid #dee2e6;">';
-                    $responseHtml .= '<strong style="color: #666; font-size: 11px;">پاسخ خام:</strong><br>';
-                    $responseHtml .= '<code style="font-size: 11px; color: #333; word-break: break-all;">' . htmlspecialchars(substr($result['raw_response'], 0, 200)) . (strlen($result['raw_response']) > 200 ? '...' : '') . '</code>';
-                    $responseHtml .= '</div>';
-                }
-                $responseHtml .= '</div>';
-                $responseHtml .= '</div>';
-                $responseHtml .= '</div>';
-                
-                \Log::info('Dispatching success alert with HTML', [
-                    'html_length' => strlen($responseHtml),
-                    'html_preview' => substr($responseHtml, 0, 200),
-                ]);
-                
                 $this->dispatch('showAlert', [
                     'type' => 'success',
                     'title' => 'موفقیت!',
                     'text' => 'گزارش ثبت شد و پیامک با موفقیت ارسال شد.',
-                    'html' => $responseHtml,
                 ]);
             } else {
                 $smsMessageResident->update([
@@ -594,45 +557,12 @@ class PatternManual extends Component
                     'raw_response' => $result['raw_response'] ?? null,
                 ]);
                 
-                // ساخت HTML برای نمایش خطا و پاسخ سرور در آلارم
-                $errorHtml = '<div style="text-align: right; direction: rtl;">';
-                $errorHtml .= '<p><strong>گزارش ثبت شد اما ارسال پیامک با خطا مواجه شد.</strong></p>';
-                $errorHtml .= '<div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-radius: 5px; border-right: 3px solid #dc3545;">';
-                $errorHtml .= '<strong style="color: #dc3545; display: block; margin-bottom: 8px;">✗ پاسخ سرور:</strong>';
-                $errorHtml .= '<div style="font-size: 13px; line-height: 1.8;">';
-                $errorHtml .= '<span style="color: #dc3545;">✗ پیام خطا: <strong>' . htmlspecialchars($result['message'] ?? 'خطای نامشخص') . '</strong></span><br>';
-                if (isset($result['response_code'])) {
-                    $errorHtml .= '<span style="color: #666;">کد پاسخ: <strong style="font-family: monospace;">' . htmlspecialchars($result['response_code']) . '</strong></span><br>';
-                }
-                if (isset($result['http_status_code'])) {
-                    $errorHtml .= '<span style="color: #666;">کد HTTP: <strong>' . htmlspecialchars($result['http_status_code']) . '</strong></span><br>';
-                }
-                if (isset($result['raw_response'])) {
-                    $errorHtml .= '<div style="margin-top: 8px; padding: 8px; background: white; border-radius: 3px; border: 1px solid #dee2e6;">';
-                    $errorHtml .= '<strong style="color: #666; font-size: 11px;">پاسخ خام:</strong><br>';
-                    $errorHtml .= '<code style="font-size: 11px; color: #333; word-break: break-all;">' . htmlspecialchars(substr($result['raw_response'], 0, 200)) . (strlen($result['raw_response']) > 200 ? '...' : '') . '</code>';
-                    $errorHtml .= '</div>';
-                }
-                $errorHtml .= '</div>';
-                $errorHtml .= '</div>';
-                $errorHtml .= '</div>';
-                
-                \Log::info('Dispatching error alert with HTML', [
-                    'html_length' => strlen($errorHtml),
-                    'html_preview' => substr($errorHtml, 0, 200),
-                ]);
-                
                 $this->dispatch('showAlert', [
                     'type' => 'warning',
                     'title' => 'توجه!',
                     'text' => 'گزارش ثبت شد اما ارسال پیامک با خطا مواجه شد.',
-                    'html' => $errorHtml,
                 ]);
             }
-
-            // نمایش مودال پاسخ API
-            $this->showApiResponseModal = true;
-            $this->closeModal();
         } catch (\Exception $e) {
             \Log::error('Error in PatternManual SMS submit', [
                 'error' => $e->getMessage(),
@@ -660,13 +590,10 @@ class PatternManual extends Component
         $this->notes = '';
         $this->previewMessage = '';
         $this->previewVariables = [];
+        $this->result = null; // پاک کردن نتیجه
+        $this->showResult = false;
     }
 
-    public function closeApiResponseModal()
-    {
-        $this->showApiResponseModal = false;
-        $this->apiResponseData = null;
-    }
 
     public function toggleUnitExpansion($unitIndex)
     {
