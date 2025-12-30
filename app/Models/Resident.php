@@ -21,9 +21,12 @@ class Resident extends Model
         'room_name',
         'bed_id',
         'bed_name',
+        // فیلدهای contract با نام یکسان (contract_start_date, contract_end_date, contract_expiry_date)
         'contract_start_date',
         'contract_end_date',
         'contract_expiry_date',
+        // resident_data شامل تمام فیلدهای resident و contract با نام یکسان است
+        // فیلدهای contract با prefix contract_ ذخیره می‌شوند (مثل contract_start_date، contract_end_date و غیره)
         'resident_data',
         'unit_data',
         'room_data',

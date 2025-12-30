@@ -73,7 +73,63 @@ class SyncResidentsFromApi implements ShouldQueue
                         
                         $residentId = $resident['id'];
                         
-                        // استخراج اطلاعات
+                        // استخراج اطلاعات contract - تمام فیلدهای contract را با نام یکسان در resident_data ذخیره می‌کنیم
+                        $contract = $resident['contract'] ?? [];
+                        
+                        // ایجاد mergedResidentData که شامل تمام فیلدهای resident و contract با نام یکسان است
+                        $mergedResidentData = $resident;
+                        
+                        // اگر contract به صورت جداگانه وجود دارد، تمام فیلدهای آن را با prefix contract_ به resident_data اضافه می‌کنیم
+                        if (!empty($contract) && is_array($contract)) {
+                            foreach ($contract as $key => $value) {
+                                // نام یکسان برای فیلدهای contract: contract_[field_name]
+                                $contractFieldName = 'contract_' . $key;
+                                $mergedResidentData[$contractFieldName] = $value;
+                            }
+                            // همچنین contract object کامل را هم نگه می‌داریم
+                            $mergedResidentData['contract'] = $contract;
+                        }
+                        
+                        // استخراج تاریخ‌های قرارداد با نام یکسان - اولویت با فیلدهای با prefix contract_
+                        $contractStartDate = $this->parseDate(
+                            $mergedResidentData['contract_start_date'] ?? 
+                            $resident['contract_start_date'] ?? 
+                            $resident['contract']['start_date'] ?? 
+                            $resident['start_date'] ?? 
+                            $contract['start_date'] ?? 
+                            null
+                        );
+                        
+                        $contractEndDate = $this->parseDate(
+                            $mergedResidentData['contract_end_date'] ?? 
+                            $resident['contract_end_date'] ?? 
+                            $resident['contract']['end_date'] ?? 
+                            $resident['end_date'] ?? 
+                            $contract['end_date'] ?? 
+                            null
+                        );
+                        
+                        $contractExpiryDate = $this->parseDate(
+                            $mergedResidentData['contract_expiry_date'] ?? 
+                            $resident['contract_expiry_date'] ?? 
+                            $resident['contract']['expiry_date'] ?? 
+                            $resident['expiry_date'] ?? 
+                            $contract['expiry_date'] ?? 
+                            null
+                        );
+                        
+                        // اطمینان از اینکه تاریخ‌های استخراج شده در mergedResidentData با نام یکسان ذخیره شوند
+                        if ($contractStartDate) {
+                            $mergedResidentData['contract_start_date'] = $contractStartDate;
+                        }
+                        if ($contractEndDate) {
+                            $mergedResidentData['contract_end_date'] = $contractEndDate;
+                        }
+                        if ($contractExpiryDate) {
+                            $mergedResidentData['contract_expiry_date'] = $contractExpiryDate;
+                        }
+                        
+                        // استخراج اطلاعات اصلی
                         $data = [
                             'resident_id' => $residentId,
                             'full_name' => $resident['full_name'] ?? $resident['name'] ?? null,
@@ -87,37 +143,16 @@ class SyncResidentsFromApi implements ShouldQueue
                             'room_name' => $roomData['name'] ?? null,
                             'bed_id' => $bedData['id'] ?? null,
                             'bed_name' => $bedData['name'] ?? null,
-                            'resident_data' => $resident,
+                            'contract_start_date' => $contractStartDate,
+                            'contract_end_date' => $contractEndDate,
+                            'contract_expiry_date' => $contractExpiryDate,
+                            // ذخیره تمام داده‌های resident و contract با نام یکسان در resident_data
+                            'resident_data' => $mergedResidentData,
                             'unit_data' => $unitData,
                             'room_data' => $roomData,
                             'bed_data' => $bedData,
                             'last_synced_at' => now(),
                         ];
-                        
-                        // تاریخ‌های قرارداد
-                        if (isset($resident['contract_start_date'])) {
-                            $data['contract_start_date'] = $this->parseDate($resident['contract_start_date']);
-                        } elseif (isset($resident['start_date'])) {
-                            $data['contract_start_date'] = $this->parseDate($resident['start_date']);
-                        } elseif (isset($resident['contract']['start_date'])) {
-                            $data['contract_start_date'] = $this->parseDate($resident['contract']['start_date']);
-                        }
-                        
-                        if (isset($resident['contract_end_date'])) {
-                            $data['contract_end_date'] = $this->parseDate($resident['contract_end_date']);
-                        } elseif (isset($resident['end_date'])) {
-                            $data['contract_end_date'] = $this->parseDate($resident['end_date']);
-                        } elseif (isset($resident['contract']['end_date'])) {
-                            $data['contract_end_date'] = $this->parseDate($resident['contract']['end_date']);
-                        }
-                        
-                        if (isset($resident['contract_expiry_date'])) {
-                            $data['contract_expiry_date'] = $this->parseDate($resident['contract_expiry_date']);
-                        } elseif (isset($resident['expiry_date'])) {
-                            $data['contract_expiry_date'] = $this->parseDate($resident['expiry_date']);
-                        } elseif (isset($resident['contract']['expiry_date'])) {
-                            $data['contract_expiry_date'] = $this->parseDate($resident['contract']['expiry_date']);
-                        }
                         
                         // ذخیره یا به‌روزرسانی
                         try {

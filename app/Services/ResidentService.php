@@ -57,7 +57,7 @@ class ResidentService
                     ] + ($resident->bed_data ?? []);
                 }
                 
-                // اضافه کردن resident به bed
+                // اضافه کردن resident به bed - با تمام فیلدهای contract با نام یکسان
                 $residentData = [
                     'id' => $resident->resident_id,
                     'full_name' => $resident->full_name,
@@ -65,9 +65,9 @@ class ResidentService
                     'phone' => $resident->phone,
                     'national_id' => $resident->national_id,
                     'national_code' => $resident->national_code,
-                ] + ($resident->resident_data ?? []);
+                ];
                 
-                // اضافه کردن تاریخ‌های قرارداد
+                // اضافه کردن تاریخ‌های قرارداد با نام یکسان
                 if ($resident->contract_start_date) {
                     $residentData['contract_start_date'] = $resident->contract_start_date->format('Y-m-d');
                 }
@@ -77,6 +77,9 @@ class ResidentService
                 if ($resident->contract_expiry_date) {
                     $residentData['contract_expiry_date'] = $resident->contract_expiry_date->format('Y-m-d');
                 }
+                
+                // ادغام با resident_data (که شامل تمام فیلدهای contract با نام یکسان است)
+                $residentData = array_merge($residentData, ($resident->resident_data ?? []));
                 
                 $units[$unitCode]['rooms'][$roomName]['beds'][$bedName]['resident'] = $residentData;
             }
@@ -112,15 +115,32 @@ class ResidentService
                 return null;
             }
             
+            // آماده‌سازی داده‌های resident با تمام فیلدهای contract
+            $residentDataArray = [
+                'id' => $resident->resident_id,
+                'full_name' => $resident->full_name,
+                'name' => $resident->full_name,
+                'phone' => $resident->phone,
+                'national_id' => $resident->national_id,
+                'national_code' => $resident->national_code,
+            ];
+            
+            // اضافه کردن تاریخ‌های contract با نام یکسان
+            if ($resident->contract_start_date) {
+                $residentDataArray['contract_start_date'] = $resident->contract_start_date->format('Y-m-d');
+            }
+            if ($resident->contract_end_date) {
+                $residentDataArray['contract_end_date'] = $resident->contract_end_date->format('Y-m-d');
+            }
+            if ($resident->contract_expiry_date) {
+                $residentDataArray['contract_expiry_date'] = $resident->contract_expiry_date->format('Y-m-d');
+            }
+            
+            // ادغام با resident_data (که شامل تمام فیلدهای contract با نام یکسان است)
+            $residentDataArray = array_merge($residentDataArray, ($resident->resident_data ?? []));
+            
             return [
-                'resident' => [
-                    'id' => $resident->resident_id,
-                    'full_name' => $resident->full_name,
-                    'name' => $resident->full_name,
-                    'phone' => $resident->phone,
-                    'national_id' => $resident->national_id,
-                    'national_code' => $resident->national_code,
-                ] + ($resident->resident_data ?? []),
+                'resident' => $residentDataArray,
                 'unit' => [
                     'id' => $resident->unit_id,
                     'name' => $resident->unit_name,
@@ -144,6 +164,7 @@ class ResidentService
         }
     }
 }
+
 
 
 

@@ -34,13 +34,15 @@ return new class extends Migration
             $table->integer('bed_id')->nullable();
             $table->string('bed_name')->nullable();
             
-            // تاریخ‌های قرارداد
-            $table->date('contract_start_date')->nullable();
-            $table->date('contract_end_date')->nullable();
-            $table->date('contract_expiry_date')->nullable();
+            // تاریخ‌های قرارداد (با نام یکسان در تمام فیلدها)
+            $table->date('contract_start_date')->nullable()->comment('تاریخ شروع قرارداد');
+            $table->date('contract_end_date')->nullable()->comment('تاریخ پایان قرارداد');
+            $table->date('contract_expiry_date')->nullable()->comment('تاریخ انقضای قرارداد');
             
             // ذخیره تمام داده‌های خام API به صورت JSON
-            $table->json('resident_data')->nullable()->comment('تمام داده‌های resident از API');
+            // توجه: resident_data شامل تمام فیلدهای resident و contract با نام یکسان است
+            // فیلدهای contract با prefix contract_ ذخیره می‌شوند (مثل contract_start_date، contract_end_date و غیره)
+            $table->json('resident_data')->nullable()->comment('تمام داده‌های resident و contract از API با نام یکسان');
             $table->json('unit_data')->nullable()->comment('تمام داده‌های unit از API');
             $table->json('room_data')->nullable()->comment('تمام داده‌های room از API');
             $table->json('bed_data')->nullable()->comment('تمام داده‌های bed از API');

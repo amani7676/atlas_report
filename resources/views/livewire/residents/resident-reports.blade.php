@@ -246,6 +246,7 @@
                                 <thead class="table-light sticky-top">
                                     <tr>
                                         <th width="5%">#</th>
+                                        <th width="3%">چک</th>
                                         <th>اقامت‌گر</th>
                                         <th>نوع تخلف</th>
                                         <th>تعداد تکرار</th>
@@ -257,6 +258,15 @@
                                         <tr>
                                             <td>
                                                 <span class="badge rounded-pill bg-primary">{{ $index + 1 }}</span>
+                                            </td>
+                                            <td style="text-align: center; vertical-align: middle;">
+                                                <!-- Material Design Checkbox - disabled برای لیست جمع‌بندی -->
+                                                <div class="form-check" style="margin: 0; padding: 0;">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           id="check_repeat_{{ $resident->id ?? $index }}"
+                                                           style="width: 18px; height: 18px; cursor: not-allowed; margin: 0;"
+                                                           disabled>
+                                                </div>
                                             </td>
                                             <td>
                                                 <a href="#"
@@ -313,6 +323,7 @@
                                 <thead class="table-light sticky-top">
                                     <tr>
                                         <th width="5%">#</th>
+                                        <th width="3%">چک</th>
                                         <th>اقامت‌گر</th>
                                         <th>تعداد گزارش</th>
                                         <th>مجموع نمرات</th>
@@ -324,6 +335,15 @@
                                         <tr>
                                             <td>
                                                 <span class="badge rounded-pill bg-info">{{ $index + 1 }}</span>
+                                            </td>
+                                            <td style="text-align: center; vertical-align: middle;">
+                                                <!-- Material Design Checkbox - disabled برای لیست جمع‌بندی -->
+                                                <div class="form-check" style="margin: 0; padding: 0;">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           id="check_count_{{ $resident->id ?? $index }}"
+                                                           style="width: 18px; height: 18px; cursor: not-allowed; margin: 0;"
+                                                           disabled>
+                                                </div>
                                             </td>
                                             <td>
                                                 <a href="#"
@@ -426,6 +446,7 @@
                                     <table class="table table-sm table-hover">
                                         <thead class="table-light sticky-top">
                                             <tr>
+                                                <th width="3%">چک</th>
                                                 <th>گزارش</th>
                                                 <th>نمره</th>
                                                 <th>توضیحات</th>
@@ -435,6 +456,20 @@
                                         <tbody>
                                             @forelse($residentReports as $report)
                                                 <tr>
+                                                    <td style="text-align: center; vertical-align: middle;">
+                                                        <!-- Material Design Checkbox -->
+                                                        <div class="form-check" style="margin: 0; padding: 0;">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   id="check_detail_{{ $report->id }}"
+                                                                   @if($report->is_checked) checked @endif
+                                                                   wire:click="toggleChecked({{ $report->id }})"
+                                                                   style="width: 18px; height: 18px; cursor: pointer; margin: 0;"
+                                                                   wire:loading.attr="disabled">
+                                                            <div wire:loading wire:target="toggleChecked({{ $report->id }})" class="spinner-border spinner-border-sm" role="status" style="width: 18px; height: 18px;">
+                                                                <span class="visually-hidden">Loading...</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td>
                                                         <div>
                                                             <strong>{{ $report->report->title ?? 'حذف شده' }}</strong>
@@ -453,7 +488,7 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="3" class="text-center">گزارشی یافت نشد</td>
+                                                    <td colspan="5" class="text-center">گزارشی یافت نشد</td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
@@ -665,6 +700,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>شماره</th>
+                                <th width="3%">چک</th>
                                 <th wire:click="sortBy('resident_name')" style="cursor: pointer;">
                                     اقامت‌گر
                                     @if ($sortField === 'resident_name')
@@ -696,6 +732,20 @@
                                         <span class="badge rounded-pill" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 13px; padding: 6px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                             {{ $counter_number }}
                                         </span>
+                                    </td>
+                                    <td style="text-align: center; vertical-align: middle;">
+                                        <!-- Material Design Checkbox -->
+                                        <div class="form-check" style="margin: 0; padding: 0;">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="check_main_{{ $report->id }}"
+                                                   @if($report->is_checked) checked @endif
+                                                   wire:click="toggleChecked({{ $report->id }})"
+                                                   style="width: 18px; height: 18px; cursor: pointer; margin: 0;"
+                                                   wire:loading.attr="disabled">
+                                            <div wire:loading wire:target="toggleChecked({{ $report->id }})" class="spinner-border spinner-border-sm" role="status" style="width: 18px; height: 18px;">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td style="vertical-align: middle;">
                                         <div style="display: flex; align-items: center; gap: 10px;">

@@ -18,7 +18,8 @@ class ResidentReport extends Model
         'room_id',
         'bed_id',
         'notes',
-        'has_been_sent'
+        'has_been_sent',
+        'is_checked'
     ];
 
     protected $casts = [
@@ -27,6 +28,7 @@ class ResidentReport extends Model
         'bed_id' => 'integer',
         'resident_id' => 'integer',
         'has_been_sent' => 'boolean',
+        'is_checked' => 'boolean',
     ];
 
     protected static function booted()
@@ -106,7 +108,19 @@ class ResidentReport extends Model
      */
     public function getResidentNameAttribute()
     {
-        return $this->resident ? $this->resident->full_name : null;
+        // استفاده از relation (اگر load شده باشد)
+        if ($this->relationLoaded('resident')) {
+            return $this->resident ? $this->resident->full_name : null;
+        }
+        
+        // اگر relation load نشده باشد، آن را lazy load می‌کنیم
+        // اما فقط اگر resident_id موجود باشد
+        if ($this->resident_id) {
+            $resident = $this->resident()->first();
+            return $resident ? $resident->full_name : null;
+        }
+        
+        return null;
     }
     
     /**
@@ -114,7 +128,16 @@ class ResidentReport extends Model
      */
     public function getUnitNameAttribute()
     {
-        return $this->resident ? $this->resident->unit_name : null;
+        if ($this->relationLoaded('resident')) {
+            return $this->resident ? $this->resident->unit_name : null;
+        }
+        
+        if ($this->resident_id) {
+            $resident = $this->resident()->first();
+            return $resident ? $resident->unit_name : null;
+        }
+        
+        return null;
     }
     
     /**
@@ -122,7 +145,16 @@ class ResidentReport extends Model
      */
     public function getRoomNameAttribute()
     {
-        return $this->resident ? $this->resident->room_name : null;
+        if ($this->relationLoaded('resident')) {
+            return $this->resident ? $this->resident->room_name : null;
+        }
+        
+        if ($this->resident_id) {
+            $resident = $this->resident()->first();
+            return $resident ? $resident->room_name : null;
+        }
+        
+        return null;
     }
     
     /**
@@ -130,7 +162,16 @@ class ResidentReport extends Model
      */
     public function getBedNameAttribute()
     {
-        return $this->resident ? $this->resident->bed_name : null;
+        if ($this->relationLoaded('resident')) {
+            return $this->resident ? $this->resident->bed_name : null;
+        }
+        
+        if ($this->resident_id) {
+            $resident = $this->resident()->first();
+            return $resident ? $resident->bed_name : null;
+        }
+        
+        return null;
     }
     
     /**
@@ -138,6 +179,15 @@ class ResidentReport extends Model
      */
     public function getPhoneAttribute()
     {
-        return $this->resident ? $this->resident->phone : null;
+        if ($this->relationLoaded('resident')) {
+            return $this->resident ? $this->resident->phone : null;
+        }
+        
+        if ($this->resident_id) {
+            $resident = $this->resident()->first();
+            return $resident ? $resident->phone : null;
+        }
+        
+        return null;
     }
 }

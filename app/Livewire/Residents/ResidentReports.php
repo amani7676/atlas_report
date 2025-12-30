@@ -548,6 +548,26 @@ class ResidentReports extends Component
         }
     }
 
+    /**
+     * تغییر وضعیت checked بودن گزارش
+     */
+    public function toggleChecked($reportId)
+    {
+        try {
+            $report = ResidentReport::find($reportId);
+            if ($report) {
+                $report->is_checked = !$report->is_checked;
+                $report->save();
+                $this->dispatch('report-checked-toggled', ['id' => $reportId, 'checked' => $report->is_checked]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error toggling checked status', [
+                'report_id' => $reportId,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
     public function render()
     {
         $reports = $this->reportsQuery->paginate($this->perPage);
