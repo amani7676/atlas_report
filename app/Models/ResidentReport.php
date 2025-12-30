@@ -32,6 +32,11 @@ class ResidentReport extends Model
     protected static function booted()
     {
         static::created(function ($residentReport) {
+            \Log::info('ResidentReport created - triggering event', [
+                'resident_report_id' => $residentReport->id,
+                'report_id' => $residentReport->report_id,
+                'resident_id' => $residentReport->resident_id,
+            ]);
             event(new ResidentReportCreated($residentReport));
         });
 

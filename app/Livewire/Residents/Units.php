@@ -220,6 +220,14 @@ class Units extends Component
                 $failedCount = $result['failed'] ?? 0;
             }
 
+            // منتظر ماندن برای ارسال پیامک‌ها (Listener sync است اما برای اطمینان تاخیر می‌گذاریم)
+            if ($successCount > 0) {
+                // تاخیر برای اطمینان از ارسال پیامک‌ها
+                // هر گزارش حدود 0.5 تا 1 ثانیه زمان می‌برد (برای ارسال پیامک)
+                $delay = min($successCount * 800000, 3000000); // حداکثر 3 ثانیه
+                usleep($delay);
+            }
+
             if ($failedCount > 0) {
                 $errorMessage = "{$successCount} گزارش با موفقیت ثبت شد. {$failedCount} گزارش با خطا مواجه شد.\n\n";
                 $errorMessage .= "خطاها:\n";
@@ -330,6 +338,9 @@ class Units extends Component
                     'notes' => $this->notes,
                 ]);
 
+                // تاخیر کوتاه برای اطمینان از اجرای Event و Listener
+                usleep(200000); // 0.2 ثانیه برای هر گزارش
+
                 // لاگ برای بررسی ذخیره‌سازی
                 \Log::info('گزارش در دیتابیس ذخیره شد', [
                     'resident_report_id' => $residentReport->id,
@@ -428,6 +439,9 @@ class Units extends Component
                         'bed_name' => $residentData['bed_name'] ?? null,
                         'notes' => $this->notes,
                     ]);
+
+                    // تاخیر کوتاه برای اطمینان از اجرای Event و Listener
+                    usleep(200000); // 0.2 ثانیه برای هر گزارش
 
                     // لاگ برای بررسی ذخیره‌سازی
                     \Log::info('گزارش گروهی در دیتابیس ذخیره شد', [

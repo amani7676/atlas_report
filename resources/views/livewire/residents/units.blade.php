@@ -282,7 +282,32 @@
     @if($showReportModal)
         <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1050;" tabindex="-1">
             <div class="modal-dialog modal-lg" style="margin-top: 5vh;">
-                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden;">
+                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden; position: relative;">
+                    
+                    <!-- Loading Overlay -->
+                    @if($reportModalLoading)
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.95); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px;">
+                            <div style="text-align: center;">
+                                <div style="width: 80px; height: 80px; margin: 0 auto 20px; position: relative;">
+                                    <div style="width: 80px; height: 80px; border: 6px solid #f3f4f6; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; border: 4px solid #f3f4f6; border-top-color: #764ba2; border-radius: 50%; animation: spin 0.8s linear infinite reverse;"></div>
+                                </div>
+                                <h4 style="color: #667eea; font-weight: 600; margin-bottom: 10px; font-size: 20px;">
+                                    <i class="fas fa-paper-plane" style="margin-left: 8px;"></i>
+                                    در حال ثبت گزارش و ارسال پیامک...
+                                </h4>
+                                <p style="color: #64748b; font-size: 14px; margin: 0;">
+                                    لطفاً صبر کنید
+                                </p>
+                            </div>
+                        </div>
+                        <style>
+                            @keyframes spin {
+                                0% { transform: rotate(0deg); }
+                                100% { transform: rotate(360deg); }
+                            }
+                        </style>
+                    @endif
                     <!-- Header with Material Design -->
                     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; position: relative;">
                         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">

@@ -35,6 +35,7 @@ Route::get('/sms/pattern-manual', \App\Livewire\Sms\PatternManual::class)->name(
 Route::get('/sms/pattern-group', \App\Livewire\Sms\PatternGroup::class)->name('sms.pattern-group');
 Route::get('/sms/pattern-test', \App\Livewire\Sms\PatternTest::class)->name('sms.pattern-test');
 Route::get('/sms/auto', \App\Livewire\Sms\Auto::class)->name('sms.auto');
+Route::get('/sms/violation-sms', \App\Livewire\Sms\ViolationSms::class)->name('sms.violation-sms');
 Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
 Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
 Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');

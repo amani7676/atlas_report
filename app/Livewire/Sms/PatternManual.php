@@ -469,107 +469,140 @@ class PatternManual extends Component
                 return;
             }
             
-            // استفاده از residentDbId که قبلاً پیدا شده
-            // ایجاد رکورد در جدول sms_message_residents
-            $smsMessageResident = SmsMessageResident::create([
-                'sms_message_id' => null, // برای پیام‌های الگویی sms_message_id نداریم
-                'report_id' => $this->selectedReport,
-                'pattern_id' => $pattern->id,
-                'is_pattern' => true,
-                'pattern_variables' => implode(';', $variables), // متغیرها با ; جدا می‌شوند
-                'resident_id' => $residentDbId, // استفاده از id جدول residents
-                'resident_name' => $this->selectedResident['name'],
-                'phone' => $phone,
-                'title' => $pattern->title,
-                'description' => $pattern->text,
-                'status' => 'pending',
-            ]);
-
-            // ارسال پیامک با الگو
-            \Log::info('Sending pattern-based SMS - Final Check', [
-                'phone' => $phone,
-                'pattern_code' => $pattern->pattern_code,
-                'pattern_id' => $pattern->id,
-                'variables' => $variables,
-                'variables_count' => count($variables),
-                'variables_string' => implode(';', $variables),
-                'variables_type' => gettype($variables),
-                'variables_is_array' => is_array($variables),
-                'bodyId_type' => gettype($pattern->pattern_code),
-                'bodyId_numeric' => is_numeric($pattern->pattern_code),
-            ]);
-            
-            // اطمینان از اینکه variables یک آرایه است
-            if (!is_array($variables)) {
-                \Log::error('Variables is not an array!', [
-                    'variables_type' => gettype($variables),
-                    'variables_value' => $variables,
+            // اگر ResidentReport ایجاد شد، Event به صورت خودکار پیامک را ارسال می‌کند
+            // پس نباید دستی پیامک ارسال کنیم
+            if ($reportCreated) {
+                \Log::info('PatternManual - ResidentReport created, SMS will be sent by Event', [
+                    'resident_report_id' => $residentReportId,
+                    'report_id' => $this->selectedReport,
                 ]);
-                $variables = [];
-            }
-            
-            // اطمینان از اینکه pattern_code عدد است
-            $bodyId = (int)$pattern->pattern_code;
-            
-            \Log::info('PatternManual - Sending SMS', [
-                'pattern_id' => $pattern->id,
-                'pattern_code' => $pattern->pattern_code,
-                'phone' => $phone,
-                'variables' => $variables,
-                'variables_count' => count($variables),
-            ]);
-
-            // دریافت شماره فرستنده و API Key از شماره انتخاب شده
-            $senderNumberObj = null;
-            $apiKey = null;
-            if ($this->selectedSenderNumberId) {
-                $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
-                if ($senderNumberObj) {
-                    $apiKey = $senderNumberObj->api_key;
-                    
-                    \Log::info('PatternManual - Sender Number Selected', [
-                        'sender_number_id' => $this->selectedSenderNumberId,
-                        'sender_number' => $senderNumberObj->number,
-                        'has_api_key' => !empty($apiKey),
-                        'api_key_length' => $apiKey ? strlen($apiKey) : 0,
+                
+                // فقط ایجاد رکورد در sms_message_residents برای نمایش
+                // Event خودش رکورد را ایجاد می‌کند، اما برای اطمینان اینجا هم ایجاد می‌کنیم
+                $smsMessageResident = SmsMessageResident::where('report_id', $this->selectedReport)
+                    ->where('pattern_id', $pattern->id)
+                    ->where('resident_id', $residentDbId)
+                    ->where('created_at', '>=', now()->subMinutes(5)) // فقط در 5 دقیقه گذشته
+                    ->first();
+                
+                if (!$smsMessageResident) {
+                    $smsMessageResident = SmsMessageResident::create([
+                        'sms_message_id' => null,
+                        'report_id' => $this->selectedReport,
+                        'pattern_id' => $pattern->id,
+                        'is_pattern' => true,
+                        'pattern_variables' => implode(';', $variables),
+                        'resident_id' => $residentDbId,
+                        'resident_name' => $this->selectedResident['name'],
+                        'phone' => $phone,
+                        'title' => $pattern->title,
+                        'description' => $pattern->text,
+                        'status' => 'pending',
                     ]);
                 }
+                
+                // تاخیر کوتاه برای اطمینان از اجرای Event
+                usleep(500000); // 0.5 ثانیه
+                
+                // بررسی وضعیت ارسال از Event
+                $smsMessageResident->refresh();
+                $isSuccess = $smsMessageResident->status === 'sent';
+                
+                $result = [
+                    'success' => $isSuccess,
+                    'message' => $isSuccess ? 'پیامک با موفقیت ارسال شد (از طریق Event)' : ($smsMessageResident->error_message ?? 'در حال ارسال...'),
+                    'response_code' => $smsMessageResident->response_code ?? null,
+                    'report_created' => $reportCreated,
+                    'report_error' => $reportError,
+                    'resident_report_id' => $residentReportId,
+                ];
             } else {
-                \Log::warning('PatternManual - No sender number selected', [
-                    'selected_sender_number_id' => $this->selectedSenderNumberId,
-                    'available_sender_numbers_count' => $this->availableSenderNumbers->count(),
+                // اگر ResidentReport ایجاد نشد، دستی پیامک ارسال می‌کنیم
+                \Log::info('PatternManual - No ResidentReport created, sending SMS manually', [
+                    'report_error' => $reportError,
                 ]);
+                
+                // استفاده از residentDbId که قبلاً پیدا شده
+                // ایجاد رکورد در جدول sms_message_residents
+                $smsMessageResident = SmsMessageResident::create([
+                    'sms_message_id' => null, // برای پیام‌های الگویی sms_message_id نداریم
+                    'report_id' => $this->selectedReport,
+                    'pattern_id' => $pattern->id,
+                    'is_pattern' => true,
+                    'pattern_variables' => implode(';', $variables), // متغیرها با ; جدا می‌شوند
+                    'resident_id' => $residentDbId, // استفاده از id جدول residents
+                    'resident_name' => $this->selectedResident['name'],
+                    'phone' => $phone,
+                    'title' => $pattern->title,
+                    'description' => $pattern->text,
+                    'status' => 'pending',
+                ]);
+
+                // اطمینان از اینکه variables یک آرایه است
+                if (!is_array($variables)) {
+                    \Log::error('Variables is not an array!', [
+                        'variables_type' => gettype($variables),
+                        'variables_value' => $variables,
+                    ]);
+                    $variables = [];
+                }
+                
+                // اطمینان از اینکه pattern_code عدد است
+                $bodyId = (int)$pattern->pattern_code;
+
+                // دریافت شماره فرستنده و API Key از شماره انتخاب شده
+                $senderNumberObj = null;
+                $apiKey = null;
+                if ($this->selectedSenderNumberId) {
+                    $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+                    if ($senderNumberObj) {
+                        $apiKey = $senderNumberObj->api_key;
+                    }
+                }
+
+                // استفاده از sendByBaseNumber (SOAP API)
+                $result = $melipayamakService->sendByBaseNumber(
+                    $phone,
+                    $bodyId,
+                    $variables,
+                    $senderNumberObj ? $senderNumberObj->number : null,
+                    $apiKey
+                );
+
+                // اضافه کردن اطلاعات ثبت گزارش به نتیجه
+                $result['report_created'] = $reportCreated;
+                $result['report_error'] = $reportError;
+                $result['resident_report_id'] = $residentReportId;
+
+                // بررسی موفقیت ارسال
+                $isSuccess = isset($result['success']) && $result['success'] === true;
+                
+                if ($isSuccess) {
+                    $smsMessageResident->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                        'response_code' => $result['response_code'] ?? null,
+                        'error_message' => null,
+                    ]);
+                } else {
+                    $smsMessageResident->update([
+                        'status' => 'failed',
+                        'error_message' => $result['message'] ?? 'خطای نامشخص',
+                        'response_code' => $result['response_code'] ?? null,
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
+                    ]);
+                }
             }
-
-            // استفاده از sendByBaseNumber (SOAP API) - مشابه PatternTest
-            $result = $melipayamakService->sendByBaseNumber(
-                $phone,
-                $bodyId,
-                $variables, // آرایه متغیرها: ['علی احمدی', '1404/10/07']
-                $senderNumberObj ? $senderNumberObj->number : null, // شماره فرستنده
-                $apiKey // API Key مرتبط با شماره (اختیاری - در SOAP از username/password استفاده می‌شود)
-            );
-
-            // اضافه کردن اطلاعات ثبت گزارش به نتیجه
-            $result['report_created'] = $reportCreated;
-            $result['report_error'] = $reportError;
-            $result['resident_report_id'] = $residentReportId;
-
-            // ذخیره نتیجه برای نمایش (دقیقاً مشابه PatternTest)
+            
+            // ذخیره نتیجه برای نمایش
             $this->result = $result;
             $this->showResult = true;
 
-            // بررسی موفقیت ارسال
+            // نمایش پیام موفقیت یا خطا
             $isSuccess = isset($result['success']) && $result['success'] === true;
             
             if ($isSuccess) {
-                $smsMessageResident->update([
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                    'response_code' => $result['response_code'] ?? null,
-                    'error_message' => null,
-                ]);
-                
                 $alertText = 'پیامک با موفقیت ارسال شد.';
                 if ($reportCreated) {
                     $alertText .= ' گزارش نیز با موفقیت ثبت شد.';
@@ -583,13 +616,15 @@ class PatternManual extends Component
                     'text' => $alertText,
                 ]);
             } else {
-                $smsMessageResident->update([
-                    'status' => 'failed',
-                    'error_message' => $result['message'] ?? 'خطای نامشخص',
-                    'response_code' => $result['response_code'] ?? null,
-                    'api_response' => $result['api_response'] ?? null,
-                    'raw_response' => $result['raw_response'] ?? null,
-                ]);
+                if (isset($smsMessageResident) && $smsMessageResident->status !== 'failed') {
+                    $smsMessageResident->update([
+                        'status' => 'failed',
+                        'error_message' => $result['message'] ?? 'خطای نامشخص',
+                        'response_code' => $result['response_code'] ?? null,
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
+                    ]);
+                }
                 
                 $alertText = $result['message'] ?? 'خطا در ارسال پیامک';
                 if (!$reportCreated) {

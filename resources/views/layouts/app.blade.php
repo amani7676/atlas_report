@@ -737,6 +737,12 @@
                                 <span>مدیریت ارسال خودکار</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>پیامک‌های تخلفات</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
