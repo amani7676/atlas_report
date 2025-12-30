@@ -163,7 +163,6 @@ class Index extends Component
                     'description' => 'توضیحات گزارش',
                     'negative_score' => 'امتیاز منفی',
                     'increase_coefficient' => 'ضریب افزایش',
-                    'page_number' => 'شماره صفحه',
                     'category.name' => 'نام دسته‌بندی',
                 ];
                 
@@ -275,7 +274,7 @@ class Index extends Component
             'national_code' => 'کد ملی',
             'negative_score' => 'امتیاز منفی',
             'increase_coefficient' => 'ضریب افزایش',
-            'page_number' => 'شماره صفحه',
+            'out_sms' => 'ارسال پیام خودکار',
             'category_id' => 'شناسه دسته‌بندی',
             'type' => 'نوع',
             'unit_name' => 'نام واحد',

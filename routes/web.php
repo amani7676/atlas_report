@@ -42,6 +42,7 @@ Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
 Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index');
 Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index');
+Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index');
 
 // API endpoint for syncing residents
 Route::post('/api/residents/sync', function () {
@@ -60,27 +61,9 @@ Route::post('/api/residents/sync', function () {
             ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s') 
             : 'نامشخص';
         
-        // ساخت پیام با پاسخ دیتابیس
-        if ($lastSync) {
-            $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
-            $message .= "📊 آمار همگام‌سازی:\n";
-            $message .= "• تعداد همگام‌سازی شده: {$lastSync['synced_count']}\n";
-            $message .= "• ایجاد شده: {$lastSync['created_count']}\n";
-            $message .= "• به‌روزرسانی شده: {$lastSync['updated_count']}\n\n";
-            $message .= "💾 پاسخ دیتابیس:\n";
-            $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
-            $message .= "• آخرین همگام‌سازی: {$lastSyncTime}\n";
-            $message .= "• زمان همگام‌سازی: {$lastSync['time']}";
-        } else {
-            $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
-            $message .= "💾 پاسخ دیتابیس:\n";
-            $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
-            $message .= "• آخرین همگام‌سازی: {$lastSyncTime}";
-        }
-        
         return response()->json([
             'success' => true,
-            'message' => $message,
+            'message' => 'Success',
             'data' => [
                 'synced_count' => $lastSync['synced_count'] ?? 0,
                 'created_count' => $lastSync['created_count'] ?? 0,

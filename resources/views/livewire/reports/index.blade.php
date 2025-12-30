@@ -91,7 +91,6 @@
                                 <i class="fas fa-sort"></i>
                             @endif
                         </th>
-                        <th>صفحه</th>
                         <th>عملیات</th>
                     </tr>
                 </thead>
@@ -118,7 +117,6 @@
                                 </span>
                             </td>
                             <td>{{ $report->increase_coefficient }}</td>
-                            <td>{{ $report->page_number }}</td>
                             <td>
                                 <div style="display: flex; gap: 10px;">
                                     <a href="/reports/edit/{{ $report->id }}" class="btn" style="background: #4cc9f0; color: white;" title="ویرایش">

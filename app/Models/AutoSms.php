@@ -13,6 +13,7 @@ class AutoSms extends Model
         'title',
         'text',
         'pattern_id',
+        'related_tables',
         'send_type',
         'scheduled_at',
         'is_active',
@@ -28,6 +29,7 @@ class AutoSms extends Model
         'last_checked_at' => 'datetime',
         'last_sent_at' => 'datetime',
         'total_sent' => 'integer',
+        'related_tables' => 'array',
     ];
 
     public function conditions(): HasMany

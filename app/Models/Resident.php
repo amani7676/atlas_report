@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Traits\TriggersAutoSms;
 use Illuminate\Database\Eloquent\Model;
 
 class Resident extends Model
 {
+    use TriggersAutoSms;
     protected $fillable = [
         'resident_id',
         'full_name',

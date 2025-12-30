@@ -17,7 +17,7 @@ class Edit extends Component
     public $description = '';
     public $negative_score = '';
     public $increase_coefficient = '';
-    public $page_number = '';
+    public $auto_ability = false;
     public $patterns = [];
     public $selectedPatterns = [];
 
@@ -35,7 +35,7 @@ class Edit extends Component
         $this->description = $this->report->description;
         $this->negative_score = $this->report->negative_score;
         $this->increase_coefficient = $this->report->increase_coefficient;
-        $this->page_number = $this->report->page_number;
+        $this->auto_ability = $this->report->auto_ability ?? false;
         
         // بارگذاری الگوهای مرتبط با گزارش
         $this->selectedPatterns = $this->report->patterns()
@@ -50,7 +50,6 @@ class Edit extends Component
         'description' => 'required|string',
         'negative_score' => 'required|integer|min:0',
         'increase_coefficient' => 'required|numeric|min:0',
-        'page_number' => 'required|integer|min:1'
     ];
 
     public function update()
@@ -63,7 +62,7 @@ class Edit extends Component
             'description' => $this->description,
             'negative_score' => $this->negative_score,
             'increase_coefficient' => $this->increase_coefficient,
-            'page_number' => $this->page_number
+            'auto_ability' => $this->auto_ability,
         ]);
 
         // به‌روزرسانی الگوهای مرتبط با گزارش
@@ -85,11 +84,20 @@ class Edit extends Component
     
     public function togglePattern($patternId)
     {
-        if (in_array($patternId, $this->selectedPatterns)) {
-            $this->selectedPatterns = array_values(array_diff($this->selectedPatterns, [$patternId]));
+        $patternId = (int)$patternId;
+        $index = array_search($patternId, $this->selectedPatterns);
+        
+        if ($index !== false) {
+            // حذف از لیست
+            unset($this->selectedPatterns[$index]);
+            $this->selectedPatterns = array_values($this->selectedPatterns);
         } else {
+            // اضافه به لیست
             $this->selectedPatterns[] = $patternId;
         }
+        
+        // اطمینان از اینکه آرایه به درستی re-index شده است
+        $this->selectedPatterns = array_values(array_unique($this->selectedPatterns));
     }
     
     public function removePattern($patternId)

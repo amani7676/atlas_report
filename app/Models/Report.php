@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\TriggersAutoSms;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Report extends Model
 {
+    use TriggersAutoSms;
     protected $fillable = [
         'category_id',
         'type',
@@ -14,11 +16,12 @@ class Report extends Model
         'description',
         'negative_score',
         'increase_coefficient',
-        'page_number'
+        'auto_ability'
     ];
 
     protected $casts = [
         'increase_coefficient' => 'decimal:2',
+        'auto_ability' => 'boolean',
     ];
 
     public function category(): BelongsTo

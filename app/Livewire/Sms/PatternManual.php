@@ -217,30 +217,12 @@ class PatternManual extends Component
             
             // نمایش آلارم فقط اگر showToast = true باشد (برای همگام‌سازی دستی)
             if ($showToast) {
-                // ساخت پیام با پاسخ دیتابیس
-                if ($lastSync) {
-                    $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
-                    $message .= "📊 آمار همگام‌سازی:\n";
-                    $message .= "• تعداد همگام‌سازی شده: {$lastSync['synced_count']}\n";
-                    $message .= "• ایجاد شده: {$lastSync['created_count']}\n";
-                    $message .= "• به‌روزرسانی شده: {$lastSync['updated_count']}\n\n";
-                    $message .= "💾 پاسخ دیتابیس:\n";
-                    $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
-                    $message .= "• آخرین همگام‌سازی: {$lastSyncTime}\n";
-                    $message .= "• زمان همگام‌سازی: {$lastSync['time']}";
-                } else {
-                    $message = "✅ همگام‌سازی با موفقیت انجام شد\n\n";
-                    $message .= "💾 پاسخ دیتابیس:\n";
-                    $message .= "• تعداد کل در دیتابیس: {$totalInDb}\n";
-                    $message .= "• آخرین همگام‌سازی: {$lastSyncTime}";
-                }
-                
-                // نمایش آلارم در بالا سمت چپ با پاسخ دیتابیس
+                // نمایش آلارم ساده
                 $this->dispatch('showToast', [
                     'type' => 'success',
-                    'title' => 'بروزرسانی شد',
-                    'message' => $message,
-                    'duration' => 8000, // 8 ثانیه برای خواندن اطلاعات بیشتر
+                    'title' => 'Success',
+                    'message' => '',
+                    'duration' => 3000,
                 ]);
             }
             
@@ -256,9 +238,9 @@ class PatternManual extends Component
             if ($showToast) {
                 $this->dispatch('showToast', [
                     'type' => 'error',
-                    'title' => 'خطا!',
-                    'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
-                    'duration' => 5000,
+                    'title' => 'Error',
+                    'message' => '',
+                    'duration' => 3000,
                 ]);
             }
             

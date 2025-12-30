@@ -723,41 +723,6 @@
                     </ul>
                 </li>
 
-                <!-- پیام‌های ساده -->
-                <div class="menu-section">پیام‌های ساده</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') && !request()->is('constants*') && !request()->is('sms/auto*') ? 'open' : '' }}">
-                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
-                        <i class="fas fa-sms"></i>
-                        <span>پیام‌های ساده</span>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') && !request()->is('sms/auto*') ? 'active' : '' }}">
-                                <i class="fas fa-sms"></i>
-                                <span>مدیریت پیام‌های SMS</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/manual" class="{{ request()->is('sms/manual') ? 'active' : '' }}">
-                                <i class="fas fa-user"></i>
-                                <span>ارسال SMS دستی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/group" class="{{ request()->is('sms/group') ? 'active' : '' }}">
-                                <i class="fas fa-users"></i>
-                                <span>ارسال SMS گروهی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
-                                <i class="fas fa-history"></i>
-                                <span>پیام‌های ارسال شده</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
                 <!-- ارسال خودکار -->
                 <div class="menu-section">ارسال خودکار</div>
                 <li class="menu-item has-submenu {{ request()->is('sms/auto*') ? 'open' : '' }}">
@@ -826,21 +791,73 @@
                             </a>
                         </li>
                         <li>
-                            <a href="/sender-numbers" class="{{ request()->is('sender-numbers*') ? 'active' : '' }}">
-                                <i class="fas fa-phone-alt"></i>
-                                <span>مدیریت شماره‌های فرستنده</span>
-                            </a>
-                        </li>
-                        <li>
                             <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
                                 <i class="fas fa-ban"></i>
                                 <span>لیست‌های سیاه</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <!-- سایر -->
+                <div class="menu-section">سایر</div>
+                <li class="menu-item has-submenu {{ request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
+                        <i class="fas fa-cogs"></i>
+                        <span>سایر</span>
+                    </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/table-names" class="{{ request()->is('table-names*') ? 'active' : '' }}">
+                                <i class="fas fa-table"></i>
+                                <span>نام گذاری جداول</span>
                             </a>
                         </li>
                         <li>
                             <a href="/constants" class="{{ request()->is('constants*') ? 'active' : '' }}">
                                 <i class="fas fa-cog"></i>
                                 <span>ثابت‌ها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sender-numbers" class="{{ request()->is('sender-numbers*') ? 'active' : '' }}">
+                                <i class="fas fa-phone-alt"></i>
+                                <span>مدیریت شماره‌های فرستنده</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <!-- پیام‌های ساده -->
+                <div class="menu-section">پیام‌های ساده</div>
+                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') && !request()->is('constants*') && !request()->is('sms/auto*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
+                        <i class="fas fa-sms"></i>
+                        <span>پیام‌های ساده</span>
+                    </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') && !request()->is('sms/auto*') ? 'active' : '' }}">
+                                <i class="fas fa-sms"></i>
+                                <span>مدیریت پیام‌های SMS</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/manual" class="{{ request()->is('sms/manual') ? 'active' : '' }}">
+                                <i class="fas fa-user"></i>
+                                <span>ارسال SMS دستی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/group" class="{{ request()->is('sms/group') ? 'active' : '' }}">
+                                <i class="fas fa-users"></i>
+                                <span>ارسال SMS گروهی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
+                                <i class="fas fa-history"></i>
+                                <span>پیام‌های ارسال شده</span>
                             </a>
                         </li>
                     </ul>
@@ -1038,8 +1055,7 @@
         if (typeof Echo !== 'undefined' && Echo.channel) {
             Echo.channel('residents-sync')
                 .listen('.residents.synced', (e) => {
-                    const message = `${e.message || 'دیتابیس اقامت‌گران به‌روزرسانی شد'}\nایجاد شده: ${e.created_count || 0}\nبه‌روزرسانی شده: ${e.updated_count || 0}`;
-                    showToast('success', '✅ بروزرسانی شد', message, 5000);
+                    showToast('success', 'Success', '', 3000);
                 });
         }
         @else
@@ -1298,18 +1314,18 @@
             .then(data => {
                 if (data.success) {
                     console.log('✅ همگام‌سازی با موفقیت انجام شد:', data.data);
-                    // نمایش آلارم موفقیت با پاسخ دیتابیس
-                    showToast('success', '✅ بروزرسانی شد', data.message, 8000);
+                    // نمایش آلارم موفقیت
+                    showToast('success', 'Success', '', 3000);
                 } else {
                     console.error('❌ خطا در همگام‌سازی:', data.message);
                     // نمایش آلارم خطا
-                    showToast('error', '❌ خطا!', data.message || 'خطا در همگام‌سازی داده‌ها', 5000);
+                    showToast('error', 'Error', '', 3000);
                 }
             })
             .catch(error => {
                 console.error('❌ خطا در همگام‌سازی:', error);
                 // نمایش آلارم خطا
-                showToast('error', '❌ خطا!', 'خطا در همگام‌سازی داده‌ها: ' + error.message, 5000);
+                showToast('error', 'Error', '', 3000);
             })
             .finally(() => {
                 // پاک کردن flag بعد از اتمام

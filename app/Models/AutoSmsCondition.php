@@ -12,6 +12,7 @@ class AutoSmsCondition extends Model
 
     protected $fillable = [
         'auto_sms_id',
+        'condition_type',
         'field_type',
         'field_name',
         'data_type',
@@ -31,15 +32,66 @@ class AutoSmsCondition extends Model
      */
     public function evaluate($residentId = null)
     {
-        if ($this->field_type === 'resident') {
+        // برای سازگاری با کد قدیمی
+        if ($this->field_type === 'resident' || $this->field_type === 'residents') {
             return $this->evaluateResidentField($residentId);
-        } elseif ($this->field_type === 'resident_report') {
+        } elseif ($this->field_type === 'resident_report' || $this->field_type === 'resident_reports') {
             return $this->evaluateResidentReportField($residentId);
-        } elseif ($this->field_type === 'report') {
+        } elseif ($this->field_type === 'report' || $this->field_type === 'reports') {
             return $this->evaluateReportField($residentId);
         }
-
-        return false;
+        
+        // برای جداول دیگر، ارزیابی داینامیک
+        return $this->evaluateDynamicField($residentId);
+    }
+    
+    /**
+     * ارزیابی فیلد از هر جدولی به صورت داینامیک
+     */
+    protected function evaluateDynamicField($residentId)
+    {
+        if (!$residentId || !$this->field_name) {
+            return false;
+        }
+        
+        try {
+            // بررسی وجود جدول
+            if (!\Illuminate\Support\Facades\Schema::hasTable($this->field_type)) {
+                return false;
+            }
+            
+            // اگر جدول مربوط به resident است (مثل residents)
+            if ($this->field_type === 'residents') {
+                return $this->evaluateResidentField($residentId);
+            }
+            
+            // برای جداول دیگر، باید resident_id را پیدا کنیم
+            $record = DB::table($this->field_type)
+                ->where('resident_id', $residentId)
+                ->first();
+            
+            if (!$record) {
+                return false;
+            }
+            
+            // دریافت مقدار فیلد
+            $fieldValue = $record->{$this->field_name} ?? null;
+            
+            if ($fieldValue === null) {
+                return false;
+            }
+            
+            // مقایسه با مقدار شرط
+            return $this->compare($fieldValue, $this->value, $this->operator);
+        } catch (\Exception $e) {
+            \Log::error('Error evaluating dynamic field', [
+                'field_type' => $this->field_type,
+                'field_name' => $this->field_name,
+                'resident_id' => $residentId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     /**

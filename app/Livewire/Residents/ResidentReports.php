@@ -47,12 +47,13 @@ class ResidentReports extends Component
     public function getTotalScoreProperty()
     {
         $query = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('resident_reports.resident_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('resident_reports.unit_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('resident_reports.room_name', 'like', '%' . $this->search . '%')
+                    $q->where('residents.full_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('residents.unit_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('residents.room_name', 'like', '%' . $this->search . '%')
                         ->orWhere('resident_reports.notes', 'like', '%' . $this->search . '%');
                 });
             })
@@ -115,10 +116,11 @@ class ResidentReports extends Component
 
     public function getReportsByUnitProperty()
     {
-        $query = ResidentReport::selectRaw('unit_name, COUNT(*) as count, SUM(reports.negative_score) as total_score')
+        $query = ResidentReport::selectRaw('residents.unit_name, COUNT(*) as count, SUM(reports.negative_score) as total_score')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('unit_name')
+            ->whereNotNull('residents.unit_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -131,7 +133,7 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('unit_name')
+            ->groupBy('residents.unit_name')
             ->orderByDesc('count');
             
         return $query->get();
@@ -144,16 +146,17 @@ class ResidentReports extends Component
         $maxViolationValue = $maxViolation ? (int)$maxViolation->value : 0;
 
         $query = ResidentReport::selectRaw('
-            resident_name,
-            MAX(unit_name) as unit_name,
-            MAX(room_name) as room_name,
-            MAX(phone) as phone,
+            residents.full_name as resident_name,
+            MAX(residents.unit_name) as unit_name,
+            MAX(residents.room_name) as room_name,
+            MAX(residents.phone) as phone,
             COUNT(*) as report_count,
             SUM(reports.negative_score) as total_score
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('resident_name')
+            ->whereNotNull('residents.full_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -166,7 +169,7 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('resident_name')
+            ->groupBy('residents.full_name')
             ->havingRaw('SUM(reports.negative_score) >= ?', [$maxViolationValue]) // فیلتر بر اساس مجموع نمرات منفی
             ->orderByDesc('total_score') // مرتب‌سازی بر اساس مجموع نمرات منفی
             ->limit(10);
@@ -197,18 +200,19 @@ class ResidentReports extends Component
 
         // پیدا کردن اقامت‌گرانی که یک نوع گزارش را چند بار داشته‌اند
         $residents = ResidentReport::selectRaw('
-            resident_name,
+            residents.full_name as resident_name,
             resident_reports.report_id,
             reports.title as report_name,
-            MAX(unit_name) as unit_name,
-            MAX(room_name) as room_name,
-            MAX(phone) as phone,
+            MAX(residents.unit_name) as unit_name,
+            MAX(residents.room_name) as room_name,
+            MAX(residents.phone) as phone,
             COUNT(*) as repeat_count,
             SUM(reports.negative_score) as total_score
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('resident_name')
+            ->whereNotNull('residents.full_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -221,7 +225,7 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('resident_name', 'resident_reports.report_id', 'reports.title')
+            ->groupBy('residents.full_name', 'resident_reports.report_id', 'reports.title')
             ->havingRaw('COUNT(*) >= ?', [$repeatViolationValue])
             ->orderByDesc('repeat_count')
             ->get();
@@ -251,16 +255,17 @@ class ResidentReports extends Component
         }
 
         $query = ResidentReport::selectRaw('
-            resident_name,
-            MAX(unit_name) as unit_name,
-            MAX(room_name) as room_name,
-            MAX(phone) as phone,
+            residents.full_name as resident_name,
+            MAX(residents.unit_name) as unit_name,
+            MAX(residents.room_name) as room_name,
+            MAX(residents.phone) as phone,
             COUNT(*) as report_count,
             SUM(reports.negative_score) as total_score
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('resident_name')
+            ->whereNotNull('residents.full_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -273,7 +278,7 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('resident_name')
+            ->groupBy('residents.full_name')
             ->havingRaw('COUNT(*) >= ?', [$countViolationValue])
             ->orderByDesc('report_count');
             
@@ -282,20 +287,24 @@ class ResidentReports extends Component
 
     public function getReportsQueryProperty(): Builder
     {
-        $query = ResidentReport::with(['report', 'report.category'])
+        $query = ResidentReport::with(['report', 'report.category', 'resident'])
             ->whereHas('report', function ($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('resident_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('unit_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('room_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('notes', 'like', '%' . $this->search . '%');
+                    $q->whereHas('resident', function ($residentQuery) {
+                        $residentQuery->where('full_name', 'like', '%' . $this->search . '%')
+                            ->orWhere('unit_name', 'like', '%' . $this->search . '%')
+                            ->orWhere('room_name', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhere('notes', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->filterByResidentName, function ($query) {
-                $query->where('resident_name', $this->filterByResidentName);
+                $query->whereHas('resident', function ($q) {
+                    $q->where('full_name', $this->filterByResidentName);
+                });
             })
             ->when($this->filters['unit_id'], function ($query) {
                 $query->where('unit_id', $this->filters['unit_id']);
@@ -334,13 +343,14 @@ class ResidentReports extends Component
         
         $this->reportsList = Report::where('category_id', 1)->get(); // دسته‌بندی تخلف
 
-        $this->units = ResidentReport::select('unit_id', 'unit_name')
+        $this->units = ResidentReport::select('residents.unit_id', 'residents.unit_name')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
-            ->whereNotNull('unit_id')
+            ->whereNotNull('residents.unit_id')
             ->distinct()
-            ->orderBy('unit_name')
+            ->orderBy('residents.unit_name')
             ->get()
             ->map(function ($item) {
                 return [
@@ -349,13 +359,14 @@ class ResidentReports extends Component
                 ];
             })->toArray();
 
-        $this->rooms = ResidentReport::select('room_id', 'room_name', 'unit_id')
+        $this->rooms = ResidentReport::select('residents.room_id', 'residents.room_name', 'residents.unit_id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
-            ->whereNotNull('room_id')
+            ->whereNotNull('residents.room_id')
             ->distinct()
-            ->orderBy('room_name')
+            ->orderBy('residents.room_name')
             ->get()
             ->map(function ($item) {
                 return [
@@ -439,10 +450,15 @@ class ResidentReports extends Component
         return ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 1); // دسته‌بندی تخلف
         })
-        ->where('resident_name', 'like', '%' . $this->residentSearch . '%')
-        ->distinct('resident_name')
-        ->orderBy('resident_name')
-        ->pluck('resident_name')
+        ->whereHas('resident', function($q) {
+            $q->where('full_name', 'like', '%' . $this->residentSearch . '%');
+        })
+        ->with('resident')
+        ->get()
+        ->pluck('resident.full_name')
+        ->unique()
+        ->sort()
+        ->values()
         ->toArray();
     }
 
@@ -455,8 +471,10 @@ class ResidentReports extends Component
         $this->residentReports = ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 1); // دسته‌بندی تخلف
         })
-        ->with(['report', 'report.category'])
-        ->where('resident_name', $residentName)
+        ->whereHas('resident', function($q) use ($residentName) {
+            $q->where('full_name', $residentName);
+        })
+        ->with(['report', 'report.category', 'resident'])
         ->orderBy('created_at', 'desc')
         ->get();
     }

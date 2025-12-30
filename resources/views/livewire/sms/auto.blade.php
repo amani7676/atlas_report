@@ -238,14 +238,53 @@
                         @error('description') <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">{{ $message }}</span> @enderror
                     </div>
 
+                    <!-- انتخاب جداول مرتبط -->
+                    <div style="margin-bottom: 25px; border-top: 2px solid #eee; padding-top: 20px;">
+                        <h5 style="margin-bottom: 15px; color: var(--primary-color);">
+                            <i class="fas fa-database"></i> انتخاب جداول مرتبط
+                        </h5>
+                        <small style="display: block; color: #666; margin-bottom: 10px;">
+                            ابتدا جداولی که می‌خواهید در شرط‌ها استفاده کنید را انتخاب کنید. سپس فقط فیلدهای این جداول در بخش شرط‌ها نمایش داده می‌شوند.
+                        </small>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            @foreach($availableTables as $tableKey => $tableLabel)
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; border: 2px solid {{ in_array($tableKey, $related_tables) ? '#4361ee' : '#ddd' }}; border-radius: 8px; cursor: pointer; background: {{ in_array($tableKey, $related_tables) ? '#e7f3ff' : '#fff' }}; transition: all 0.3s; user-select: none;">
+                                    <input 
+                                        type="checkbox" 
+                                        wire:model.live="related_tables"
+                                        value="{{ $tableKey }}"
+                                        style="cursor: pointer;"
+                                    >
+                                    <span style="font-weight: 500;">{{ $tableLabel }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+
                     <!-- بخش مدیریت شرط‌ها -->
                     <div style="margin-bottom: 25px; border-top: 2px solid #eee; padding-top: 20px;">
                         <h5 style="margin-bottom: 15px; color: var(--primary-color);">
                             <i class="fas fa-filter"></i> شرط‌های ارسال
                         </h5>
+                        @if(empty($related_tables))
+                            <div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; margin-bottom: 15px;">
+                                <i class="fas fa-exclamation-triangle" style="color: #856404;"></i>
+                                <strong style="color: #856404;">لطفاً ابتدا جداول مرتبط را انتخاب کنید.</strong>
+                            </div>
+                        @endif
 
-                        <!-- لیست شرط‌های موجود -->
-                        @if(count($conditions) > 0)
+                        @php
+                            $interConditions = collect($conditions)->where('condition_type', 'inter')->values()->all();
+                            $checkConditions = collect($conditions)->where('condition_type', 'check')->values()->all();
+                            $changeConditions = collect($conditions)->where('condition_type', 'change')->values()->all();
+                        @endphp
+
+                        <!-- بخش شرط ورود (inter) -->
+                        <div style="margin-bottom: 30px; border: 2px solid #4361ee; border-radius: 8px; padding: 20px; background: #f8f9ff;">
+                            <h6 style="margin-bottom: 15px; color: #4361ee; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-sign-in-alt"></i> شرط ورود (Inter)
+                            </h6>
+                            @if(count($interConditions) > 0)
                             <div style="margin-bottom: 20px;">
                                 <div class="table-responsive">
                                     <table class="table table-sm table-bordered" style="font-size: 12px;">
@@ -261,9 +300,12 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach($conditions as $index => $condition)
+                                            @foreach($interConditions as $conditionIndex => $condition)
+                                                @php
+                                                    $originalIndex = array_search($condition, $conditions);
+                                                @endphp
                                                 <tr>
-                                                    <td>{{ $index + 1 }}</td>
+                                                    <td>{{ $conditionIndex + 1 }}</td>
                                                     <td>
                                                         @php
                                                             $typeLabels = [
@@ -296,7 +338,7 @@
                                                     </td>
                                                     <td><strong>{{ $condition['value'] }}</strong></td>
                                                     <td>
-                                                        @if($index > 0)
+                                                        @if($conditionIndex > 0)
                                                             <span class="badge bg-warning">{{ $condition['logical_operator'] ?? 'AND' }}</span>
                                                         @else
                                                             <span class="text-muted">-</span>
@@ -305,14 +347,14 @@
                                                     <td>
                                                         <div style="display: flex; gap: 5px;">
                                                             <button 
-                                                                wire:click="editCondition({{ $index }})" 
+                                                                wire:click="editCondition({{ $originalIndex }})" 
                                                                 class="btn btn-sm btn-primary"
                                                                 title="ویرایش"
                                                             >
                                                                 <i class="fas fa-edit"></i>
                                                             </button>
                                                             <button 
-                                                                wire:click="removeCondition({{ $index }})" 
+                                                                wire:click="removeCondition({{ $originalIndex }})" 
                                                                 wire:confirm="آیا مطمئن هستید؟"
                                                                 class="btn btn-sm btn-danger"
                                                                 title="حذف"
@@ -327,37 +369,277 @@
                                     </table>
                                 </div>
                             </div>
-                        @else
-                            <div style="padding: 15px; background: #f8f9fa; border-radius: 6px; text-align: center; color: #666; margin-bottom: 20px;">
-                                <i class="fas fa-info-circle"></i> هنوز شرطی اضافه نشده است. می‌توانید شرط اضافه کنید یا بدون شرط، پیامک به همه ارسال شود.
+                            @else
+                                <div style="padding: 15px; background: #f8f9fa; border-radius: 6px; text-align: center; color: #666; margin-bottom: 20px;">
+                                    <i class="fas fa-info-circle"></i> هنوز شرطی اضافه نشده است.
+                                </div>
+                            @endif
+                            <button 
+                                wire:click="$set('condition_type', 'inter')" 
+                                class="btn btn-sm btn-primary"
+                                style="width: 100%;"
+                            >
+                                <i class="fas fa-plus"></i> اضافه کردن شرط ورود
+                            </button>
+                        </div>
+
+                        <!-- بخش شرط چک (check) -->
+                        <div style="margin-bottom: 30px; border: 2px solid #10b981; border-radius: 8px; padding: 20px; background: #f0fdf4;">
+                            <h6 style="margin-bottom: 15px; color: #10b981; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-check-circle"></i> شرط چک (Check)
+                            </h6>
+                            @if(count($checkConditions) > 0)
+                            <div style="margin-bottom: 20px;">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered" style="font-size: 12px;">
+                                        <thead>
+                                            <tr>
+                                                <th>ترتیب</th>
+                                                <th>نوع</th>
+                                                <th>فیلد</th>
+                                                <th>عملگر</th>
+                                                <th>مقدار</th>
+                                                <th>منطقی</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($checkConditions as $conditionIndex => $condition)
+                                                @php
+                                                    $originalIndex = array_search($condition, $conditions);
+                                                @endphp
+                                                <tr>
+                                                    <td>{{ $conditionIndex + 1 }}</td>
+                                                    <td>
+                                                        @php
+                                                            $typeLabels = [
+                                                                'resident' => 'اقامت‌گر',
+                                                                'resident_report' => 'گزارش اقامت‌گر',
+                                                                'report' => 'گزارش',
+                                                            ];
+                                                        @endphp
+                                                        <span class="badge bg-info">{{ $typeLabels[$condition['field_type']] ?? $condition['field_type'] }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {{ $this->availableFields[$condition['field_type']][$condition['field_name']] ?? $condition['field_name'] }}
+                                                    </td>
+                                                    <td>
+                                                        @php
+                                                            $operatorLabels = [
+                                                                '>' => '>',
+                                                                '<' => '<',
+                                                                '=' => '=',
+                                                                '>=' => '>=',
+                                                                '<=' => '<=',
+                                                                '!=' => '!=',
+                                                                'contains' => 'شامل',
+                                                                'not_contains' => 'شامل نباشد',
+                                                                'days_after' => 'بعد از (روز)',
+                                                                'days_before' => 'قبل از (روز)',
+                                                            ];
+                                                        @endphp
+                                                        <span class="badge bg-secondary">{{ $operatorLabels[$condition['operator']] ?? $condition['operator'] }}</span>
+                                                    </td>
+                                                    <td><strong>{{ $condition['value'] }}</strong></td>
+                                                    <td>
+                                                        @if($conditionIndex > 0)
+                                                            <span class="badge bg-warning">{{ $condition['logical_operator'] ?? 'AND' }}</span>
+                                                        @else
+                                                            <span class="text-muted">-</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <div style="display: flex; gap: 5px;">
+                                                            <button 
+                                                                wire:click="editCondition({{ $originalIndex }})" 
+                                                                class="btn btn-sm btn-primary"
+                                                                title="ویرایش"
+                                                            >
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button 
+                                                                wire:click="removeCondition({{ $originalIndex }})" 
+                                                                wire:confirm="آیا مطمئن هستید؟"
+                                                                class="btn btn-sm btn-danger"
+                                                                title="حذف"
+                                                            >
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        @endif
+                            @else
+                                <div style="padding: 15px; background: #f8f9fa; border-radius: 6px; text-align: center; color: #666; margin-bottom: 20px;">
+                                    <i class="fas fa-info-circle"></i> هنوز شرطی اضافه نشده است.
+                                </div>
+                            @endif
+                            <button 
+                                wire:click="$set('condition_type', 'check')" 
+                                class="btn btn-sm btn-success"
+                                style="width: 100%;"
+                            >
+                                <i class="fas fa-plus"></i> اضافه کردن شرط چک
+                            </button>
+                        </div>
+
+                        <!-- بخش شرط تغییرات (change) -->
+                        <div style="margin-bottom: 30px; border: 2px solid #f59e0b; border-radius: 8px; padding: 20px; background: #fffbeb;">
+                            <h6 style="margin-bottom: 15px; color: #f59e0b; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-exchange-alt"></i> شرط تغییرات (Change)
+                            </h6>
+                            @if(count($changeConditions) > 0)
+                            <div style="margin-bottom: 20px;">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered" style="font-size: 12px;">
+                                        <thead>
+                                            <tr>
+                                                <th>ترتیب</th>
+                                                <th>نوع</th>
+                                                <th>فیلد</th>
+                                                <th>عملگر</th>
+                                                <th>مقدار</th>
+                                                <th>منطقی</th>
+                                                <th>عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($changeConditions as $conditionIndex => $condition)
+                                                @php
+                                                    $originalIndex = array_search($condition, $conditions);
+                                                @endphp
+                                                <tr>
+                                                    <td>{{ $conditionIndex + 1 }}</td>
+                                                    <td>
+                                                        @php
+                                                            $typeLabels = [
+                                                                'resident' => 'اقامت‌گر',
+                                                                'resident_report' => 'گزارش اقامت‌گر',
+                                                                'report' => 'گزارش',
+                                                            ];
+                                                        @endphp
+                                                        <span class="badge bg-info">{{ $typeLabels[$condition['field_type']] ?? $condition['field_type'] }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {{ $this->availableFields[$condition['field_type']][$condition['field_name']] ?? $condition['field_name'] }}
+                                                    </td>
+                                                    <td>
+                                                        @php
+                                                            $operatorLabels = [
+                                                                '>' => '>',
+                                                                '<' => '<',
+                                                                '=' => '=',
+                                                                '>=' => '>=',
+                                                                '<=' => '<=',
+                                                                '!=' => '!=',
+                                                                'contains' => 'شامل',
+                                                                'not_contains' => 'شامل نباشد',
+                                                                'days_after' => 'بعد از (روز)',
+                                                                'days_before' => 'قبل از (روز)',
+                                                            ];
+                                                        @endphp
+                                                        <span class="badge bg-secondary">{{ $operatorLabels[$condition['operator']] ?? $condition['operator'] }}</span>
+                                                    </td>
+                                                    <td><strong>{{ $condition['value'] }}</strong></td>
+                                                    <td>
+                                                        @if($conditionIndex > 0)
+                                                            <span class="badge bg-warning">{{ $condition['logical_operator'] ?? 'AND' }}</span>
+                                                        @else
+                                                            <span class="text-muted">-</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <div style="display: flex; gap: 5px;">
+                                                            <button 
+                                                                wire:click="editCondition({{ $originalIndex }})" 
+                                                                class="btn btn-sm btn-primary"
+                                                                title="ویرایش"
+                                                            >
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button 
+                                                                wire:click="removeCondition({{ $originalIndex }})" 
+                                                                wire:confirm="آیا مطمئن هستید؟"
+                                                                class="btn btn-sm btn-danger"
+                                                                title="حذف"
+                                                            >
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            @else
+                                <div style="padding: 15px; background: #f8f9fa; border-radius: 6px; text-align: center; color: #666; margin-bottom: 20px;">
+                                    <i class="fas fa-info-circle"></i> هنوز شرطی اضافه نشده است.
+                                </div>
+                            @endif
+                            <button 
+                                wire:click="$set('condition_type', 'change')" 
+                                class="btn btn-sm btn-warning"
+                                style="width: 100%;"
+                            >
+                                <i class="fas fa-plus"></i> اضافه کردن شرط تغییرات
+                            </button>
+                        </div>
 
                         <!-- فرم اضافه/ویرایش شرط -->
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                        @if($condition_type || $editingConditionId !== null)
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 2px solid {{ $condition_type === 'inter' ? '#4361ee' : ($condition_type === 'check' ? '#10b981' : '#f59e0b') }};">
                             <h6 style="margin-bottom: 15px;">
                                 {{ $editingConditionId !== null ? 'ویرایش شرط' : 'اضافه کردن شرط جدید' }}
+                                @if($condition_type)
+                                    <span class="badge" style="background: {{ $condition_type === 'inter' ? '#4361ee' : ($condition_type === 'check' ? '#10b981' : '#f59e0b') }}; color: white; margin-right: 10px;">
+                                        {{ $condition_type === 'inter' ? 'شرط ورود' : ($condition_type === 'check' ? 'شرط چک' : 'شرط تغییرات') }}
+                                    </span>
+                                @endif
                             </h6>
                             
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px;">
+                                <!-- نوع شرط (فقط در حالت اضافه کردن) -->
+                                @if($editingConditionId === null)
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-size: 12px; font-weight: 500;">نوع شرط</label>
+                                    <select wire:model="condition_type" class="form-control form-control-sm">
+                                        <option value="inter">شرط ورود (Inter)</option>
+                                        <option value="check">شرط چک (Check)</option>
+                                        <option value="change">شرط تغییرات (Change)</option>
+                                    </select>
+                                </div>
+                                @endif
+                                
                                 <!-- نوع فیلد -->
                                 <div>
                                     <label style="display: block; margin-bottom: 5px; font-size: 12px; font-weight: 500;">نوع فیلد</label>
-                                    <select wire:model.live="condition_field_type" class="form-control form-control-sm">
-                                        <option value="resident">اقامت‌گر</option>
-                                        <option value="resident_report">گزارش اقامت‌گر</option>
-                                        <option value="report">گزارش</option>
+                                    <select wire:model.live="condition_field_type" class="form-control form-control-sm" {{ empty($related_tables) ? 'disabled' : '' }}>
+                                        @foreach($related_tables as $tableKey)
+                                            @if(isset($availableTables[$tableKey]))
+                                                <option value="{{ $tableKey }}">{{ $availableTables[$tableKey] }}</option>
+                                            @endif
+                                        @endforeach
                                     </select>
                                 </div>
 
                                 <!-- نام فیلد -->
                                 <div>
                                     <label style="display: block; margin-bottom: 5px; font-size: 12px; font-weight: 500;">فیلد</label>
-                                    <select wire:model.live="condition_field_name" class="form-control form-control-sm">
+                                    <select wire:model.live="condition_field_name" class="form-control form-control-sm" {{ empty($related_tables) || empty($condition_field_type) ? 'disabled' : '' }}>
                                         <option value="">انتخاب کنید...</option>
-                                        @foreach($this->availableFieldNames as $fieldKey => $fieldLabel)
-                                            <option value="{{ $fieldKey }}">{{ $fieldLabel }}</option>
-                                        @endforeach
+                                        @if(!empty($condition_field_type) && isset($this->filteredFields[$condition_field_type]) && is_array($this->filteredFields[$condition_field_type]))
+                                            @foreach($this->filteredFields[$condition_field_type] as $fieldKey => $fieldLabel)
+                                                <option value="{{ $fieldKey }}">{{ $fieldLabel }}</option>
+                                            @endforeach
+                                        @else
+                                            <option value="" disabled>ابتدا نوع فیلد را انتخاب کنید</option>
+                                        @endif
                                     </select>
                                 </div>
 
@@ -414,7 +696,10 @@
                                 </div>
 
                                 <!-- عملگر منطقی -->
-                                @if(count($conditions) > 0)
+                                @php
+                                    $currentTypeConditions = collect($conditions)->where('condition_type', $condition_type ?? 'inter')->values()->all();
+                                @endphp
+                                @if(count($currentTypeConditions) > 0)
                                     <div>
                                         <label style="display: block; margin-bottom: 5px; font-size: 12px; font-weight: 500;">عملگر منطقی</label>
                                         <select wire:model="condition_logical_operator" class="form-control form-control-sm">
@@ -440,6 +725,7 @@
                                 @endif
                             </div>
                         </div>
+                        @endif
                     </div>
 
                     <!-- دکمه‌ها -->
@@ -460,6 +746,8 @@
     @if($showConditionModal && $currentAutoSmsId)
         @php
             $autoSms = \App\Models\AutoSms::with('conditions')->find($currentAutoSmsId);
+            // نمایش هشدار در صورت عدم انتخاب جدول
+            $hasRelatedTables = !empty($related_tables);
         @endphp
         <div class="modal-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;" wire:click="closeConditionModal">
             <div class="modal-content" style="background: white; border-radius: 8px; padding: 30px; width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto;" wire:click.stop>
@@ -579,16 +867,24 @@
                 <!-- فرم اضافه/ویرایش شرط -->
                 <div style="border-top: 2px solid #eee; padding-top: 20px;">
                     <h5 style="margin-bottom: 15px;">{{ $editingConditionId ? 'ویرایش شرط' : 'اضافه کردن شرط جدید' }}</h5>
+                    @if(empty($related_tables))
+                        <div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; margin-bottom: 15px;">
+                            <i class="fas fa-exclamation-triangle" style="color: #856404;"></i>
+                            <strong style="color: #856404;">لطفاً ابتدا در فرم اصلی، جداول مرتبط را انتخاب کنید.</strong>
+                        </div>
+                    @endif
                     <form wire:submit.prevent="saveCondition">
                         <!-- نوع فیلد -->
                         <div style="margin-bottom: 20px;">
                             <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
                                 نوع فیلد <span style="color: red;">*</span>
                             </label>
-                            <select wire:model.live="condition_field_type" class="form-control" style="width: 100%;">
-                                <option value="resident">اقامت‌گر</option>
-                                <option value="resident_report">گزارش اقامت‌گر (Aggregate)</option>
-                                <option value="report">گزارش</option>
+                            <select wire:model.live="condition_field_type" class="form-control" style="width: 100%;" {{ empty($related_tables) ? 'disabled' : '' }}>
+                                @foreach($related_tables as $tableKey)
+                                    @if(isset($availableTables[$tableKey]))
+                                        <option value="{{ $tableKey }}">{{ $availableTables[$tableKey] }}</option>
+                                    @endif
+                                @endforeach
                             </select>
                             @error('condition_field_type') <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">{{ $message }}</span> @enderror
                         </div>
@@ -598,11 +894,15 @@
                             <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
                                 فیلد <span style="color: red;">*</span>
                             </label>
-                            <select wire:model.live="condition_field_name" class="form-control" style="width: 100%;">
+                            <select wire:model.live="condition_field_name" class="form-control" style="width: 100%;" {{ empty($related_tables) || empty($condition_field_type) ? 'disabled' : '' }}>
                                 <option value="">انتخاب کنید...</option>
-                                @foreach($this->availableFieldNames as $fieldKey => $fieldLabel)
-                                    <option value="{{ $fieldKey }}">{{ $fieldLabel }}</option>
-                                @endforeach
+                                @if(!empty($condition_field_type) && isset($this->filteredFields[$condition_field_type]) && is_array($this->filteredFields[$condition_field_type]))
+                                    @foreach($this->filteredFields[$condition_field_type] as $fieldKey => $fieldLabel)
+                                        <option value="{{ $fieldKey }}">{{ $fieldLabel }}</option>
+                                    @endforeach
+                                @else
+                                    <option value="" disabled>ابتدا نوع فیلد را انتخاب کنید</option>
+                                @endif
                             </select>
                             @error('condition_field_name') <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">{{ $message }}</span> @enderror
                         </div>

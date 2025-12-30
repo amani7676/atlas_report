@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Jobs\CheckAndSendAutoSms;
+use App\Jobs\ProcessAutoSmsOnDatabaseChange;
 
 class CheckAutoSms extends Command
 {
@@ -28,8 +29,13 @@ class CheckAutoSms extends Command
     {
         $this->info('شروع بررسی پیامک‌های خودکار...');
         
-        $job = new CheckAndSendAutoSms();
+        // اجرای Job جدید برای پردازش تغییرات دیتابیس
+        $job = new ProcessAutoSmsOnDatabaseChange();
         $job->handle();
+        
+        // اجرای Job قدیمی برای سازگاری
+        $oldJob = new CheckAndSendAutoSms();
+        $oldJob->handle();
         
         $this->info('بررسی پیامک‌های خودکار با موفقیت انجام شد.');
         

@@ -59,22 +59,28 @@
                         class="form-control"
                         step="0.01"
                         min="0"
+                        value="1"
                         required
                     >
                     @error('increase_coefficient') <span style="color: #f72585; font-size: 14px;">{{ $message }}</span> @enderror
                 </div>
+            </div>
 
-                <div class="form-group">
-                    <label class="form-label">شماره صفحه *</label>
+            <div class="form-group" style="margin-top: 20px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                     <input
-                        type="number"
-                        wire:model="page_number"
-                        class="form-control"
-                        min="1"
-                        required
+                        type="checkbox"
+                        wire:model="auto_ability"
+                        style="width: 18px; height: 18px; cursor: pointer;"
                     >
-                    @error('page_number') <span style="color: #f72585; font-size: 14px;">{{ $message }}</span> @enderror
-                </div>
+                    <span class="form-label" style="margin: 0;">
+                        <i class="fas fa-robot"></i>
+                        قابلیت ارسال خودکار پیام
+                    </span>
+                </label>
+                <small style="display: block; color: #666; margin-top: 5px; font-size: 12px; margin-right: 28px;">
+                    در صورت فعال بودن، این گزارش می‌تواند در سیستم ارسال خودکار پیام استفاده شود.
+                </small>
             </div>
 
             <!-- انتخاب الگوهای پیامک -->
@@ -90,15 +96,19 @@
                 @if(count($patterns) > 0)
                     <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
                         @foreach($patterns as $pattern)
-                            <label 
-                                style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; border: 2px solid {{ in_array($pattern->id, $selectedPatterns) ? '#4361ee' : '#ddd' }}; border-radius: 8px; cursor: pointer; background: {{ in_array($pattern->id, $selectedPatterns) ? '#e7f3ff' : '#fff' }}; transition: all 0.3s;"
+                            <div 
+                                wire:key="pattern-{{ $pattern->id }}"
+                                style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; border: 2px solid {{ in_array($pattern->id, $selectedPatterns) ? '#4361ee' : '#ddd' }}; border-radius: 8px; cursor: pointer; background: {{ in_array($pattern->id, $selectedPatterns) ? '#e7f3ff' : '#fff' }}; transition: all 0.3s; user-select: none;"
                                 wire:click="togglePattern({{ $pattern->id }})"
+                                role="button"
+                                tabindex="0"
                             >
                                 <input 
                                     type="checkbox" 
                                     checked="{{ in_array($pattern->id, $selectedPatterns) ? 'checked' : '' }}"
-                                    style="cursor: pointer;"
+                                    style="cursor: pointer; pointer-events: none;"
                                     readonly
+                                    tabindex="-1"
                                 >
                                 <div>
                                     <strong style="display: block; font-size: 14px;">{{ $pattern->title }}</strong>
@@ -106,7 +116,7 @@
                                         <small style="color: #666; font-size: 11px;">کد: {{ $pattern->pattern_code }}</small>
                                     @endif
                                 </div>
-                            </label>
+                            </div>
                         @endforeach
                     </div>
                 @else
