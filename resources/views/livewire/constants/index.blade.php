@@ -43,7 +43,7 @@
                             </td>
                             <td>
                                 @if($constant->type === 'date')
-                                    <span style="color: #666;">{{ \Carbon\Carbon::parse($constant->value)->format('Y/m/d') }}</span>
+                                    <span style="color: #666;">{{ jalaliDate($constant->value, 'Y/m/d') }}</span>
                                 @elseif($constant->type === 'number')
                                     <span style="color: #10b981; font-weight: 500;">{{ number_format($constant->value, 0) }}</span>
                                 @else
@@ -75,7 +75,7 @@
                             </td>
                             <td>
                                 <span style="color: #666; font-size: 14px;">
-                                    {{ \Carbon\Carbon::parse($constant->created_at)->format('Y/m/d H:i') }}
+                                    {{ jalaliDate($constant->created_at, 'Y/m/d H:i') }}
                                 </span>
                             </td>
                             <td>
@@ -242,6 +242,8 @@
         </div>
     @endif
 </div>
+
+
 
 
 

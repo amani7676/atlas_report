@@ -65,6 +65,13 @@ class Units extends Component
                 $bNum = intval(preg_replace('/[^0-9]/', '', $b['name']));
                 return $aNum <=> $bNum;
             });
+            
+            // اضافه کردن bed_count به هر room برای استفاده در view
+            foreach ($unit['rooms'] as &$room) {
+                $room['bed_count'] = count(array_filter($room['beds'] ?? [], function($bed) {
+                    return !empty($bed['resident']);
+                }));
+            }
         }
     }
 
@@ -82,8 +89,8 @@ class Units extends Component
         $this->reportType = 'individual';
         $this->currentResident = [
             'id' => $resident['id'],
-            'name' => $resident['full_name'],
-            'phone' => $resident['phone'],
+            'name' => $resident['full_name'] ?? null,
+            'phone' => $resident['phone'] ?? null,
             'job' => $resident['job'] ?? null,
             'bed_id' => $bed['id'],
             'bed_name' => $bed['name'],
@@ -111,8 +118,8 @@ class Units extends Component
                 $key = $unitIndex . '_' . $roomIndex . '_' . $bed['id'];
                 $roomResidents[$key] = [
                     'resident_id' => $bed['resident']['id'],
-                    'resident_name' => $bed['resident']['full_name'],
-                    'phone' => $bed['resident']['phone'],
+                    'resident_name' => $bed['resident']['full_name'] ?? null,
+                    'phone' => $bed['resident']['phone'] ?? null,
                     'job' => $bed['resident']['job'] ?? null,
                     'bed_id' => $bed['id'],
                     'bed_name' => $bed['name'],

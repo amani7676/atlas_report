@@ -114,9 +114,13 @@ class Index extends Component
                                     'room_name' => $room['name'] ?? '',
                                     'bed_name' => $bed['name'] ?? '',
                                     'national_id' => $resident['national_id'] ?? $resident['national_code'] ?? '',
-                                    'contract_start_date' => $resident['contract_start_date'] ?? null,
-                                    'contract_end_date' => $resident['contract_end_date'] ?? null,
-                                    'contract_expiry_date' => $resident['contract_expiry_date'] ?? null,
+                                    'start_date' => $resident['start_date'] ?? $resident['contract_start_date'] ?? null,
+                                    'end_date' => $resident['end_date'] ?? $resident['contract_end_date'] ?? null,
+                                    'expiry_date' => $resident['expiry_date'] ?? $resident['contract_expiry_date'] ?? null,
+                                    // برای backward compatibility
+                                    'contract_start_date' => $resident['start_date'] ?? $resident['contract_start_date'] ?? null,
+                                    'contract_end_date' => $resident['end_date'] ?? $resident['contract_end_date'] ?? null,
+                                    'contract_expiry_date' => $resident['expiry_date'] ?? $resident['contract_expiry_date'] ?? null,
                                 ];
                                 
                                 $this->residents[] = $residentData;
@@ -173,23 +177,23 @@ class Index extends Component
         ];
 
         // تبدیل تاریخ‌ها به فرمت شمسی
-        $contractStartDate = $resident['contract_start_date'] ?? null;
-        if ($contractStartDate) {
-            $replacements['{contract_start_date}'] = $this->formatJalaliDate($contractStartDate);
+        $startDate = $resident['start_date'] ?? $resident['contract_start_date'] ?? null;
+        if ($startDate) {
+            $replacements['{contract_start_date}'] = $this->formatJalaliDate($startDate);
         } else {
             $replacements['{contract_start_date}'] = '';
         }
 
-        $contractEndDate = $resident['contract_end_date'] ?? null;
-        if ($contractEndDate) {
-            $replacements['{contract_end_date}'] = $this->formatJalaliDate($contractEndDate);
+        $endDate = $resident['end_date'] ?? $resident['contract_end_date'] ?? null;
+        if ($endDate) {
+            $replacements['{contract_end_date}'] = $this->formatJalaliDate($endDate);
         } else {
             $replacements['{contract_end_date}'] = '';
         }
 
-        $contractExpiryDate = $resident['contract_expiry_date'] ?? null;
-        if ($contractExpiryDate) {
-            $replacements['{contract_expiry_date}'] = $this->formatJalaliDate($contractExpiryDate);
+        $expiryDate = $resident['expiry_date'] ?? $resident['contract_expiry_date'] ?? null;
+        if ($expiryDate) {
+            $replacements['{contract_expiry_date}'] = $this->formatJalaliDate($expiryDate);
         } else {
             $replacements['{contract_expiry_date}'] = '';
         }

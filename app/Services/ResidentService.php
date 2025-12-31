@@ -31,7 +31,7 @@ class ResidentService
                             'id' => $resident->unit_id,
                             'name' => $resident->unit_name,
                             'code' => $resident->unit_code,
-                        ] + ($resident->unit_data ?? []),
+                        ],
                         'rooms' => [],
                     ];
                 }
@@ -43,7 +43,7 @@ class ResidentService
                     $units[$unitCode]['rooms'][$roomName] = [
                         'id' => $resident->room_id,
                         'name' => $resident->room_name,
-                    ] + ($resident->room_data ?? []);
+                    ];
                     $units[$unitCode]['rooms'][$roomName]['beds'] = [];
                 }
                 
@@ -54,32 +54,56 @@ class ResidentService
                     $units[$unitCode]['rooms'][$roomName]['beds'][$bedName] = [
                         'id' => $resident->bed_id,
                         'name' => $resident->bed_name,
-                    ] + ($resident->bed_data ?? []);
+                    ];
                 }
                 
-                // اضافه کردن resident به bed - با تمام فیلدهای contract با نام یکسان
+                // اضافه کردن resident به bed - با تمام فیلدها (دقیقاً مثل API)
                 $residentData = [
                     'id' => $resident->resident_id,
-                    'full_name' => $resident->full_name,
-                    'name' => $resident->full_name,
-                    'phone' => $resident->phone,
-                    'national_id' => $resident->national_id,
-                    'national_code' => $resident->national_code,
+                    'full_name' => $resident->resident_full_name,
+                    'name' => $resident->resident_full_name,
+                    'phone' => $resident->resident_phone,
+                    'age' => $resident->resident_age,
+                    'birth_date' => $resident->resident_birth_date?->format('Y-m-d'),
+                    'job' => $resident->resident_job,
+                    'referral_source' => $resident->resident_referral_source,
+                    'form' => $resident->resident_form,
+                    'document' => $resident->resident_document,
+                    'rent' => $resident->resident_rent,
+                    'trust' => $resident->resident_trust,
+                    'created_at' => $resident->resident_created_at?->format('Y-m-d H:i:s'),
+                    'updated_at' => $resident->resident_updated_at?->format('Y-m-d H:i:s'),
+                    'deleted_at' => $resident->resident_deleted_at?->format('Y-m-d H:i:s'),
                 ];
                 
-                // اضافه کردن تاریخ‌های قرارداد با نام یکسان
+                // اضافه کردن تاریخ‌های قرارداد (دقیقاً مثل API)
                 if ($resident->contract_start_date) {
+                    $residentData['start_date'] = $resident->contract_start_date->format('Y-m-d');
                     $residentData['contract_start_date'] = $resident->contract_start_date->format('Y-m-d');
+                    $residentData['contract_start_date_jalali'] = $resident->contract_start_date_jalali;
                 }
                 if ($resident->contract_end_date) {
+                    $residentData['end_date'] = $resident->contract_end_date->format('Y-m-d');
                     $residentData['contract_end_date'] = $resident->contract_end_date->format('Y-m-d');
+                    $residentData['contract_end_date_jalali'] = $resident->contract_end_date_jalali;
                 }
-                if ($resident->contract_expiry_date) {
-                    $residentData['contract_expiry_date'] = $resident->contract_expiry_date->format('Y-m-d');
+                if ($resident->contract_payment_date) {
+                    $residentData['payment_date'] = $resident->contract_payment_date->format('Y-m-d');
+                    $residentData['contract_payment_date'] = $resident->contract_payment_date->format('Y-m-d');
+                    $residentData['contract_payment_date_jalali'] = $resident->contract_payment_date_jalali;
                 }
                 
-                // ادغام با resident_data (که شامل تمام فیلدهای contract با نام یکسان است)
-                $residentData = array_merge($residentData, ($resident->resident_data ?? []));
+                // اضافه کردن فیلدهای contract دیگر
+                $residentData['contract_id'] = $resident->contract_id;
+                $residentData['contract_resident_id'] = $resident->contract_resident_id;
+                $residentData['contract_bed_id'] = $resident->contract_bed_id;
+                $residentData['contract_state'] = $resident->contract_state;
+                $residentData['contract_created_at'] = $resident->contract_created_at?->format('Y-m-d H:i:s');
+                $residentData['contract_updated_at'] = $resident->contract_updated_at?->format('Y-m-d H:i:s');
+                $residentData['contract_deleted_at'] = $resident->contract_deleted_at?->format('Y-m-d H:i:s');
+                
+                // اضافه کردن فیلدهای notes (JSON)
+                $residentData['notes'] = $resident->notes;
                 
                 $units[$unitCode]['rooms'][$roomName]['beds'][$bedName]['resident'] = $residentData;
             }
@@ -115,29 +139,53 @@ class ResidentService
                 return null;
             }
             
-            // آماده‌سازی داده‌های resident با تمام فیلدهای contract
+            // آماده‌سازی داده‌های resident با تمام فیلدها (دقیقاً مثل API)
             $residentDataArray = [
                 'id' => $resident->resident_id,
-                'full_name' => $resident->full_name,
-                'name' => $resident->full_name,
-                'phone' => $resident->phone,
-                'national_id' => $resident->national_id,
-                'national_code' => $resident->national_code,
+                'full_name' => $resident->resident_full_name,
+                'name' => $resident->resident_full_name,
+                'phone' => $resident->resident_phone,
+                'age' => $resident->resident_age,
+                'birth_date' => $resident->resident_birth_date?->format('Y-m-d'),
+                'job' => $resident->resident_job,
+                'referral_source' => $resident->resident_referral_source,
+                'form' => $resident->resident_form,
+                'document' => $resident->resident_document,
+                'rent' => $resident->resident_rent,
+                'trust' => $resident->resident_trust,
+                'created_at' => $resident->resident_created_at?->format('Y-m-d H:i:s'),
+                'updated_at' => $resident->resident_updated_at?->format('Y-m-d H:i:s'),
+                'deleted_at' => $resident->resident_deleted_at?->format('Y-m-d H:i:s'),
             ];
             
-            // اضافه کردن تاریخ‌های contract با نام یکسان
+            // اضافه کردن تاریخ‌های قرارداد (دقیقاً مثل API)
             if ($resident->contract_start_date) {
+                $residentDataArray['start_date'] = $resident->contract_start_date->format('Y-m-d');
                 $residentDataArray['contract_start_date'] = $resident->contract_start_date->format('Y-m-d');
+                $residentDataArray['contract_start_date_jalali'] = $resident->contract_start_date_jalali;
             }
             if ($resident->contract_end_date) {
+                $residentDataArray['end_date'] = $resident->contract_end_date->format('Y-m-d');
                 $residentDataArray['contract_end_date'] = $resident->contract_end_date->format('Y-m-d');
+                $residentDataArray['contract_end_date_jalali'] = $resident->contract_end_date_jalali;
             }
-            if ($resident->contract_expiry_date) {
-                $residentDataArray['contract_expiry_date'] = $resident->contract_expiry_date->format('Y-m-d');
+            if ($resident->contract_payment_date) {
+                $residentDataArray['payment_date'] = $resident->contract_payment_date->format('Y-m-d');
+                $residentDataArray['contract_payment_date'] = $resident->contract_payment_date->format('Y-m-d');
+                $residentDataArray['contract_payment_date_jalali'] = $resident->contract_payment_date_jalali;
             }
             
-            // ادغام با resident_data (که شامل تمام فیلدهای contract با نام یکسان است)
-            $residentDataArray = array_merge($residentDataArray, ($resident->resident_data ?? []));
+            // اضافه کردن فیلدهای contract دیگر
+            $residentDataArray['contract_id'] = $resident->contract_id;
+            $residentDataArray['contract_resident_id'] = $resident->contract_resident_id;
+            $residentDataArray['contract_bed_id'] = $resident->contract_bed_id;
+            $residentDataArray['contract_state'] = $resident->contract_state;
+            $residentDataArray['contract_created_at'] = $resident->contract_created_at?->format('Y-m-d H:i:s');
+            $residentDataArray['contract_updated_at'] = $resident->contract_updated_at?->format('Y-m-d H:i:s');
+            $residentDataArray['contract_deleted_at'] = $resident->contract_deleted_at?->format('Y-m-d H:i:s');
+            
+            // اضافه کردن فیلدهای notes (JSON)
+            $residentDataArray['notes'] = $resident->notes;
             
             return [
                 'resident' => $residentDataArray,
@@ -145,15 +193,15 @@ class ResidentService
                     'id' => $resident->unit_id,
                     'name' => $resident->unit_name,
                     'code' => $resident->unit_code,
-                ] + ($resident->unit_data ?? []),
+                ],
                 'room' => [
                     'id' => $resident->room_id,
                     'name' => $resident->room_name,
-                ] + ($resident->room_data ?? []),
+                ],
                 'bed' => [
                     'id' => $resident->bed_id,
                     'name' => $resident->bed_name,
-                ] + ($resident->bed_data ?? []),
+                ],
             ];
         } catch (\Exception $e) {
             Log::error('Error getting resident from database', [
@@ -164,9 +212,3 @@ class ResidentService
         }
     }
 }
-
-
-
-
-
-

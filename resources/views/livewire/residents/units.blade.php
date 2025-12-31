@@ -105,7 +105,7 @@
                     </span>
                     <span>{{ count(array_filter($filteredUnits, function($unit) {
                         return array_filter($unit['rooms'], function($room) {
-                            return $room['bed_count'] > 0;
+                            return ($room['bed_count'] ?? 0) > 0;
                         });
                     })) }} گروه</span>
                 </h5>
@@ -174,7 +174,7 @@
             <div class="row">
                 @foreach($filteredUnits as $unitIndex => $unit)
                     @foreach($unit['rooms'] as $roomIndex => $room)
-                        @if($room['bed_count'] > 0)
+                        @if(($room['bed_count'] ?? 0) > 0)
                             <div class="col-md-6 mb-4">
                                 <div class="card">
                                     <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
@@ -264,7 +264,7 @@
 
                 @if(count(array_filter($filteredUnits, function($unit) {
                     return array_filter($unit['rooms'], function($room) {
-                        return $room['bed_count'] > 0;
+                        return ($room['bed_count'] ?? 0) > 0;
                     });
                 })) === 0)
                     <div class="col-12">

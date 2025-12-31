@@ -45,20 +45,22 @@ class NotificationReports extends Component
     public function getTotalScoreProperty()
     {
         $query = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 2) // دسته‌بندی اطلاع‌رسانی
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('resident_reports.resident_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('resident_reports.unit_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('resident_reports.room_name', 'like', '%' . $this->search . '%')
+                    $q->where('residents.resident_full_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('residents.resident_phone', 'like', '%' . $this->search . '%')
+                        ->orWhere('residents.unit_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('residents.room_name', 'like', '%' . $this->search . '%')
                         ->orWhere('resident_reports.notes', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->filters['unit_id'], function ($query) {
-                $query->where('resident_reports.unit_id', $this->filters['unit_id']);
+                $query->where('residents.unit_id', $this->filters['unit_id']);
             })
             ->when($this->filters['room_id'], function ($query) {
-                $query->where('resident_reports.room_id', $this->filters['room_id']);
+                $query->where('residents.room_id', $this->filters['room_id']);
             })
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
@@ -88,10 +90,14 @@ class NotificationReports extends Component
         })
         ->whereNotNull('resident_id')
         ->when($this->filters['unit_id'], function ($query) {
-            $query->where('unit_id', $this->filters['unit_id']);
+            $query->whereHas('resident', function($q) {
+                $q->where('unit_id', $this->filters['unit_id']);
+            });
         })
         ->when($this->filters['room_id'], function ($query) {
-            $query->where('room_id', $this->filters['room_id']);
+            $query->whereHas('resident', function($q) {
+                $q->where('room_id', $this->filters['room_id']);
+            });
         })
         ->when($this->filters['report_id'], function ($query) {
             $query->where('report_id', $this->filters['report_id']);
@@ -113,10 +119,11 @@ class NotificationReports extends Component
 
     public function getReportsByUnitProperty()
     {
-        $query = ResidentReport::selectRaw('unit_name, COUNT(*) as count, SUM(reports.negative_score) as total_score')
+        $query = ResidentReport::selectRaw('MAX(residents.unit_name) as unit_name, COUNT(*) as count, SUM(reports.negative_score) as total_score')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 2) // دسته‌بندی اطلاع‌رسانی
-            ->whereNotNull('unit_name')
+            ->whereNotNull('residents.unit_name')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -129,7 +136,7 @@ class NotificationReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('unit_name')
+            ->groupBy('residents.unit_id')
             ->orderByDesc('count');
             
         return $query->get();
@@ -138,16 +145,19 @@ class NotificationReports extends Component
     public function getTopResidentsProperty()
     {
         $query = ResidentReport::selectRaw('
-            resident_name,
-            MAX(unit_name) as unit_name,
-            MAX(room_name) as room_name,
-            MAX(phone) as phone,
+            MAX(residents.resident_full_name) as resident_name,
+            MAX(residents.unit_name) as unit_name,
+            MAX(residents.room_name) as room_name,
+            MAX(residents.resident_phone) as phone,
             COUNT(*) as report_count,
             SUM(reports.negative_score) as total_score
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 2) // دسته‌بندی اطلاع‌رسانی
-            ->whereNotNull('resident_name')
+            ->where(function($q) {
+                $q->whereNotNull('residents.resident_full_name');
+            })
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -160,7 +170,7 @@ class NotificationReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('resident_name')
+            ->groupBy('resident_reports.resident_id')
             ->orderByDesc('report_count')
             ->limit(10);
             
@@ -169,23 +179,29 @@ class NotificationReports extends Component
 
     public function getReportsQueryProperty(): Builder
     {
-        $query = ResidentReport::with(['report', 'report.category'])
+        $query = ResidentReport::with(['report', 'report.category', 'resident'])
             ->whereHas('report', function ($q) {
                 $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('resident_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('unit_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('room_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('notes', 'like', '%' . $this->search . '%');
+                    $q->whereHas('resident', function ($residentQuery) {
+                        $residentQuery->where('resident_full_name', 'like', '%' . $this->search . '%')
+                            ->orWhere('unit_name', 'like', '%' . $this->search . '%')
+                            ->orWhere('room_name', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhere('resident_reports.notes', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->filters['unit_id'], function ($query) {
-                $query->where('unit_id', $this->filters['unit_id']);
+                $query->whereHas('resident', function ($q) {
+                    $q->where('unit_id', $this->filters['unit_id']);
+                });
             })
             ->when($this->filters['room_id'], function ($query) {
-                $query->where('room_id', $this->filters['room_id']);
+                $query->whereHas('resident', function ($q) {
+                    $q->where('room_id', $this->filters['room_id']);
+                });
             })
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('report_id', $this->filters['report_id']);
@@ -217,13 +233,14 @@ class NotificationReports extends Component
         
         $this->reportsList = Report::where('category_id', 2)->get(); // دسته‌بندی اطلاع‌رسانی
 
-        $this->units = ResidentReport::select('unit_id', 'unit_name')
+        $this->units = ResidentReport::select('residents.unit_id', 'residents.unit_name')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->whereHas('report', function($q) {
                 $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
-            ->whereNotNull('unit_id')
+            ->whereNotNull('residents.unit_id')
             ->distinct()
-            ->orderBy('unit_name')
+            ->orderBy('residents.unit_name')
             ->get()
             ->map(function ($item) {
                 return [
@@ -233,12 +250,14 @@ class NotificationReports extends Component
             })
             ->toArray();
 
-        $this->rooms = ResidentReport::select('room_id', 'room_name', 'unit_id')
+        $this->rooms = ResidentReport::select('residents.room_id', 'residents.room_name', 'residents.unit_id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->whereHas('report', function($q) {
                 $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
-            ->whereNotNull('room_id')
+            ->whereNotNull('residents.room_id')
             ->distinct()
+            ->orderBy('residents.room_name')
             ->get()
             ->map(function ($item) {
                 return [
@@ -308,21 +327,29 @@ class NotificationReports extends Component
         return ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
         })
-        ->where(function($query) {
-            $query->where('resident_name', 'like', '%' . $this->residentSearch . '%')
-                  ->orWhere('phone', 'like', '%' . $this->residentSearch . '%');
+        ->whereHas('resident', function($query) {
+            $query->where(function($q) {
+                $q->where('resident_full_name', 'like', '%' . $this->residentSearch . '%')
+                  ->orWhere('resident_phone', 'like', '%' . $this->residentSearch . '%');
+            });
         })
-        ->distinct('resident_name')
+        ->with('resident')
+        ->distinct('resident_id')
         ->limit(10)
         ->get()
         ->map(function ($report) {
+            $resident = $report->resident;
             return [
-                'name' => $report->resident_name,
-                'phone' => $report->phone,
-                'unit_name' => $report->unit_name,
-                'room_name' => $report->room_name
+                'name' => $resident ? $resident->resident_full_name : null,
+                'phone' => $resident ? $resident->resident_phone : null,
+                'unit_name' => $resident ? $resident->unit_name : null,
+                'room_name' => $resident ? $resident->room_name : null
             ];
         })
+        ->filter(function($item) {
+            return $item['name'] !== null;
+        })
+        ->values()
         ->toArray();
     }
 
@@ -332,8 +359,10 @@ class NotificationReports extends Component
         $this->residentReports = ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
         })
-        ->where('resident_name', $residentName)
-        ->with(['report', 'report.category'])
+        ->whereHas('resident', function($q) use ($residentName) {
+            $q->where('resident_full_name', $residentName);
+        })
+        ->with(['report', 'report.category', 'resident'])
         ->orderBy('created_at', 'desc')
         ->get();
         $this->showResidentDetails = true;
@@ -376,4 +405,3 @@ class NotificationReports extends Component
         ]);
     }
 }
-

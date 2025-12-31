@@ -58,7 +58,7 @@
                             </td>
                             <td>
                                 @if($autoSms->send_type === 'scheduled' && $autoSms->scheduled_at)
-                                    <span style="color: #666;">{{ $autoSms->scheduled_at->format('Y/m/d H:i') }}</span>
+                                    <span style="color: #666;">{{ jalaliDate($autoSms->scheduled_at, 'Y/m/d H:i') }}</span>
                                 @else
                                     <span class="text-muted">وقتی شرط برقرار شد</span>
                                 @endif
@@ -81,7 +81,7 @@
                             </td>
                             <td>
                                 <span style="color: #666; font-size: 14px;">
-                                    {{ $autoSms->created_at->format('Y/m/d H:i') }}
+                                    {{ jalaliDate($autoSms->created_at, 'Y/m/d H:i') }}
                                 </span>
                             </td>
                             <td>

@@ -83,6 +83,10 @@ class Auto extends Component
                 'full_name' => 'نام کامل',
                 'phone' => 'شماره تلفن',
                 'national_id' => 'کد ملی',
+                'start_date' => 'تاریخ شروع قرارداد',
+                'end_date' => 'تاریخ پایان قرارداد',
+                'expiry_date' => 'تاریخ انقضای قرارداد',
+                // برای backward compatibility
                 'contract_start_date' => 'تاریخ شروع قرارداد',
                 'contract_end_date' => 'تاریخ پایان قرارداد',
                 'contract_expiry_date' => 'تاریخ انقضای قرارداد',
@@ -128,7 +132,7 @@ class Auto extends Component
         }
 
         // تعیین نوع داده بر اساس نام فیلد
-        $dateFields = ['contract_start_date', 'contract_end_date', 'contract_expiry_date', 'last_report_date'];
+        $dateFields = ['start_date', 'end_date', 'expiry_date', 'contract_start_date', 'contract_end_date', 'contract_expiry_date', 'last_report_date'];
         $numberFields = ['report_count', 'total_score', 'negative_score'];
         $booleanFields = ['is_active'];
 
@@ -437,5 +441,6 @@ class Auto extends Component
         ]);
     }
 }
+
 
 

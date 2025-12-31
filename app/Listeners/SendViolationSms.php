@@ -113,8 +113,8 @@ class SendViolationSms
             $residentName = null;
             
             if ($resident) {
-                $phone = $resident->phone;
-                $residentName = $resident->full_name;
+                $phone = $resident->resident_phone;
+                $residentName = $resident->resident_full_name;
             } else {
                 // اگر resident پیدا نشد، از فیلدهای ذخیره شده در ResidentReport استفاده می‌کنیم
                 $phone = $residentReport->phone ?? null;
@@ -150,7 +150,9 @@ class SendViolationSms
                     'id' => $residentReport->resident_id,
                     'resident_id' => $residentReport->resident_id,
                     'full_name' => $residentName,
+                    'resident_full_name' => $residentName,
                     'phone' => $phone,
+                    'resident_phone' => $phone,
                     'unit_id' => $residentReport->unit_id,
                     'unit_name' => $residentReport->unit_name ?? null,
                     'room_id' => $residentReport->room_id,
@@ -158,6 +160,14 @@ class SendViolationSms
                     'bed_id' => $residentReport->bed_id,
                     'bed_name' => $residentReport->bed_name ?? null,
                 ];
+            } else {
+                // اگر resident وجود دارد، مطمئن شویم که فیلدهای قدیمی هم موجود هستند (برای سازگاری)
+                if (!isset($resident->full_name) && isset($resident->resident_full_name)) {
+                    $resident->full_name = $resident->resident_full_name;
+                }
+                if (!isset($resident->phone) && isset($resident->resident_phone)) {
+                    $resident->phone = $resident->resident_phone;
+                }
             }
             
             $variables = $this->extractPatternVariables($pattern, $resident, $report);
@@ -415,9 +425,9 @@ class SendViolationSms
         return [
             'resident' => [
                 'id' => $resident->resident_id ?? $resident->id,
-                'full_name' => $resident->full_name,
-                'name' => $resident->full_name,
-                'phone' => $resident->phone,
+                'full_name' => $resident->resident_full_name ?? $resident->full_name ?? '',
+                'name' => $resident->resident_full_name ?? $resident->full_name ?? '',
+                'phone' => $resident->resident_phone ?? $resident->phone ?? '',
             ],
             'unit' => [
                 'id' => $resident->unit_id ?? null,

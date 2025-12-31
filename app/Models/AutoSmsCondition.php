@@ -112,7 +112,7 @@ class AutoSmsCondition extends Model
         $fieldValue = $resident->{$this->field_name} ?? null;
         
         // اگر فیلد تاریخ است و مقدار هم تاریخ است
-        if (in_array($this->field_name, ['contract_start_date', 'contract_end_date', 'contract_expiry_date'])) {
+        if (in_array($this->field_name, ['start_date', 'end_date', 'expiry_date', 'contract_start_date', 'contract_end_date', 'contract_expiry_date'])) {
             if ($fieldValue instanceof \Carbon\Carbon) {
                 $fieldValue = $fieldValue->format('Y-m-d');
             }

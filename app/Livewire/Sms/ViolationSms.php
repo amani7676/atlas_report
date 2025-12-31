@@ -101,8 +101,8 @@ class ViolationSms extends Component
                   ->orWhere('title', 'like', '%' . $this->search . '%')
                   ->orWhere('description', 'like', '%' . $this->search . '%')
                   ->orWhereHas('resident', function ($q) {
-                      $q->where('full_name', 'like', '%' . $this->search . '%')
-                        ->orWhere('phone', 'like', '%' . $this->search . '%');
+                      $q->where('resident_full_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('resident_phone', 'like', '%' . $this->search . '%');
                   })
                   ->orWhereHas('report', function ($q) {
                       $q->where('title', 'like', '%' . $this->search . '%');
@@ -140,5 +140,7 @@ class ViolationSms extends Component
         ]);
     }
 }
+
+
 
 

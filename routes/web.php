@@ -11,6 +11,7 @@ use App\Livewire\Categories\Create as CategoriesCreate;
 use App\Livewire\Categories\Edit as CategoriesEdit;
 use App\Livewire\Residents\ResidentReports;
 use App\Livewire\Residents\Units;
+use App\Livewire\Residents\ExpiredToday;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', Dashboard::class)->name('dashboard');
@@ -24,6 +25,7 @@ Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edi
 Route::get('/residents', Units::class)->name('residents.units');
 Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
 Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports');
+Route::get('/residents/expired-today', ExpiredToday::class)->name('residents.expired-today');
 // پیام‌های ساده
 Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
 Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');

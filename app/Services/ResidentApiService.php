@@ -158,7 +158,7 @@ class ResidentApiService
         $room = $apiData['room'];
         $bed = $apiData['bed'];
 
-        // استفاده از فیلدهای contract با نام یکسان از resident_data
+        // استفاده از فیلدهای contract (به صورت یکسان)
         return [
             'id' => $resident['id'] ?? null,
             'name' => $resident['full_name'] ?? $resident['name'] ?? '',
@@ -168,10 +168,14 @@ class ResidentApiService
             'room_name' => $room['name'] ?? '',
             'bed_name' => $bed['name'] ?? '',
             'national_id' => $resident['national_id'] ?? $resident['national_code'] ?? '',
-            // استفاده از فیلدهای contract با نام یکسان (contract_start_date, contract_end_date, contract_expiry_date)
-            'contract_start_date' => $resident['contract_start_date'] ?? null,
-            'contract_end_date' => $resident['contract_end_date'] ?? null,
-            'contract_expiry_date' => $resident['contract_expiry_date'] ?? null,
+            // فیلدهای contract (به صورت یکسان)
+            'start_date' => $resident['start_date'] ?? $resident['contract_start_date'] ?? null,
+            'end_date' => $resident['end_date'] ?? $resident['contract_end_date'] ?? null,
+            'expiry_date' => $resident['expiry_date'] ?? $resident['contract_expiry_date'] ?? null,
+            // برای backward compatibility
+            'contract_start_date' => $resident['start_date'] ?? $resident['contract_start_date'] ?? null,
+            'contract_end_date' => $resident['end_date'] ?? $resident['contract_end_date'] ?? null,
+            'contract_expiry_date' => $resident['expiry_date'] ?? $resident['contract_expiry_date'] ?? null,
         ];
     }
 }

@@ -246,7 +246,6 @@
                                 <thead class="table-light sticky-top">
                                     <tr>
                                         <th width="5%">#</th>
-                                        <th width="3%">چک</th>
                                         <th>اقامت‌گر</th>
                                         <th>نوع تخلف</th>
                                         <th>تعداد تکرار</th>
@@ -259,23 +258,18 @@
                                             <td>
                                                 <span class="badge rounded-pill bg-primary">{{ $index + 1 }}</span>
                                             </td>
-                                            <td style="text-align: center; vertical-align: middle;">
-                                                <!-- Material Design Checkbox - disabled برای لیست جمع‌بندی -->
-                                                <div class="form-check" style="margin: 0; padding: 0;">
-                                                    <input class="form-check-input" type="checkbox" 
-                                                           id="check_repeat_{{ $resident->id ?? $index }}"
-                                                           style="width: 18px; height: 18px; cursor: not-allowed; margin: 0;"
-                                                           disabled>
-                                                </div>
-                                            </td>
                                             <td>
-                                                <a href="#"
-                                                   wire:click.prevent="filterByResident('{{ $resident->resident_name }}', {{ $resident->report_id }})"
-                                                   class="text-decoration-none text-primary fw-bold"
-                                                   style="cursor: pointer;"
-                                                   title="مشاهده تخلف‌های تکرارای این اقامت‌گر">
-                                                    <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
-                                                </a>
+                                                @if(!empty($resident->resident_name))
+                                                    <a href="#"
+                                                       wire:click.prevent="filterByResident('{{ $resident->resident_name }}', {{ $resident->report_id }})"
+                                                       class="text-decoration-none text-primary fw-bold"
+                                                       style="cursor: pointer;"
+                                                       title="مشاهده تخلف‌های تکرارای این اقامت‌گر">
+                                                        <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted">نامشخص</span>
+                                                @endif
                                                 @if($resident->phone)
                                                     <br><small class="text-muted">{{ $resident->phone }}</small>
                                                 @endif
@@ -323,7 +317,6 @@
                                 <thead class="table-light sticky-top">
                                     <tr>
                                         <th width="5%">#</th>
-                                        <th width="3%">چک</th>
                                         <th>اقامت‌گر</th>
                                         <th>تعداد گزارش</th>
                                         <th>مجموع نمرات</th>
@@ -336,23 +329,18 @@
                                             <td>
                                                 <span class="badge rounded-pill bg-info">{{ $index + 1 }}</span>
                                             </td>
-                                            <td style="text-align: center; vertical-align: middle;">
-                                                <!-- Material Design Checkbox - disabled برای لیست جمع‌بندی -->
-                                                <div class="form-check" style="margin: 0; padding: 0;">
-                                                    <input class="form-check-input" type="checkbox" 
-                                                           id="check_count_{{ $resident->id ?? $index }}"
-                                                           style="width: 18px; height: 18px; cursor: not-allowed; margin: 0;"
-                                                           disabled>
-                                                </div>
-                                            </td>
                                             <td>
-                                                <a href="#"
-                                                   wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
-                                                   class="text-decoration-none text-info fw-bold"
-                                                   style="cursor: pointer;"
-                                                   title="مشاهده همه تخلف‌های این اقامت‌گر">
-                                                    <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
-                                                </a>
+                                                @if(!empty($resident->resident_name))
+                                                    <a href="#"
+                                                       wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
+                                                       class="text-decoration-none text-info fw-bold"
+                                                       style="cursor: pointer;"
+                                                       title="مشاهده همه تخلف‌های این اقامت‌گر">
+                                                        <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted">نامشخص</span>
+                                                @endif
                                                 @if($resident->phone)
                                                     <br><small class="text-muted">{{ $resident->phone }}</small>
                                                 @endif
@@ -415,13 +403,135 @@
                             <div class="border-top pt-3">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">{{ $selectedResident }}</h5>
-                                    <button wire:click="closeResidentDetails" class="btn btn-sm btn-outline-secondary">
-                                        <i class="fas fa-times"></i> بستن
-                                    </button>
+                                    <div>
+                                        @if(!$showGrantForm)
+                                            <button type="button" wire:click="openGrantForm" class="btn btn-sm btn-success me-2">
+                                                <i class="fas fa-gift"></i> ثبت بخشودگی
+                                            </button>
+                                        @endif
+                                        <button type="button" wire:click="closeResidentDetails" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-times"></i> بستن
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- فرم ثبت/ویرایش بخشودگی -->
+                                @if($showGrantForm)
+                                <div class="card bg-light mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-gift me-2"></i>
+                                                ثبت بخشودگی جدید
+                                            </h6>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="closeGrantForm">
+                                                <i class="fas fa-times"></i> بستن
+                                            </button>
+                                        </div>
+                                        
+                                        <form wire:submit.prevent="saveGrant">
+                                            <div class="row">
+                                                <div class="col-md-4 mb-3">
+                                                    <label for="grantAmount" class="form-label">مقدار بخشودگی <span class="text-danger">*</span></label>
+                                                    <input type="number" 
+                                                           class="form-control @error('grantAmount') is-invalid @enderror" 
+                                                           id="grantAmount"
+                                                           wire:model="grantAmount"
+                                                           step="0.01"
+                                                           min="0"
+                                                           placeholder="مقدار بخشودگی را وارد کنید">
+                                                    @error('grantAmount')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+
+                                                <div class="col-md-4 mb-3">
+                                                    <label for="grantDate" class="form-label">تاریخ بخشودگی</label>
+                                                    <input type="date" 
+                                                           class="form-control @error('grantDate') is-invalid @enderror" 
+                                                           id="grantDate"
+                                                           wire:model="grantDate">
+                                                    @error('grantDate')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+
+                                                <div class="col-md-12 mb-3">
+                                                    <label for="grantDescription" class="form-label">توضیحات</label>
+                                                    <textarea 
+                                                          class="form-control" 
+                                                          id="grantDescription"
+                                                          wire:model="grantDescription"
+                                                          rows="6"
+                                                          placeholder="توضیحات (اختیاری)"></textarea>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex justify-content-end gap-2">
+                                                <button type="button" class="btn btn-secondary" wire:click="closeGrantForm">انصراف</button>
+                                                <button type="submit" class="btn btn-success" wire:loading.attr="disabled">
+                                                    <span wire:loading.remove wire:target="saveGrant">
+                                                        <i class="fas fa-save me-1"></i>ذخیره
+                                                    </span>
+                                                    <span wire:loading wire:target="saveGrant">
+                                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                                        در حال ذخیره...
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                                @endif
+                                
+                                <!-- لیست بخشودگی‌ها -->
+                                <div class="mb-3">
+                                    <h6 class="mb-2">لیست بخشودگی‌ها:</h6>
+                                    <div style="max-height: 200px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th>مقدار</th>
+                                                    <th>تاریخ</th>
+                                                    <th>توضیحات</th>
+                                                    <th width="100">عملیات</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($selectedResidentGrants as $grant)
+                                                    <tr style="background-color: {{ $grant->is_active ? '#e8f5e9' : '#f5f5f5' }};">
+                                                        <td>
+                                                            {{ number_format($grant->amount, 0) }}
+                                                            @if($grant->is_active)
+                                                                <span class="badge bg-success ms-2">فعال</span>
+                                                            @else
+                                                                <span class="badge bg-secondary ms-2">غیرفعال</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $grant->grant_date ? jalaliDate($grant->grant_date, 'Y/m/d') : '-' }}</td>
+                                                        <td>{{ $grant->description ?? '-' }}</td>
+                                                        <td>
+                                                            <button type="button" 
+                                                                    class="btn btn-danger btn-sm"
+                                                                    wire:click="deleteGrant({{ $grant->id }})"
+                                                                    wire:confirm="آیا مطمئن هستید که می‌خواهید این بخشودگی را حذف کنید؟"
+                                                                    title="حذف">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">بخشودگی ثبت نشده است</td>
+                                                    </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
 
                                 <div class="row mb-3">
-                                    <div class="col-6">
+                                    <div class="col-4">
                                         <div class="card bg-light text-center">
                                             <div class="card-body p-2">
                                                 <h6 class="card-title mb-1">تعداد گزارش‌ها</h6>
@@ -429,18 +539,48 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-4">
                                         <div class="card bg-light text-center">
                                             <div class="card-body p-2">
                                                 <h6 class="card-title mb-1">مجموع نمرات منفی</h6>
                                                 <h4 class="mb-0 text-danger">
-                                                    {{ $residentReports->sum(function ($report) {return $report->report->negative_score ?? 0;}) }}
+                                                    {{ $this->getResidentTotalNegativeScore() }}
                                                 </h4>
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="col-4">
+                                        <div class="card bg-light text-center">
+                                            <div class="card-body p-2 d-flex gap-2">
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-success flex-fill"
+                                                        wire:click="checkAllReports"
+                                                        wire:loading.attr="disabled">
+                                                    <span wire:loading.remove wire:target="checkAllReports">
+                                                        <i class="fas fa-check-square me-1"></i>چک همه
+                                                    </span>
+                                                    <span wire:loading wire:target="checkAllReports">
+                                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                                        ...
+                                                    </span>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-danger flex-fill"
+                                                        wire:click="uncheckAllReports"
+                                                        wire:loading.attr="disabled">
+                                                    <span wire:loading.remove wire:target="uncheckAllReports">
+                                                        <i class="fas fa-square me-1"></i>لغو چک
+                                                    </span>
+                                                    <span wire:loading wire:target="uncheckAllReports">
+                                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                                        ...
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-
+                                
                                 <h6 class="mb-2">لیست گزارش‌ها:</h6>
                                 <div style="max-height: 250px; overflow-y: auto;">
                                     <table class="table table-sm table-hover">
@@ -528,13 +668,17 @@
                                                     class="badge rounded-pill bg-danger">{{ $counter++ }}</span>
                                             </td>
                                             <td>
-                                                <a href="#"
-                                                   wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
-                                                   class="text-decoration-none text-danger fw-bold"
-                                                   style="cursor: pointer;"
-                                                   title="مشاهده همه تخلف‌های این اقامت‌گر">
-                                                    <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
-                                                </a>
+                                                @if(!empty($resident->resident_name))
+                                                    <a href="#"
+                                                       wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
+                                                       class="text-decoration-none text-danger fw-bold"
+                                                       style="cursor: pointer;"
+                                                       title="مشاهده همه تخلف‌های این اقامت‌گر">
+                                                        <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted">نامشخص</span>
+                                                @endif
                                             </td>
                                             <td>
                                                 {{ $resident->phone ?? 'ثبت نشده' }}
@@ -700,7 +844,6 @@
                         <thead class="table-light">
                             <tr>
                                 <th>شماره</th>
-                                <th width="3%">چک</th>
                                 <th wire:click="sortBy('resident_name')" style="cursor: pointer;">
                                     اقامت‌گر
                                     @if ($sortField === 'resident_name')
@@ -732,20 +875,6 @@
                                         <span class="badge rounded-pill" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 13px; padding: 6px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                             {{ $counter_number }}
                                         </span>
-                                    </td>
-                                    <td style="text-align: center; vertical-align: middle;">
-                                        <!-- Material Design Checkbox -->
-                                        <div class="form-check" style="margin: 0; padding: 0;">
-                                            <input class="form-check-input" type="checkbox" 
-                                                   id="check_main_{{ $report->id }}"
-                                                   @if($report->is_checked) checked @endif
-                                                   wire:click="toggleChecked({{ $report->id }})"
-                                                   style="width: 18px; height: 18px; cursor: pointer; margin: 0;"
-                                                   wire:loading.attr="disabled">
-                                            <div wire:loading wire:target="toggleChecked({{ $report->id }})" class="spinner-border spinner-border-sm" role="status" style="width: 18px; height: 18px;">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                        </div>
                                     </td>
                                     <td style="vertical-align: middle;">
                                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -1035,3 +1164,4 @@
         });
     </script>
 </div>
+

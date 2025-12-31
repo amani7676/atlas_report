@@ -239,6 +239,10 @@ class Index extends Component
                     'unit_code' => 'کد واحد',
                     'room_name' => 'نام اتاق',
                     'bed_name' => 'نام تخت',
+                    'start_date' => 'تاریخ شروع قرارداد',
+                    'end_date' => 'تاریخ پایان قرارداد',
+                    'expiry_date' => 'تاریخ سررسید',
+                    // برای backward compatibility
                     'contract_start_date' => 'تاریخ شروع قرارداد',
                     'contract_end_date' => 'تاریخ پایان قرارداد',
                     'contract_expiry_date' => 'تاریخ سررسید',

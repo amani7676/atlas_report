@@ -40,6 +40,14 @@ class ResidentReport extends Model
                 'resident_id' => $residentReport->resident_id,
             ]);
             event(new ResidentReportCreated($residentReport));
+            
+            // بررسی و غیرفعال کردن بخشودگی‌ها بعد از ثبت تخلف جدید
+            if ($residentReport->resident_id) {
+                $resident = $residentReport->resident;
+                if ($resident) {
+                    self::checkAndDeactivateGrantsForResident($resident->resident_id);
+                }
+            }
         });
 
         // همگام‌سازی با API در زمان خواندن
@@ -49,6 +57,64 @@ class ResidentReport extends Model
                 $apiService->syncResidentData($model);
             }
         });
+    }
+    
+    /**
+     * بررسی و غیرفعال کردن بخشودگی‌ها و false کردن is_checked
+     */
+    public static function checkAndDeactivateGrantsForResident($residentId)
+    {
+        // دریافت تمام بخشودگی‌های فعال برای این اقامت‌گر
+        $activeGrants = \App\Models\ResidentGrant::where('resident_id', $residentId)
+            ->where('is_active', true)
+            ->orderBy('grant_date', 'desc')
+            ->get();
+        
+        $resident = \App\Models\Resident::where('resident_id', $residentId)->first();
+        if (!$resident) {
+            return;
+        }
+        
+        foreach ($activeGrants as $grant) {
+            // تبدیل تاریخ بخشودگی به Carbon instance برای مقایسه دقیق
+            $grantDate = \Carbon\Carbon::parse($grant->grant_date)->startOfDay();
+            
+            // محاسبه مجموع نمرات منفی تخلف‌های چک نشده که بعد از تاریخ بخشودگی ثبت شده‌اند
+            // فقط تخلف‌هایی که تاریخ ثبت آنها >= تاریخ بخشودگی است
+            $uncheckedTotalScore = self::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('reports.category_id', 1) // دسته‌بندی تخلف
+                ->where('resident_reports.resident_id', $resident->id)
+                ->where('resident_reports.is_checked', false)
+                ->whereDate('resident_reports.created_at', '>=', $grantDate->toDateString())
+                ->sum('reports.negative_score') ?? 0;
+            
+            // اگر مجموع نمرات منفی >= مقدار بخشودگی
+            if ($uncheckedTotalScore >= $grant->amount) {
+                // غیرفعال کردن بخشودگی
+                $grant->update(['is_active' => false]);
+                
+                \Log::info('Grant deactivated', [
+                    'grant_id' => $grant->id,
+                    'resident_id' => $residentId,
+                    'grant_amount' => $grant->amount,
+                    'unchecked_total_score' => $uncheckedTotalScore,
+                    'grant_date' => $grant->grant_date,
+                ]);
+                
+                // false کردن تمام تخلف‌های چک شده این اقامت‌گر
+                $updatedCount = self::whereHas('report', function($q) {
+                    $q->where('category_id', 1);
+                })
+                ->where('resident_id', $resident->id)
+                ->where('is_checked', true)
+                ->update(['is_checked' => false]);
+                
+                \Log::info('Checked violations unmarked', [
+                    'resident_id' => $residentId,
+                    'updated_count' => $updatedCount,
+                ]);
+            }
+        }
     }
 
     public function report(): BelongsTo
@@ -85,7 +151,7 @@ class ResidentReport extends Model
     public function getFreshResidentNameAttribute()
     {
         if ($this->resident) {
-            return $this->resident->full_name;
+            return $this->resident->resident_full_name;
         }
         $data = $this->getFreshResidentData();
         return $data['name'] ?? 'نامشخص';
@@ -97,7 +163,7 @@ class ResidentReport extends Model
     public function getFreshPhoneAttribute()
     {
         if ($this->resident) {
-            return $this->resident->phone;
+            return $this->resident->resident_phone;
         }
         $data = $this->getFreshResidentData();
         return $data['phone'] ?? null;
@@ -110,14 +176,17 @@ class ResidentReport extends Model
     {
         // استفاده از relation (اگر load شده باشد)
         if ($this->relationLoaded('resident')) {
-            return $this->resident ? $this->resident->full_name : null;
+            if ($this->resident) {
+                return $this->resident->resident_full_name ?? null;
+            }
+            return null;
         }
         
         // اگر relation load نشده باشد، آن را lazy load می‌کنیم
         // اما فقط اگر resident_id موجود باشد
         if ($this->resident_id) {
             $resident = $this->resident()->first();
-            return $resident ? $resident->full_name : null;
+            return $resident ? ($resident->resident_full_name ?? null) : null;
         }
         
         return null;
@@ -180,12 +249,12 @@ class ResidentReport extends Model
     public function getPhoneAttribute()
     {
         if ($this->relationLoaded('resident')) {
-            return $this->resident ? $this->resident->phone : null;
+            return $this->resident ? $this->resident->resident_phone : null;
         }
         
         if ($this->resident_id) {
             $resident = $this->resident()->first();
-            return $resident ? $resident->phone : null;
+            return $resident ? $resident->resident_phone : null;
         }
         
         return null;

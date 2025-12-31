@@ -129,11 +129,11 @@
                             <td>
                                 @if($sms->sent_at)
                                     <span style="color: #666; font-size: 14px;">
-                                        {{ $sms->sent_at->format('Y/m/d H:i') }}
+                                        {{ jalaliDate($sms->sent_at, 'Y/m/d H:i') }}
                                     </span>
                                 @else
                                     <span style="color: #666; font-size: 14px;">
-                                        {{ $sms->created_at->format('Y/m/d H:i') }}
+                                        {{ jalaliDate($sms->created_at, 'Y/m/d H:i') }}
                                     </span>
                                 @endif
                             </td>
@@ -266,11 +266,11 @@
                                 @endif
                             </div>
                             <div>
-                                <strong>تاریخ ایجاد:</strong> {{ $selectedSms->created_at->format('Y/m/d H:i:s') }}
+                                <strong>تاریخ ایجاد:</strong> {{ jalaliDate($selectedSms->created_at, 'Y/m/d H:i:s') }}
                             </div>
                             @if($selectedSms->sent_at)
                             <div>
-                                <strong>تاریخ ارسال:</strong> {{ $selectedSms->sent_at->format('Y/m/d H:i:s') }}
+                                <strong>تاریخ ارسال:</strong> {{ jalaliDate($selectedSms->sent_at, 'Y/m/d H:i:s') }}
                             </div>
                             @endif
                             @if($selectedSms->response_code)
@@ -305,5 +305,6 @@
         </div>
     @endif
 </div>
+
 
 

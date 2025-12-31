@@ -522,68 +522,68 @@ class PatternManual extends Component
                     'report_error' => $reportError,
                 ]);
                 
-                // استفاده از residentDbId که قبلاً پیدا شده
-                // ایجاد رکورد در جدول sms_message_residents
-                $smsMessageResident = SmsMessageResident::create([
-                    'sms_message_id' => null, // برای پیام‌های الگویی sms_message_id نداریم
-                    'report_id' => $this->selectedReport,
-                    'pattern_id' => $pattern->id,
-                    'is_pattern' => true,
-                    'pattern_variables' => implode(';', $variables), // متغیرها با ; جدا می‌شوند
-                    'resident_id' => $residentDbId, // استفاده از id جدول residents
-                    'resident_name' => $this->selectedResident['name'],
-                    'phone' => $phone,
-                    'title' => $pattern->title,
-                    'description' => $pattern->text,
-                    'status' => 'pending',
+            // استفاده از residentDbId که قبلاً پیدا شده
+            // ایجاد رکورد در جدول sms_message_residents
+            $smsMessageResident = SmsMessageResident::create([
+                'sms_message_id' => null, // برای پیام‌های الگویی sms_message_id نداریم
+                'report_id' => $this->selectedReport,
+                'pattern_id' => $pattern->id,
+                'is_pattern' => true,
+                'pattern_variables' => implode(';', $variables), // متغیرها با ; جدا می‌شوند
+                'resident_id' => $residentDbId, // استفاده از id جدول residents
+                'resident_name' => $this->selectedResident['name'],
+                'phone' => $phone,
+                'title' => $pattern->title,
+                'description' => $pattern->text,
+                'status' => 'pending',
+            ]);
+            
+            // اطمینان از اینکه variables یک آرایه است
+            if (!is_array($variables)) {
+                \Log::error('Variables is not an array!', [
+                    'variables_type' => gettype($variables),
+                    'variables_value' => $variables,
                 ]);
+                $variables = [];
+            }
+            
+            // اطمینان از اینکه pattern_code عدد است
+            $bodyId = (int)$pattern->pattern_code;
 
-                // اطمینان از اینکه variables یک آرایه است
-                if (!is_array($variables)) {
-                    \Log::error('Variables is not an array!', [
-                        'variables_type' => gettype($variables),
-                        'variables_value' => $variables,
-                    ]);
-                    $variables = [];
-                }
-                
-                // اطمینان از اینکه pattern_code عدد است
-                $bodyId = (int)$pattern->pattern_code;
-
-                // دریافت شماره فرستنده و API Key از شماره انتخاب شده
-                $senderNumberObj = null;
-                $apiKey = null;
-                if ($this->selectedSenderNumberId) {
-                    $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
-                    if ($senderNumberObj) {
-                        $apiKey = $senderNumberObj->api_key;
+            // دریافت شماره فرستنده و API Key از شماره انتخاب شده
+            $senderNumberObj = null;
+            $apiKey = null;
+            if ($this->selectedSenderNumberId) {
+                $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
+                if ($senderNumberObj) {
+                    $apiKey = $senderNumberObj->api_key;
                     }
-                }
+            }
 
                 // استفاده از sendByBaseNumber (SOAP API)
-                $result = $melipayamakService->sendByBaseNumber(
-                    $phone,
-                    $bodyId,
+            $result = $melipayamakService->sendByBaseNumber(
+                $phone,
+                $bodyId,
                     $variables,
                     $senderNumberObj ? $senderNumberObj->number : null,
                     $apiKey
-                );
+            );
 
-                // اضافه کردن اطلاعات ثبت گزارش به نتیجه
-                $result['report_created'] = $reportCreated;
-                $result['report_error'] = $reportError;
-                $result['resident_report_id'] = $residentReportId;
+            // اضافه کردن اطلاعات ثبت گزارش به نتیجه
+            $result['report_created'] = $reportCreated;
+            $result['report_error'] = $reportError;
+            $result['resident_report_id'] = $residentReportId;
 
-                // بررسی موفقیت ارسال
-                $isSuccess = isset($result['success']) && $result['success'] === true;
-                
-                if ($isSuccess) {
-                    $smsMessageResident->update([
-                        'status' => 'sent',
-                        'sent_at' => now(),
-                        'response_code' => $result['response_code'] ?? null,
-                        'error_message' => null,
-                    ]);
+            // بررسی موفقیت ارسال
+            $isSuccess = isset($result['success']) && $result['success'] === true;
+            
+            if ($isSuccess) {
+                $smsMessageResident->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'response_code' => $result['response_code'] ?? null,
+                    'error_message' => null,
+                ]);
                 } else {
                     $smsMessageResident->update([
                         'status' => 'failed',
@@ -617,13 +617,13 @@ class PatternManual extends Component
                 ]);
             } else {
                 if (isset($smsMessageResident) && $smsMessageResident->status !== 'failed') {
-                    $smsMessageResident->update([
-                        'status' => 'failed',
-                        'error_message' => $result['message'] ?? 'خطای نامشخص',
-                        'response_code' => $result['response_code'] ?? null,
-                        'api_response' => $result['api_response'] ?? null,
-                        'raw_response' => $result['raw_response'] ?? null,
-                    ]);
+                $smsMessageResident->update([
+                    'status' => 'failed',
+                    'error_message' => $result['message'] ?? 'خطای نامشخص',
+                    'response_code' => $result['response_code'] ?? null,
+                    'api_response' => $result['api_response'] ?? null,
+                    'raw_response' => $result['raw_response'] ?? null,
+                ]);
                 }
                 
                 $alertText = $result['message'] ?? 'خطا در ارسال پیامک';

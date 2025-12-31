@@ -56,7 +56,7 @@
                             </td>
                             <td>
                                 <span style="color: #666; font-size: 14px;">
-                                    {{ \Carbon\Carbon::parse($tableName->created_at)->format('Y/m/d H:i') }}
+                                    {{ jalaliDate($tableName->created_at, 'Y/m/d H:i') }}
                                 </span>
                             </td>
                             <td>

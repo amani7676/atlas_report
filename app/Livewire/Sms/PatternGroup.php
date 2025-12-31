@@ -490,45 +490,45 @@ class PatternGroup extends Component
                         'report_error' => $reportError,
                     ]);
                     
-                    // ایجاد رکورد در جدول sms_message_residents
-                    $smsMessageResident = SmsMessageResident::create([
-                        'sms_message_id' => null,
-                        'report_id' => $this->selectedReport,
-                        'pattern_id' => $pattern->id,
-                        'is_pattern' => true,
-                        'pattern_variables' => implode(';', $variables),
-                        'resident_id' => $residentDbId,
-                        'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
-                        'phone' => $residentData['phone'],
-                        'title' => $pattern->title,
-                        'description' => $pattern->text,
-                        'status' => 'pending',
+                // ایجاد رکورد در جدول sms_message_residents
+                $smsMessageResident = SmsMessageResident::create([
+                    'sms_message_id' => null,
+                    'report_id' => $this->selectedReport,
+                    'pattern_id' => $pattern->id,
+                    'is_pattern' => true,
+                    'pattern_variables' => implode(';', $variables),
+                    'resident_id' => $residentDbId,
+                    'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
+                    'phone' => $residentData['phone'],
+                    'title' => $pattern->title,
+                    'description' => $pattern->text,
+                    'status' => 'pending',
+                ]);
+
+                // ارسال پیامک با الگو (استفاده از sendByBaseNumber - SOAP)
+                $result = $melipayamakService->sendByBaseNumber(
+                    $residentData['phone'],
+                    $pattern->pattern_code,
+                    $variables,
+                    $senderNumberObj ? $senderNumberObj->number : null,
+                    $apiKey
+                );
+
+                if ($result['success']) {
+                    $smsMessageResident->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                        'response_code' => $result['response_code'] ?? null,
+                        'error_message' => null,
                     ]);
-
-                    // ارسال پیامک با الگو (استفاده از sendByBaseNumber - SOAP)
-                    $result = $melipayamakService->sendByBaseNumber(
-                        $residentData['phone'],
-                        $pattern->pattern_code,
-                        $variables,
-                        $senderNumberObj ? $senderNumberObj->number : null,
-                        $apiKey
-                    );
-
-                    if ($result['success']) {
-                        $smsMessageResident->update([
-                            'status' => 'sent',
-                            'sent_at' => now(),
-                            'response_code' => $result['response_code'] ?? null,
-                            'error_message' => null,
-                        ]);
-                    } else {
-                        $smsMessageResident->update([
-                            'status' => 'failed',
-                            'error_message' => $result['message'] ?? 'خطای نامشخص',
-                            'response_code' => $result['response_code'] ?? null,
-                            'api_response' => $result['api_response'] ?? null,
-                            'raw_response' => $result['raw_response'] ?? null,
-                        ]);
+                } else {
+                    $smsMessageResident->update([
+                        'status' => 'failed',
+                        'error_message' => $result['message'] ?? 'خطای نامشخص',
+                        'response_code' => $result['response_code'] ?? null,
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
+                    ]);
                     }
                 }
 

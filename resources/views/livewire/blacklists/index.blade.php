@@ -91,7 +91,7 @@
                                 @endif
                             </td>
                             <td>
-                                {{ $blacklist->created_at->format('Y/m/d H:i') }}
+                                {{ jalaliDate($blacklist->created_at, 'Y/m/d H:i') }}
                             </td>
                             <td>
                                 <div style="display: flex; gap: 5px; align-items: center;">

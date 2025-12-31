@@ -7,9 +7,11 @@ use App\Models\ResidentReport;
 use App\Models\Report;
 use App\Models\Category;
 use App\Models\Constant;
+use App\Models\Resident;
 use Livewire\WithPagination;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str; // اضافه شده
+use Illuminate\Support\Facades\DB;
 
 class ResidentReports extends Component
 {
@@ -43,6 +45,13 @@ class ResidentReports extends Component
     public $showResidentDetails = false;
     public $filterByResidentName = null; // برای فیلتر کردن بر اساس نام اقامت‌گر
 
+    // پراپرتی‌های مربوط به بخشودگی
+    public $showGrantForm = false;
+    public $grantAmount = '';
+    public $grantDescription = '';
+    public $grantDate = '';
+    public $selectedResidentGrants = [];
+
     // Propertyهای computed
     public function getTotalScoreProperty()
     {
@@ -51,7 +60,8 @@ class ResidentReports extends Component
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('residents.full_name', 'like', '%' . $this->search . '%')
+                    $q->where('residents.resident_full_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('residents.resident_phone', 'like', '%' . $this->search . '%')
                         ->orWhere('residents.unit_name', 'like', '%' . $this->search . '%')
                         ->orWhere('residents.room_name', 'like', '%' . $this->search . '%')
                         ->orWhere('resident_reports.notes', 'like', '%' . $this->search . '%');
@@ -110,7 +120,7 @@ class ResidentReports extends Component
         ->when($this->filters['date_to'], function ($query) {
             $query->whereDate('created_at', '<=', $this->filters['date_to']);
         });
-        
+
         return $query->distinct('resident_id')->count('resident_id');
     }
 
@@ -135,7 +145,7 @@ class ResidentReports extends Component
             })
             ->groupBy('residents.unit_name')
             ->orderByDesc('count');
-            
+
         return $query->get();
     }
 
@@ -146,17 +156,19 @@ class ResidentReports extends Component
         $maxViolationValue = $maxViolation ? (int)$maxViolation->value : 0;
 
         $query = ResidentReport::selectRaw('
-            residents.full_name as resident_name,
+            MAX(residents.resident_full_name) as resident_name,
             MAX(residents.unit_name) as unit_name,
             MAX(residents.room_name) as room_name,
-            MAX(residents.phone) as phone,
+            MAX(residents.resident_phone) as phone,
             COUNT(*) as report_count,
-            SUM(reports.negative_score) as total_score
+            SUM(reports.negative_score) as total_score,
+            resident_reports.resident_id
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
-            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('residents.full_name')
+            ->where('resident_reports.is_checked', false) // فقط تخلف‌های چک نشده
+            ->whereNotNull('resident_reports.resident_id')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -169,11 +181,11 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('residents.full_name')
+            ->groupBy('resident_reports.resident_id')
             ->havingRaw('SUM(reports.negative_score) >= ?', [$maxViolationValue]) // فیلتر بر اساس مجموع نمرات منفی
             ->orderByDesc('total_score') // مرتب‌سازی بر اساس مجموع نمرات منفی
             ->limit(10);
-            
+
         return $query->get();
     }
 
@@ -200,19 +212,21 @@ class ResidentReports extends Component
 
         // پیدا کردن اقامت‌گرانی که یک نوع گزارش را چند بار داشته‌اند
         $residents = ResidentReport::selectRaw('
-            residents.full_name as resident_name,
+            MAX(residents.resident_full_name) as resident_name,
             resident_reports.report_id,
             reports.title as report_name,
             MAX(residents.unit_name) as unit_name,
             MAX(residents.room_name) as room_name,
-            MAX(residents.phone) as phone,
+            MAX(residents.resident_phone) as phone,
             COUNT(*) as repeat_count,
-            SUM(reports.negative_score) as total_score
+            SUM(reports.negative_score) as total_score,
+            resident_reports.resident_id
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('residents.full_name')
+            ->where('resident_reports.is_checked', false) // فقط تخلف‌های چک نشده
+            ->whereNotNull('resident_reports.resident_id')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -225,7 +239,7 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('residents.full_name', 'resident_reports.report_id', 'reports.title')
+            ->groupBy('resident_reports.resident_id', 'resident_reports.report_id', 'reports.title')
             ->havingRaw('COUNT(*) >= ?', [$repeatViolationValue])
             ->orderByDesc('repeat_count')
             ->get();
@@ -255,17 +269,19 @@ class ResidentReports extends Component
         }
 
         $query = ResidentReport::selectRaw('
-            residents.full_name as resident_name,
+            MAX(residents.resident_full_name) as resident_name,
             MAX(residents.unit_name) as unit_name,
             MAX(residents.room_name) as room_name,
-            MAX(residents.phone) as phone,
+            MAX(residents.resident_phone) as phone,
             COUNT(*) as report_count,
-            SUM(reports.negative_score) as total_score
+            SUM(reports.negative_score) as total_score,
+            resident_reports.resident_id
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
-            ->join('residents', 'resident_reports.resident_id', '=', 'residents.id')
+            ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
-            ->whereNotNull('residents.full_name')
+            ->where('resident_reports.is_checked', false) // فقط تخلف‌های چک نشده
+            ->whereNotNull('resident_reports.resident_id')
             ->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
@@ -278,10 +294,10 @@ class ResidentReports extends Component
             ->when($this->filters['date_to'], function ($query) {
                 $query->whereDate('resident_reports.created_at', '<=', $this->filters['date_to']);
             })
-            ->groupBy('residents.full_name')
+            ->groupBy('resident_reports.resident_id')
             ->havingRaw('COUNT(*) >= ?', [$countViolationValue])
             ->orderByDesc('report_count');
-            
+
         return $query->get();
     }
 
@@ -294,7 +310,8 @@ class ResidentReports extends Component
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->whereHas('resident', function ($residentQuery) {
-                        $residentQuery->where('full_name', 'like', '%' . $this->search . '%')
+                        $residentQuery->where('resident_full_name', 'like', '%' . $this->search . '%')
+                            ->orWhere('resident_phone', 'like', '%' . $this->search . '%')
                             ->orWhere('unit_name', 'like', '%' . $this->search . '%')
                             ->orWhere('room_name', 'like', '%' . $this->search . '%');
                     })
@@ -303,7 +320,7 @@ class ResidentReports extends Component
             })
             ->when($this->filterByResidentName, function ($query) {
                 $query->whereHas('resident', function ($q) {
-                    $q->where('full_name', $this->filterByResidentName);
+                    $q->where('resident_full_name', $this->filterByResidentName);
                 });
             })
             ->when($this->filters['unit_id'], function ($query) {
@@ -340,7 +357,7 @@ class ResidentReports extends Component
     {
         // فقط دسته‌بندی تخلف (ID = 1)
         $this->categories = Category::where('id', 1)->get();
-        
+
         $this->reportsList = Report::where('category_id', 1)->get(); // دسته‌بندی تخلف
 
         $this->units = ResidentReport::select('residents.unit_id', 'residents.unit_name')
@@ -426,7 +443,7 @@ class ResidentReports extends Component
             $this->filters['report_id'] = null;
         }
         $this->resetPage();
-        
+
         // اسکرول به پایین صفحه (لیست گزارش‌ها)
         $this->dispatch('scrollToReports');
     }
@@ -451,11 +468,11 @@ class ResidentReports extends Component
             $q->where('category_id', 1); // دسته‌بندی تخلف
         })
         ->whereHas('resident', function($q) {
-            $q->where('full_name', 'like', '%' . $this->residentSearch . '%');
+            $q->where('resident_full_name', 'like', '%' . $this->residentSearch . '%');
         })
         ->with('resident')
         ->get()
-        ->pluck('resident.full_name')
+        ->pluck('resident.resident_full_name')
         ->unique()
         ->sort()
         ->values()
@@ -468,15 +485,40 @@ class ResidentReports extends Component
         $this->showResidentDetails = true;
         $this->residentSearch = $residentName; // برای نمایش نام در اینپوت
 
-        $this->residentReports = ResidentReport::whereHas('report', function($q) {
-            $q->where('category_id', 1); // دسته‌بندی تخلف
-        })
-        ->whereHas('resident', function($q) use ($residentName) {
-            $q->where('full_name', $residentName);
-        })
-        ->with(['report', 'report.category', 'resident'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        // پیدا کردن resident از جدول residents
+        $resident = Resident::where('resident_full_name', $residentName)->first();
+
+        if ($resident) {
+            // استفاده از resident_id از جدول residents
+            $this->residentReports = ResidentReport::whereHas('report', function($q) {
+                $q->where('category_id', 1); // دسته‌بندی تخلف
+            })
+            ->where('resident_id', $resident->id)
+            ->with(['report', 'report.category', 'resident'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        } else {
+            $this->residentReports = collect([]);
+        }
+
+        // بارگذاری بخشودگی‌های این اقامت‌گر
+        $this->loadResidentGrants($residentName);
+    }
+
+    /**
+     * بارگذاری بخشودگی‌های اقامت‌گر
+     */
+    private function loadResidentGrants($residentName)
+    {
+        $resident = Resident::where('resident_full_name', $residentName)->first();
+        if ($resident) {
+            $this->selectedResidentGrants = \App\Models\ResidentGrant::where('resident_id', $resident->resident_id)
+                ->orderBy('grant_date', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->get();
+        } else {
+            $this->selectedResidentGrants = [];
+        }
     }
 
     public function closeResidentDetails()
@@ -485,6 +527,134 @@ class ResidentReports extends Component
         $this->residentReports = [];
         $this->showResidentDetails = false;
         $this->residentSearch = '';
+        $this->selectedResidentGrants = [];
+    }
+
+    /**
+     * باز کردن فرم ثبت بخشودگی
+     */
+    public function openGrantForm()
+    {
+        $this->grantAmount = '';
+        $this->grantDescription = '';
+        $this->grantDate = date('Y-m-d');
+        $this->showGrantForm = true;
+    }
+
+    /**
+     * بستن فرم بخشودگی
+     */
+    public function closeGrantForm()
+    {
+        $this->showGrantForm = false;
+        $this->resetGrantForm();
+    }
+
+    /**
+     * ریست کردن فرم بخشودگی
+     */
+    private function resetGrantForm()
+    {
+        $this->grantAmount = '';
+        $this->grantDescription = '';
+        $this->grantDate = date('Y-m-d');
+    }
+
+    /**
+     * ثبت یا به‌روزرسانی بخشودگی
+     */
+    public function saveGrant()
+    {
+        $this->validate([
+            'grantAmount' => 'required|numeric|min:0',
+            'grantDate' => 'nullable|date',
+        ], [
+            'grantAmount.required' => 'مقدار بخشودگی الزامی است',
+            'grantAmount.numeric' => 'مقدار بخشودگی باید عددی باشد',
+            'grantAmount.min' => 'مقدار بخشودگی باید بیشتر از صفر باشد',
+            'grantDate.date' => 'تاریخ بخشودگی معتبر نیست',
+        ]);
+
+        try {
+            $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
+
+            if (!$resident) {
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'text' => 'اقامت‌گر یافت نشد'
+                ]);
+                return;
+            }
+
+            // ثبت بخشودگی جدید - حتماً با is_active = 1
+            $grant = new \App\Models\ResidentGrant();
+            $grant->resident_id = $resident->resident_id;
+            $grant->amount = $this->grantAmount;
+            $grant->description = $this->grantDescription;
+            $grant->grant_date = $this->grantDate ?: now()->toDateString();
+            // $grant->is_active = true; // حتماً 1 (true) باشد
+            $grant->save();
+
+            $message = 'بخشودگی با موفقیت ثبت شد';
+
+            // بررسی و اعمال منطق غیرفعال کردن بخشودگی و false کردن is_checked
+            $this->checkAndDeactivateGrants($resident->resident_id);
+
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'موفق!',
+                'text' => $message
+            ]);
+
+            // بارگذاری مجدد بخشودگی‌ها
+            $this->loadResidentGrants($this->selectedResident);
+
+            // بستن فرم
+            $this->closeGrantForm();
+        } catch (\Exception $e) {
+            \Log::error('Error saving grant', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در ثبت بخشودگی: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * حذف بخشودگی
+     */
+    public function deleteGrant($grantId)
+    {
+        try {
+            $grant = \App\Models\ResidentGrant::findOrFail($grantId);
+            $grant->delete();
+
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'موفق!',
+                'text' => 'بخشودگی با موفقیت حذف شد'
+            ]);
+
+            // بارگذاری مجدد بخشودگی‌ها
+            $this->loadResidentGrants($this->selectedResident);
+        } catch (\Exception $e) {
+            \Log::error('Error deleting grant', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در حذف بخشودگی: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function deleteReport($id)
@@ -492,7 +662,7 @@ class ResidentReports extends Component
         $report = ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 1); // دسته‌بندی تخلف
         })->findOrFail($id);
-        
+
         $report->delete();
 
         $this->dispatch('showAlert', [
@@ -519,7 +689,7 @@ class ResidentReports extends Component
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
             ->delete();
-        
+
         $this->selectedReports = [];
 
         $this->dispatch('showAlert', [
@@ -558,7 +728,11 @@ class ResidentReports extends Component
             if ($report) {
                 $report->is_checked = !$report->is_checked;
                 $report->save();
-                $this->dispatch('report-checked-toggled', ['id' => $reportId, 'checked' => $report->is_checked]);
+
+                // بارگذاری مجدد گزارش‌های این اقامت‌گر
+                if ($this->selectedResident) {
+                    $this->selectResident($this->selectedResident);
+                }
             }
         } catch (\Exception $e) {
             \Log::error('Error toggling checked status', [
@@ -568,10 +742,197 @@ class ResidentReports extends Component
         }
     }
 
+    /**
+     * چک کردن همه گزارش‌های اقامت‌گر انتخابی
+     */
+    public function checkAllReports()
+    {
+        if (!$this->selectedResident) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'لطفاً ابتدا یک اقامت‌گر انتخاب کنید'
+            ]);
+            return;
+        }
+
+        try {
+            // پیدا کردن resident از جدول residents
+            $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
+            if (!$resident) {
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'text' => 'اقامت‌گر یافت نشد'
+                ]);
+                return;
+            }
+
+            // محاسبه مجموع نمرات منفی گزارش‌های چک نشده
+            $uncheckedReports = ResidentReport::whereHas('report', function($q) {
+                $q->where('category_id', 1);
+            })
+            ->where('resident_id', $resident->id)
+            ->where('is_checked', false)
+            ->with('report')
+            ->get();
+
+            $uncheckedTotalScore = $uncheckedReports->sum(function ($report) {
+                return $report->report->negative_score ?? 0;
+            });
+
+            // محاسبه مجموع بخشودگی‌های فعال
+            $totalGrants = \App\Models\ResidentGrant::where('resident_id', $resident->resident_id)
+                ->where('is_active', true)
+                ->sum('amount');
+
+            // اگر مجموع نمرات منفی (چک نشده) >= بخشودگی و بخشودگی وجود دارد، همه را FALSE کن
+            if ($totalGrants > 0 && $uncheckedTotalScore >= $totalGrants) {
+                // غیرفعال کردن تمام گزارش‌های چک شده
+                $updatedCount = ResidentReport::whereHas('report', function($q) {
+                    $q->where('category_id', 1);
+                })
+                ->where('resident_id', $resident->id)
+                ->where('is_checked', true)
+                ->update(['is_checked' => false]);
+
+                $this->dispatch('showAlert', [
+                    'type' => 'warning',
+                    'title' => 'هشدار!',
+                    'text' => 'به دلیل اینکه مجموع نمرات منفی (چک نشده) بیشتر یا مساوی بخشودگی است، تمام گزارش‌های چک شده، غیرفعال شدند.'
+                ]);
+            } else {
+                // چک کردن همه گزارش‌های چک نشده (TRUE کردن)
+                $updatedCount = ResidentReport::whereHas('report', function($q) {
+                    $q->where('category_id', 1);
+                })
+                ->where('resident_id', $resident->id)
+                ->where('is_checked', false)
+                ->update(['is_checked' => true]);
+
+                $this->dispatch('showAlert', [
+                    'type' => 'success',
+                    'title' => 'موفق!',
+                    'text' => "تمام {$updatedCount} گزارش این اقامت‌گر چک شدند"
+                ]);
+            }
+
+            // بارگذاری مجدد گزارش‌ها برای به‌روزرسانی UI
+            $this->selectResident($this->selectedResident);
+
+        } catch (\Exception $e) {
+            \Log::error('Error checking all reports', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در چک کردن گزارش‌ها: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * لغو چک کردن همه گزارش‌های اقامت‌گر انتخابی
+     */
+    public function uncheckAllReports()
+    {
+        if (!$this->selectedResident) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'لطفاً ابتدا یک اقامت‌گر انتخاب کنید'
+            ]);
+            return;
+        }
+
+        try {
+            $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
+            if (!$resident) {
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'text' => 'اقامت‌گر یافت نشد'
+                ]);
+                return;
+            }
+
+            // FALSE کردن همه گزارش‌های اقامت‌گر (استفاده از update برای سرعت بیشتر)
+            $updatedCount = ResidentReport::whereHas('report', function($q) {
+                $q->where('category_id', 1);
+            })
+            ->where('resident_id', $resident->id)
+            ->where('is_checked', true)
+            ->update(['is_checked' => false]);
+
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'موفق!',
+                'text' => "تمام {$updatedCount} گزارش این اقامت‌گر لغو چک شدند"
+            ]);
+
+            // بارگذاری مجدد گزارش‌ها برای به‌روزرسانی UI
+            $this->selectResident($this->selectedResident);
+        } catch (\Exception $e) {
+            \Log::error('Error unchecking all reports', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در لغو چک کردن گزارش‌ها: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * محاسبه مجموع نمرات منفی با احتساب بخشودگی
+     */
+    public function getResidentTotalNegativeScore()
+    {
+        if (!$this->selectedResident || empty($this->residentReports)) {
+            return 0;
+        }
+
+        $totalScore = $this->residentReports->sum(function ($report) {
+            return $report->report->negative_score ?? 0;
+        });
+
+        // محاسبه مجموع بخشودگی‌ها
+        $resident = Resident::where(function($q) {
+            $q->where('resident_full_name', $this->selectedResident);
+        })->first();
+        if ($resident) {
+            $totalGrants = \App\Models\ResidentGrant::where('resident_id', $resident->resident_id)
+                ->where('is_active', true)
+                ->sum('amount');
+
+            $totalScore = max(0, $totalScore - $totalGrants);
+        }
+
+        return number_format($totalScore, 0);
+    }
+
+    /**
+     * بررسی و غیرفعال کردن بخشودگی‌ها و false کردن is_checked
+     * این متد باید بعد از ثبت بخشودگی جدید یا ثبت تخلف جدید فراخوانی شود
+     */
+    private function checkAndDeactivateGrants($residentId)
+    {
+        ResidentReport::checkAndDeactivateGrantsForResident($residentId);
+    }
+
     public function render()
     {
         $reports = $this->reportsQuery->paginate($this->perPage);
-        
+
+        // اطمینان از load شدن relation resident
+        $reports->load('resident');
+
         // همگام‌سازی اطلاعات با API برای رکوردهای نمایش داده شده
         foreach ($reports as $report) {
             if ($report->resident_id) {
@@ -579,7 +940,10 @@ class ResidentReports extends Component
                 $apiService->syncResidentData($report);
             }
         }
-        
+
+        // reload relation بعد از sync
+        $reports->load('resident');
+
         $filteredRooms = $this->getFilteredRooms();
         $residentsList = $this->searchResidents();
 

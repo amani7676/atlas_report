@@ -723,29 +723,6 @@
                     </ul>
                 </li>
 
-                <!-- ارسال خودکار -->
-                <div class="menu-section">ارسال خودکار</div>
-                <li class="menu-item has-submenu {{ request()->is('sms/auto*') ? 'open' : '' }}">
-                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
-                        <i class="fas fa-robot"></i>
-                        <span>ارسال خودکار</span>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="/sms/auto" class="{{ request()->is('sms/auto') ? 'active' : '' }}">
-                                <i class="fas fa-cog"></i>
-                                <span>مدیریت ارسال خودکار</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>پیامک‌های تخلفات</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
                 <!-- پیام‌های الگویی -->
                 <div class="menu-section">پیام‌های الگویی</div>
                 <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('patterns*') || request()->is('variables*') || request()->is('blacklists*') ? 'open' : '' }}">
@@ -868,6 +845,29 @@
                         </li>
                     </ul>
                 </li>
+
+                <!-- ارسال خودکار -->
+                <div class="menu-section">ارسال خودکار</div>
+                <li class="menu-item has-submenu {{ request()->is('sms/auto*') ? 'open' : '' }}">
+                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
+                        <i class="fas fa-robot"></i>
+                        <span>ارسال خودکار</span>
+                    </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="/sms/auto" class="{{ request()->is('sms/auto') ? 'active' : '' }}">
+                                <i class="fas fa-cog"></i>
+                                <span>مدیریت ارسال خودکار</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>پیامک‌های تخلفات</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
             </ul>
         </nav>
 
@@ -884,10 +884,23 @@
                 <div style="margin-right: auto;"></div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     @livewire('layout.sync-button')
-                    <div style="color: var(--primary-color);">
-                        <i class="fas fa-user"></i>
-                        <span>مدیر سیستم</span>
-                    </div>
+                    <a href="/residents/expired-today" style="color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; transition: all 0.3s;" 
+                       class="{{ request()->is('residents/expired-today') ? 'active' : '' }}"
+                       onmouseover="this.style.backgroundColor='rgba(67, 97, 238, 0.1)'" 
+                       onmouseout="this.style.backgroundColor='transparent'">
+                        <i class="fas fa-calendar-times"></i>
+                        <span>سررسید امروز</span>
+                        @php
+                            try {
+                                $expiredCount = \App\Models\Resident::whereDate('contract_end_date', now()->toDateString())->whereNotNull('contract_end_date')->count();
+                            } catch (\Exception $e) {
+                                $expiredCount = 0;
+                            }
+                        @endphp
+                        @if($expiredCount > 0)
+                            <span class="badge bg-danger" style="margin-right: 5px; animation: pulse 2s infinite;">{{ $expiredCount }}</span>
+                        @endif
+                    </a>
                 </div>
             </nav>
 
