@@ -892,7 +892,8 @@
                         <span>سررسید امروز</span>
                         @php
                             try {
-                                $expiredCount = \App\Models\Resident::whereDate('contract_end_date', now()->toDateString())->whereNotNull('contract_end_date')->count();
+                                $todayJalali = class_exists(\Morilog\Jalali\Jalalian::class) ? \Morilog\Jalali\Jalalian::fromCarbon(now())->format('Y/m/d') : now()->format('Y/m/d');
+                                $expiredCount = \App\Models\Resident::where('contract_payment_date_jalali', $todayJalali)->whereNotNull('contract_payment_date_jalali')->where('contract_payment_date_jalali', '!=', '')->count();
                             } catch (\Exception $e) {
                                 $expiredCount = 0;
                             }
@@ -900,6 +901,13 @@
                         @if($expiredCount > 0)
                             <span class="badge bg-danger" style="margin-right: 5px; animation: pulse 2s infinite;">{{ $expiredCount }}</span>
                         @endif
+                    </a>
+                    <a href="/residents/group-sms" style="color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; transition: all 0.3s;" 
+                       class="{{ request()->is('residents/group-sms') ? 'active' : '' }}"
+                       onmouseover="this.style.backgroundColor='rgba(67, 97, 238, 0.1)'" 
+                       onmouseout="this.style.backgroundColor='transparent'">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>ارسال گروهی</span>
                     </a>
                 </div>
             </nav>

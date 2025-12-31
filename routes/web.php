@@ -26,6 +26,7 @@ Route::get('/residents', Units::class)->name('residents.units');
 Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
 Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports');
 Route::get('/residents/expired-today', ExpiredToday::class)->name('residents.expired-today');
+Route::get('/residents/group-sms', \App\Livewire\Residents\GroupSms::class)->name('residents.group-sms');
 // پیام‌های ساده
 Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
 Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
