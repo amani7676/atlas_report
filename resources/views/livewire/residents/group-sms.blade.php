@@ -1,6 +1,9 @@
 <div>
     @section('title', 'ارسال گروهی پیامک')
 
+    <!-- Bootstrap CSS برای Pagination -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
         /* Material Design Variables */
         :root {
@@ -418,6 +421,82 @@
             animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* Navigation Tabs */
+        .nav-tabs {
+            border-bottom: 2px solid #dee2e6;
+            display: flex;
+            flex-wrap: wrap;
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+        }
+
+        .nav-item {
+            margin-bottom: -2px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 12px 20px;
+            text-decoration: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-weight: 400;
+        }
+
+        .nav-link:hover {
+            color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05);
+        }
+
+        .nav-link.active {
+            color: #0d6efd !important;
+            border-bottom-color: #0d6efd;
+            font-weight: 600;
+            background-color: transparent;
+        }
+
+        /* Custom Pagination (مشابه گزارش تخلفی) */
+        .custom-pagination .page-link {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 3px;
+            border: 1px solid #dee2e6;
+            color: #0d6efd;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+        }
+
+        .custom-pagination .page-link:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4);
+        }
+
+        .custom-pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+        }
+
+        .custom-pagination .page-link i {
+            font-size: 0.75rem;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .mdc-card {
@@ -427,23 +506,74 @@
             .mdc-headline-4 {
                 font-size: 24px;
             }
+
+            .breadcrumb {
+                font-size: 14px;
+            }
+
+            .custom-pagination .page-link {
+                width: 32px;
+                height: 32px;
+                font-size: 12px;
+            }
         }
     </style>
 
-    <div class="mdc-card fade-in">
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
-            <h1 class="mdc-headline-4">
-                <i class="fas fa-paper-plane" style="color: var(--mdc-primary);"></i>
-                ارسال گروهی پیامک
-            </h1>
-            @if($selectedCount > 0)
-                <div class="mdc-chip mdc-chip--primary" style="font-size: 14px; padding: 8px 16px;">
-                    <i class="fas fa-check-circle" style="margin-left: 8px;"></i>
-                    {{ $selectedCount }} مورد انتخاب شده
+    <div class="container-fluid py-3">
+        <!-- Navigation Tabs (مشابه گزارش تخلفی) -->
+        <ul class="nav nav-tabs mb-3" role="tablist" style="border-bottom: 2px solid #dee2e6;">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {{ request()->is('residents/group-sms') ? 'active' : '' }}" 
+                   href="/residents/group-sms"
+                   style="color: {{ request()->is('residents/group-sms') ? '#0d6efd' : '#6c757d' }}; border-bottom: {{ request()->is('residents/group-sms') ? '2px solid #0d6efd' : 'none' }}; padding: 12px 20px; font-weight: {{ request()->is('residents/group-sms') ? '600' : '400' }};">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    ارسال گروهی پیامک
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {{ request()->is('sms/sent') ? 'active' : '' }}" 
+                   href="/sms/sent"
+                   style="color: {{ request()->is('sms/sent') ? '#0d6efd' : '#6c757d' }}; border-bottom: {{ request()->is('sms/sent') ? '2px solid #0d6efd' : 'none' }}; padding: 12px 20px; font-weight: {{ request()->is('sms/sent') ? '600' : '400' }};">
+                    <i class="fas fa-history me-2"></i>
+                    لیست پیام‌های ارسال شده
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {{ request()->is('sms/violation-sms') ? 'active' : '' }}" 
+                   href="/sms/violation-sms"
+                   style="color: {{ request()->is('sms/violation-sms') ? '#0d6efd' : '#6c757d' }}; border-bottom: {{ request()->is('sms/violation-sms') ? '2px solid #0d6efd' : 'none' }}; padding: 12px 20px; font-weight: {{ request()->is('sms/violation-sms') ? '600' : '400' }};">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    پیامک‌های تخلفات
+                </a>
+            </li>
+        </ul>
+
+        <!-- Header Card (مشابه گزارش تخلفی) -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap">
+                <h5 class="mb-0">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    ارسال گروهی پیامک
+                </h5>
+                <div class="d-flex flex-column flex-md-row gap-2">
+                    @if($selectedCount > 0)
+                        <span class="badge bg-warning text-dark">
+                            <i class="fas fa-check-circle me-1"></i>
+                            {{ $selectedCount }} مورد انتخاب شده
+                        </span>
+                    @endif
+                    @if(isset($filteredCount))
+                        <span class="badge bg-info">
+                            <i class="fas fa-users me-1"></i>
+                            {{ $filteredCount }} اقامت‌گر فیلتر شده
+                        </span>
+                    @endif
                 </div>
-            @endif
+            </div>
         </div>
+    </div>
+
+    <div class="mdc-card fade-in">
 
         <!-- Filter Toggle Buttons -->
         <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
@@ -611,8 +741,8 @@
                         <th class="mdc-data-table__header-cell" style="width: 50px;">
                             <input 
                                 type="checkbox" 
-                                wire:model.live="selectAll"
                                 wire:click="toggleSelectAll"
+                                {{ $selectAll ? 'checked' : '' }}
                                 style="cursor: pointer; width: 18px; height: 18px;"
                             >
                         </th>
@@ -701,25 +831,182 @@
             </table>
         </div>
 
-        <!-- Pagination -->
+        <!-- Pagination (مشابه گزارش تخلفی) -->
         @if($residents->hasPages())
-            <div style="margin-top: 24px; display: flex; justify-content: center;">
-                {{ $residents->links() }}
+            <div class="card mt-3">
+                <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="text-muted" style="font-size: 14px;">
+                        نمایش
+                        {{ $residents->firstItem() ?? 0 }}
+                        تا
+                        {{ $residents->lastItem() ?? 0 }}
+                        از
+                        {{ $residents->total() }}
+                        نتیجه
+                    </div>
+                    {{-- صفحه‌بندی سفارشی --}}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination custom-pagination mb-0">
+                            {{-- دکمه "قبلی" --}}
+                            <li class="page-item {{ $residents->onFirstPage() ? 'disabled' : '' }}">
+                                <a class="page-link" href="#" wire:click="previousPage()" tabindex="-1"
+                                    aria-disabled="{{ $residents->onFirstPage() ? 'true' : 'false' }}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+
+                            {{-- شماره صفحات --}}
+                            @foreach ($residents->getUrlRange(1, $residents->lastPage()) as $page => $url)
+                                @if ($page == $residents->currentPage())
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ $page }}</span>
+                                    </li>
+                                @else
+                                    <li class="page-item">
+                                        <a class="page-link" href="#"
+                                            wire:click="gotoPage({{ $page }})">{{ $page }}</a>
+                                    </li>
+                                @endif
+                            @endforeach
+
+                            {{-- دکمه "بعدی" --}}
+                            <li class="page-item {{ !$residents->hasMorePages() ? 'disabled' : '' }}">
+                                <a class="page-link" href="#" wire:click="nextPage()"
+                                    aria-disabled="{{ !$residents->hasMorePages() ? 'true' : 'false' }}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
             </div>
         @endif
 
-        <!-- Send Button Bar -->
-        @if($selectedCount > 0)
-            <div class="stats-bar fade-in">
+        <!-- Pattern Selection Card -->
+        <div class="mdc-card fade-in" style="margin-top: 24px;">
+            <h5 class="mdc-headline-5" style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                <i class="fas fa-envelope-open-text" style="color: var(--mdc-primary);"></i>
+                ارسال پیام الگویی
+            </h5>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <!-- انتخاب الگو -->
+                <div class="mdc-select">
+                    <select class="mdc-select__native-control" wire:model.live="selectedPattern">
+                        <option value="">انتخاب الگو (اختیاری)</option>
+                        @foreach($patterns as $pattern)
+                            <option value="{{ $pattern->id }}">{{ $pattern->title }}</option>
+                        @endforeach
+                    </select>
+                    <label class="mdc-text-field__label">الگوی پیام</label>
+                </div>
+
+                <!-- انتخاب شماره فرستنده -->
+                @if($availableSenderNumbers->count() > 0)
+                    <div class="mdc-select">
+                        <select class="mdc-select__native-control" wire:model.live="selectedSenderNumberId">
+                            <option value="">شماره فرستنده پیش‌فرض</option>
+                            @foreach($availableSenderNumbers as $senderNumber)
+                                <option value="{{ $senderNumber->id }}">{{ $senderNumber->number }} - {{ $senderNumber->name ?? 'بدون نام' }}</option>
+                            @endforeach
+                        </select>
+                        <label class="mdc-text-field__label">شماره فرستنده</label>
+                    </div>
+                @endif
+            </div>
+
+            @if($selectedPattern)
+                @php
+                    $selectedPatternObj = $patterns->firstWhere('id', $selectedPattern);
+                @endphp
+                @if($selectedPatternObj)
+                    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px; border-right: 4px solid var(--mdc-primary);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <strong style="color: var(--mdc-primary);">{{ $selectedPatternObj->title }}</strong>
+                        </div>
+                        <div style="color: rgba(0,0,0,0.7); font-size: 13px; line-height: 1.6;">
+                            {{ $selectedPatternObj->text }}
+                        </div>
+                    </div>
+                @endif
+            @endif
+
+            <!-- Progress Bar -->
+            @if($isSending)
+                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 500;">در حال ارسال...</span>
+                        <span style="font-size: 12px; color: rgba(0,0,0,0.6);">
+                            {{ $sendingProgress['sent'] + $sendingProgress['failed'] }} / {{ $sendingProgress['total'] }}
+                        </span>
+                    </div>
+                    <div style="background: #e0e0e0; height: 8px; border-radius: 4px; overflow: hidden;">
+                        <div style="background: var(--mdc-primary); height: 100%; width: {{ $sendingProgress['total'] > 0 ? (($sendingProgress['sent'] + $sendingProgress['failed']) / $sendingProgress['total'] * 100) : 0 }}%; transition: width 0.3s;"></div>
+                    </div>
+                    @if($sendingProgress['current'])
+                        <div style="margin-top: 8px; font-size: 12px; color: rgba(0,0,0,0.6);">
+                            در حال ارسال به: <strong>{{ $sendingProgress['current'] }}</strong>
+                        </div>
+                    @endif
+                    <div style="margin-top: 8px; display: flex; gap: 16px; font-size: 12px;">
+                        <span style="color: var(--mdc-success);">
+                            <i class="fas fa-check-circle"></i> موفق: {{ $sendingProgress['sent'] }}
+                        </span>
+                        <span style="color: var(--mdc-error);">
+                            <i class="fas fa-times-circle"></i> ناموفق: {{ $sendingProgress['failed'] }}
+                        </span>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Send Button Bar -->
+            <div class="stats-bar fade-in" style="margin-top: 20px;">
                 <div class="stats-bar__text">
                     <i class="fas fa-users" style="margin-left: 8px;"></i>
-                    <strong>{{ $selectedCount }}</strong> اقامت‌گر انتخاب شده است
+                    <strong>{{ $selectedCount }}</strong> اقامت‌گر انتخاب شده
+                    @if($selectedPattern && $selectedCount > 0)
+                        <span style="margin-right: 16px; color: rgba(255,255,255,0.8); font-size: 14px;">
+                            (پیام الگویی ارسال می‌شود)
+                        </span>
+                    @endif
                 </div>
-                <button class="mdc-button mdc-button--raised" wire:click="sendSms" style="background: var(--mdc-on-primary); color: var(--mdc-primary);">
-                    <i class="fas fa-paper-plane"></i>
-                    ارسال پیامک
-                </button>
+                <div style="display: flex; gap: 12px;">
+                    @if($selectedPattern)
+                        @if($selectedCount > 0)
+                            <button 
+                                class="mdc-button mdc-button--raised" 
+                                wire:click="sendSms" 
+                                wire:loading.attr="disabled"
+                                style="background: var(--mdc-on-primary); color: var(--mdc-primary);"
+                                @if($isSending) disabled @endif
+                            >
+                                <i class="fas fa-paper-plane"></i>
+                                @if($isSending)
+                                    در حال ارسال...
+                                @else
+                                    ارسال پیام الگویی به انتخاب شده‌ها
+                                @endif
+                            </button>
+                        @else
+                            <div style="padding: 10px 24px; background: rgba(255,255,255,0.2); border-radius: 24px; font-size: 14px;">
+                                <i class="fas fa-info-circle"></i>
+                                لطفاً حداقل یک اقامت‌گر را انتخاب کنید
+                            </div>
+                        @endif
+                    @else
+                        @if($selectedCount > 0)
+                            <button 
+                                class="mdc-button mdc-button--raised" 
+                                wire:click="sendSms" 
+                                style="background: var(--mdc-on-primary); color: var(--mdc-primary);"
+                            >
+                                <i class="fas fa-paper-plane"></i>
+                                ارسال پیامک (روش قدیمی)
+                            </button>
+                        @endif
+                    @endif
+                </div>
             </div>
-        @endif
+        </div>
     </div>
 </div>

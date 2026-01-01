@@ -15,7 +15,10 @@ class MelipayamakService
     {
         $this->username = config('services.melipayamak.username');
         // استفاده از APIKey به جای password
-        $this->password = config('services.melipayamak.api_key') ?: config('services.melipayamak.password');
+        // اول از دیتابیس می‌خوانیم، سپس از config
+        $this->password = \App\Models\ApiKey::getKeyValue('api_key') 
+            ?: config('services.melipayamak.api_key') 
+            ?: config('services.melipayamak.password');
     }
 
     /**
@@ -1332,11 +1335,178 @@ class MelipayamakService
      */
     public function sendByBaseNumber2($to, $bodyId, $variables = [], $from = null, $apiKey = null)
     {
+        // ابتدا سعی می‌کنیم از Console API استفاده کنیم (اولویت اول)
+        // این API از API Key استفاده می‌کند و معمولاً قابل اعتمادتر است
+        $consoleResult = $this->sendByBaseNumberConsole($to, $bodyId, $variables, $from, $apiKey);
+        
+        // اگر Console API موفق بود یا خطای غیر از "کلید کنسول معتبر نیست" داد، نتیجه را برمی‌گردانیم
+        if ($consoleResult['success']) {
+            Log::info('Melipayamak SendByBaseNumber2 - Console API succeeded', [
+                'to' => $to,
+                'bodyId' => $bodyId,
+            ]);
+            return $consoleResult;
+        }
+        
+        // اگر خطا مربوط به API Key نبود، نتیجه را برمی‌گردانیم
+        $isApiKeyError = stripos($consoleResult['message'] ?? '', 'کلید کنسول') !== false || 
+                         stripos($consoleResult['message'] ?? '', 'console') !== false ||
+                         stripos($consoleResult['message'] ?? '', 'api key') !== false;
+        
+        if (!$isApiKeyError) {
+            Log::warning('Melipayamak SendByBaseNumber2 - Console API failed with non-API-key error', [
+                'error' => $consoleResult['message'] ?? 'Unknown error',
+            ]);
+            return $consoleResult;
+        }
+        
+        // اگر خطا مربوط به API Key بود، از REST API قدیمی استفاده می‌کنیم
+        Log::warning('Melipayamak SendByBaseNumber2 - Console API failed (API Key error), trying REST API', [
+            'console_error' => $consoleResult['message'] ?? 'Unknown error',
+        ]);
+        
+        $restResult = $this->sendByBaseNumberRest($to, $bodyId, $variables, $from);
+        if ($restResult['success']) {
+            Log::info('Melipayamak SendByBaseNumber2 - REST API succeeded', [
+                'to' => $to,
+                'bodyId' => $bodyId,
+            ]);
+            return $restResult;
+        }
+        
+        // اگر هر دو روش کار نکردند، خطای Console API را برمی‌گردانیم (دقیق‌تر است)
+        return $consoleResult;
+    }
+    
+    /**
+     * ارسال پیامک با استفاده از REST API قدیمی (api.payamak-panel.com)
+     * این متد از username/password استفاده می‌کند
+     */
+    protected function sendByBaseNumberRest($to, $bodyId, $variables = [], $from = null)
+    {
+        try {
+            // اعتبارسنجی شماره تلفن
+            if (!$this->validatePhoneNumber($to)) {
+                return [
+                    'success' => false,
+                    'response_code' => '18',
+                    'message' => 'شماره موبایل گیرنده نامعتبر است.',
+                ];
+            }
+
+            $normalizedPhone = $this->normalizePhoneNumber($to);
+            if (!is_array($variables)) {
+                $variables = [];
+            }
+
+            // استفاده از REST API قدیمی
+            // بر اساس مستندات: https://api.payamak-panel.com/post/Send.asmx/SendByBaseNumber
+            $baseUrl = 'https://api.payamak-panel.com/post/Send.asmx/SendByBaseNumber';
+            
+            // تبدیل متغیرها به رشته با جداکننده ;
+            $text = implode(';', $variables);
+            
+            // دریافت شماره فرستنده
+            $senderNumber = $from ?? config('services.melipayamak.pattern_from') ?? config('services.melipayamak.from');
+            
+            $data = [
+                'username' => $this->username,
+                'password' => $this->password, // APIKey
+                'to' => $normalizedPhone,
+                'bodyId' => (int)$bodyId,
+                'text' => $text, // متغیرها با جداکننده ;
+            ];
+            
+            // اگر شماره فرستنده تنظیم شده باشد، اضافه می‌کنیم
+            if (!empty($senderNumber)) {
+                $data['from'] = $senderNumber;
+            }
+
+            Log::debug('Melipayamak SendByBaseNumber REST Request', [
+                'url' => $baseUrl,
+                'to' => $normalizedPhone,
+                'from' => $senderNumber,
+                'bodyId' => $bodyId,
+                'variables' => $variables,
+                'text' => $text,
+            ]);
+
+            // ارسال درخواست POST
+            $response = Http::asForm()->post($baseUrl, $data);
+
+            $responseBody = trim($response->body());
+            $httpStatus = $response->status();
+
+            Log::debug('Melipayamak SendByBaseNumber REST Response', [
+                'response_body' => $responseBody,
+                'http_status' => $httpStatus,
+            ]);
+
+            // بررسی موفقیت: اگر پاسخ یک عدد مثبت باشد، موفق است
+            // اما اگر پاسخ XML است، باید آن را پارس کنیم
+            $responseCode = null;
+            
+            // اگر پاسخ XML است
+            if (strpos($responseBody, '<?xml') !== false || strpos($responseBody, '<string') !== false) {
+                // استخراج مقدار از XML
+                if (preg_match('/<string[^>]*>([^<]+)<\/string>/', $responseBody, $matches)) {
+                    $responseCode = trim($matches[1]);
+                } else {
+                    // اگر نتوانستیم پارس کنیم، کل پاسخ را به عنوان خطا در نظر می‌گیریم
+                    $responseCode = trim($responseBody);
+                }
+            } else {
+                $responseCode = trim($responseBody);
+            }
+            
+            // بررسی اینکه آیا کد خطا است یا recId
+            if (is_numeric($responseCode) && (int)$responseCode > 0) {
+                return [
+                    'success' => true,
+                    'rec_id' => $responseCode,
+                    'response_code' => $responseCode,
+                    'message' => 'پیامک با موفقیت ارسال شد (RecId: ' . $responseCode . ')',
+                    'raw_response' => $responseBody,
+                    'http_status_code' => $httpStatus,
+                ];
+            } else {
+                // خطا در ارسال
+                $errorMessage = $this->getPatternErrorMessage($responseCode);
+                
+                return [
+                    'success' => false,
+                    'response_code' => $responseCode,
+                    'message' => $errorMessage,
+                    'raw_response' => $responseBody,
+                    'http_status_code' => $httpStatus,
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Melipayamak SendByBaseNumber REST Exception', [
+                'to' => $to,
+                'bodyId' => $bodyId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در اتصال به سرویس: ' . $e->getMessage(),
+                'raw_response' => $e->getMessage(),
+            ];
+        }
+    }
+    
+    /**
+     * ارسال پیامک با استفاده از Console API (console.melipayamak.com)
+     * این متد از API Key استفاده می‌کند
+     */
+    protected function sendByBaseNumberConsole($to, $bodyId, $variables = [], $from = null, $apiKey = null)
+    {
         try {
             // اعتبارسنجی شماره تلفن
             if (!$this->validatePhoneNumber($to)) {
                 $normalized = $this->normalizePhoneNumber($to);
-                Log::error('Melipayamak SendByBaseNumber2 Invalid Phone Number', [
+                Log::error('Melipayamak SendByBaseNumberConsole Invalid Phone Number', [
                     'original' => $to,
                     'normalized' => $normalized,
                 ]);
@@ -1356,16 +1526,14 @@ class MelipayamakService
                 $variables = [];
             }
 
-            // استفاده از API جدید ملی پیامک
-            // بر اساس مستندات: https://console.melipayamak.com/api/send/shared/{api_key}
-            // توجه: API Key باید از پنل کاربری ملی پیامک (console.melipayamak.com) گرفته شود
-            // این API Key با API Key قدیمی (rest.payamak-panel.com) متفاوت است
-            
-            // استفاده از API Key ارسال شده (از شماره انتخاب شده) یا از config
+            // استفاده از API Key ارسال شده (از شماره انتخاب شده) یا از دیتابیس/config
             if (empty($apiKey)) {
-                $apiKey = config('services.melipayamak.console_api_key') 
-                        ?: config('services.melipayamak.api_key') 
-                        ?: $this->password;
+                // اول از دیتابیس می‌خوانیم
+                $apiKey = \App\Models\ApiKey::getKeyValue('console_api_key')
+                    ?: \App\Models\ApiKey::getKeyValue('api_key')
+                    ?: config('services.melipayamak.console_api_key') 
+                    ?: config('services.melipayamak.api_key') 
+                    ?: $this->password;
             }
             
             // بررسی اینکه API Key وجود دارد
@@ -1383,6 +1551,15 @@ class MelipayamakService
                 ];
             }
             
+            // لاگ API Key برای دیباگ (فقط 8 کاراکتر اول)
+            Log::info('Melipayamak Console API Key loaded', [
+                'api_key_preview' => substr($apiKey, 0, 8) . '...',
+                'api_key_length' => strlen($apiKey),
+                'api_key_source' => !empty(config('services.melipayamak.console_api_key')) ? 'console_api_key' : (!empty(config('services.melipayamak.api_key')) ? 'api_key' : 'password'),
+            ]);
+            
+            // URL پایه برای API کنسول
+            // بر اساس مستندات: https://console.melipayamak.com/api/send/shared/{api_key}
             $baseUrl = 'https://console.melipayamak.com/api/send/shared/' . $apiKey;
             
             // دریافت شماره فرستنده
@@ -1390,18 +1567,16 @@ class MelipayamakService
             $senderNumber = $from ?? config('services.melipayamak.pattern_from') ?? config('services.melipayamak.from');
             
             // ساخت داده‌های JSON
+            // بر اساس مستندات: فقط bodyId, to, args نیاز است
+            // پارامتر 'from' در مستندات ذکر نشده است
             $data = [
                 'bodyId' => (int)$bodyId,
                 'to' => $normalizedPhone,
                 'args' => $variables, // آرایه متغیرها (نه رشته با ;)
             ];
             
-            // اگر شماره فرستنده تنظیم شده باشد، اضافه می‌کنیم
-            // توجه: ممکن است API جدید از پارامتر 'from' یا 'sender' استفاده کند
-            // بر اساس مستندات، اگر پارامتر وجود داشته باشد، اضافه می‌کنیم
-            if (!empty($senderNumber)) {
-                $data['from'] = $senderNumber;
-            }
+            // توجه: پارامتر 'from' در مستندات Console API ذکر نشده است
+            // بنابراین آن را ارسال نمی‌کنیم
 
             Log::debug('Melipayamak SendByBaseNumber2 Request (New API)', [
                 'url' => $baseUrl,
@@ -1417,8 +1592,10 @@ class MelipayamakService
             ]);
 
             // ارسال درخواست POST با JSON
+            // توجه: API Key در URL قرار می‌گیرد (نه در header)
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
             ])->post($baseUrl, $data);
 
             $responseBody = trim($response->body());
@@ -1468,14 +1645,24 @@ class MelipayamakService
                     // خطا در ارسال
                     $errorMessage = $status ?: 'خطا در ارسال پیامک';
                     
+                    // بررسی خطای "کلید کنسول معتبر نیست"
+                    if (stripos($status, 'کلید کنسول') !== false || 
+                        stripos($status, 'console') !== false ||
+                        stripos($status, 'api key') !== false ||
+                        stripos($status, 'api_key') !== false) {
+                        $errorMessage = 'کلید کنسول معتبر نیست. لطفاً API Key را از پنل console.melipayamak.com بررسی کنید.';
+                    }
+                    
                     Log::error('Melipayamak SendByBaseNumber2 Error (New API)', [
                         'to' => $normalizedPhone,
                         'bodyId' => $bodyId,
                         'error' => $errorMessage,
-                        'recId' => $recId,
                         'status' => $status,
+                        'recId' => $recId,
                         'response_body' => $responseBody,
                         'http_status_code' => $httpStatus,
+                        'api_key_used' => substr($apiKey, 0, 8) . '...',
+                        'api_key_length' => strlen($apiKey),
                     ]);
                     
                     return [

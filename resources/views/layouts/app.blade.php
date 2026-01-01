@@ -703,7 +703,7 @@
                     </a>
                     <ul class="submenu">
                         <li>
-                            <a href="/residents" class="{{ request()->is('residents') ? 'active' : '' }}">
+                            <a href="/residents" class="{{ request()->is('residents') && !request()->is('residents/group-sms') && !request()->is('residents/expired-today') ? 'active' : '' }}">
                                 <i class="fas fa-users"></i>
                                 <span>مدیریت اقامت‌گران</span>
                             </a>
@@ -720,12 +720,18 @@
                                 <span>گزارش‌های اطلاع‌رسانی</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="/residents/group-sms" class="{{ request()->is('residents/group-sms') ? 'active' : '' }}">
+                                <i class="fas fa-paper-plane"></i>
+                                <span>ارسال گروهی پیامک</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
                 <!-- پیام‌های الگویی -->
                 <div class="menu-section">پیام‌های الگویی</div>
-                <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('patterns*') || request()->is('variables*') || request()->is('blacklists*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('patterns*') || request()->is('variables*') || request()->is('blacklists*') || request()->is('api-keys*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-file-code"></i>
                         <span>پیام‌های الگویی</span>
@@ -747,6 +753,12 @@
                             <a href="/sms/pattern-test" class="{{ request()->is('sms/pattern-test') ? 'active' : '' }}">
                                 <i class="fas fa-vial"></i>
                                 <span>تست ارسال الگویی</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/api-keys" class="{{ request()->is('api-keys*') ? 'active' : '' }}">
+                                <i class="fas fa-key"></i>
+                                <span>مدیریت API Key</span>
                             </a>
                         </li>
                         <li>

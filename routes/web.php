@@ -45,6 +45,7 @@ Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patte
 Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index');
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
 Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index');
+Route::get('/api-keys', \App\Livewire\Admin\ApiKeyManager::class)->name('api-keys.index');
 Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index');
 Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index');
 
