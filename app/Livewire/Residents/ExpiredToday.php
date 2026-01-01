@@ -20,6 +20,46 @@ class ExpiredToday extends Component
     public $perPage = 20;
     public $selectedResidents = [];
     public $selectAll = false;
+    
+    // Computed property برای بررسی اینکه آیا می‌توان ارسال کرد
+    public function getCanSendProperty()
+    {
+        $hasSelection = !empty($this->selectedResidents) && 
+                       is_array($this->selectedResidents) && 
+                       count($this->selectedResidents) > 0;
+        $hasPattern = !empty($this->selectedPattern);
+        return $hasSelection && $hasPattern;
+    }
+    
+    public function mount()
+    {
+        // اطمینان از اینکه selectedResidents همیشه یک array خالی است
+        $this->selectedResidents = [];
+        $this->selectAll = false;
+        $this->loadPatterns();
+    }
+
+    /**
+     * Listener برای event residents-synced
+     * وقتی داده‌ها از API sync می‌شوند، این متد فراخوانی می‌شود
+     */
+    protected $listeners = ['residents-synced' => 'refreshData'];
+
+    /**
+     * Refresh کردن داده‌ها بعد از sync
+     */
+    public function refreshData()
+    {
+        // فقط pagination را reset می‌کنیم تا داده‌های جدید نمایش داده شوند
+        $this->resetPage();
+    }
+    
+    public function clearSelection()
+    {
+        // پاک کردن همه انتخاب‌ها
+        $this->selectedResidents = [];
+        $this->selectAll = false;
+    }
 
     // Pattern SMS properties
     public $selectedPattern = null;
@@ -36,64 +76,129 @@ class ExpiredToday extends Component
 
     protected $paginationTheme = 'bootstrap';
 
-    public function mount()
-    {
-        $this->loadPatterns();
-    }
-
     public function updatingSearch()
     {
         $this->resetPage();
     }
+    
+    public function updatedPerPage()
+    {
+        // وقتی تعداد صفحه تغییر می‌کند، selectedResidents را پاک نکنیم
+        // فقط selectAll را به‌روزرسانی می‌کنیم
+        $this->updateSelectAllState();
+    }
 
     public function toggleSelectAll()
     {
-        // فقط اقامت‌گران فعال را انتخاب می‌کنیم
+        // اطمینان از اینکه selectedResidents یک array است
+        if (!is_array($this->selectedResidents)) {
+            $this->selectedResidents = [];
+        }
+        
+        // دریافت همه اقامت‌گران فیلتر شده در صفحه فعلی
         $residents = $this->getFilteredResidentsQuery()->get();
         $activeResidentIds = [];
         
+        // فقط اقامت‌گران فعال را جمع‌آوری می‌کنیم
         foreach ($residents as $resident) {
             $disabledInfo = $this->isResidentDisabled($resident);
             if (!$disabledInfo['disabled']) {
-                $activeResidentIds[] = $resident->id;
+                $activeResidentIds[] = (int)$resident->id;
             }
         }
         
-        // بررسی اینکه آیا همه اقامت‌گران فعال انتخاب شده‌اند
-        $allActiveSelected = !empty($activeResidentIds) && 
-                            count($activeResidentIds) === count($this->selectedResidents) && 
-                            empty(array_diff($activeResidentIds, $this->selectedResidents));
+        if (empty($activeResidentIds)) {
+            // اگر هیچ اقامت‌گر فعالی وجود ندارد، هیچ کاری انجام نمی‌دهیم
+            $this->selectAll = false;
+            return;
+        }
         
-        if ($allActiveSelected) {
+        // تبدیل selectedResidents به array از integer
+        $currentSelected = array_map('intval', $this->selectedResidents);
+        
+        // بررسی اینکه آیا همه اقامت‌گران فعال در صفحه فعلی انتخاب شده‌اند
+        $allSelected = count($activeResidentIds) === count($currentSelected) && 
+                      empty(array_diff($activeResidentIds, $currentSelected));
+        
+        if ($allSelected) {
             // اگر همه انتخاب شده‌اند، همه را deselect می‌کنیم
-            $this->selectedResidents = [];
+            // حذف فقط اقامت‌گران صفحه فعلی از selectedResidents
+            $this->selectedResidents = array_values(array_diff($currentSelected, $activeResidentIds));
             $this->selectAll = false;
         } else {
             // اگر همه انتخاب نشده‌اند، همه را select می‌کنیم
-            $this->selectedResidents = $activeResidentIds;
+            // اضافه کردن اقامت‌گران صفحه فعلی به selectedResidents (بدون تکرار)
+            $merged = array_unique(array_merge($currentSelected, $activeResidentIds));
+            $this->selectedResidents = array_values($merged);
             $this->selectAll = true;
         }
     }
 
-    public function toggleSelectResident($residentId)
+    public function updatedSelectedResidents()
     {
-        // بررسی اینکه آیا resident غیرفعال است
-        $resident = Resident::find($residentId);
-        if ($resident) {
-            $disabledInfo = $this->isResidentDisabled($resident);
-            if ($disabledInfo['disabled']) {
-                // اگر غیرفعال است، اجازه انتخاب نمی‌دهیم
-                session()->flash('warning', 'این اقامت‌گر به دلیل ' . $disabledInfo['reason'] . ' غیرفعال است.');
-                return;
+        // اطمینان از اینکه selectedResidents یک array است
+        if (!is_array($this->selectedResidents)) {
+            $this->selectedResidents = [];
+            $this->dispatch('updateSendButton');
+            return;
+        }
+        
+        // فیلتر کردن اقامت‌گران غیرفعال از selectedResidents
+        $filtered = [];
+        foreach ($this->selectedResidents as $residentId) {
+            $residentId = (int)$residentId;
+            $resident = Resident::find($residentId);
+            if ($resident) {
+                $disabledInfo = $this->isResidentDisabled($resident);
+                if (!$disabledInfo['disabled']) {
+                    $filtered[] = $residentId;
+                }
             }
         }
-
-        if (in_array($residentId, $this->selectedResidents)) {
-            $this->selectedResidents = array_diff($this->selectedResidents, [$residentId]);
-        } else {
-            $this->selectedResidents[] = $residentId;
+        
+        // تبدیل به array از integer و حذف تکرارها
+        $this->selectedResidents = array_values(array_unique(array_map('intval', $filtered)));
+        
+        // به‌روزرسانی selectAll
+        $this->updateSelectAllState();
+        
+        // ارسال event برای به‌روزرسانی دکمه
+        $this->dispatch('updateSendButton');
+    }
+    
+    public function updatedSelectedPattern()
+    {
+        // ارسال event برای به‌روزرسانی دکمه
+        $this->dispatch('updateSendButton');
+    }
+    
+    protected function updateSelectAllState()
+    {
+        // اطمینان از اینکه selectedResidents یک array است
+        if (!is_array($this->selectedResidents)) {
+            $this->selectedResidents = [];
         }
-        $this->selectAll = false;
+        
+        // دریافت همه اقامت‌گران فیلتر شده
+        $allFilteredResidents = $this->getFilteredResidentsQuery()->get();
+        $activeResidentIds = [];
+        
+        foreach ($allFilteredResidents as $resident) {
+            $disabledInfo = $this->isResidentDisabled($resident);
+            if (!$disabledInfo['disabled']) {
+                $activeResidentIds[] = (int)$resident->id;
+            }
+        }
+        
+        // تبدیل selectedResidents به array از integer
+        $currentSelected = array_map('intval', $this->selectedResidents);
+        
+        // بررسی اینکه آیا همه اقامت‌گران فعال انتخاب شده‌اند
+        $allActiveSelected = !empty($activeResidentIds) && 
+                            count($activeResidentIds) === count($currentSelected) && 
+                            empty(array_diff($activeResidentIds, $currentSelected));
+        
+        $this->selectAll = $allActiveSelected;
     }
 
     /**
@@ -689,13 +794,25 @@ class ExpiredToday extends Component
         foreach ($allFilteredResidents as $resident) {
             $disabledInfo = $this->isResidentDisabled($resident);
             if (!$disabledInfo['disabled']) {
-                $activeResidentIds[] = $resident->id;
+                $activeResidentIds[] = (int)$resident->id;
             }
         }
         
+        // اطمینان از اینکه selectedResidents یک array است
+        if (!is_array($this->selectedResidents)) {
+            $this->selectedResidents = [];
+        }
+        
+        // تبدیل selectedResidents به array از integer
+        $currentSelected = array_map('intval', $this->selectedResidents);
+        
+        // تبدیل activeResidentIds به array از integer
+        $activeResidentIds = array_map('intval', $activeResidentIds);
+        
+        // بررسی اینکه آیا همه اقامت‌گران فعال انتخاب شده‌اند
         $allActiveSelected = !empty($activeResidentIds) && 
-                            count($activeResidentIds) === count($this->selectedResidents) && 
-                            empty(array_diff($activeResidentIds, $this->selectedResidents));
+                            count($activeResidentIds) === count($currentSelected) && 
+                            empty(array_diff($activeResidentIds, $currentSelected));
         
         if ($allActiveSelected && !$this->selectAll) {
             $this->selectAll = true;
@@ -705,7 +822,8 @@ class ExpiredToday extends Component
 
         return view('livewire.residents.expired-today', [
             'residents' => $residents,
-            'selectedCount' => count($this->selectedResidents),
         ]);
     }
 }
+
+

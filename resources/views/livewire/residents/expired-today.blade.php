@@ -1,5 +1,4 @@
 <div>
-    @section('title', 'اقامت‌گران با سررسید گذشته')
 
     <!-- Bootstrap CSS برای Pagination -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -44,11 +43,257 @@
             font-size: 0.75rem;
         }
 
-        /* Responsive */
+        /* Responsive Styles - Global */
+        .table-responsive {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 992px) {
+            .card {
+                padding: 15px;
+            }
+
+            .row > [class*="col-"] {
+                margin-bottom: 15px;
+            }
+
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .d-flex.justify-content-between > * {
+                width: 100%;
+            }
+        }
+
         @media (max-width: 768px) {
+            .card {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+
+            .card h4 {
+                font-size: 18px;
+                line-height: 1.4;
+            }
+
+            .card h6 {
+                font-size: 14px;
+            }
+
             .custom-pagination .page-link {
                 width: 32px;
                 height: 32px;
+                font-size: 12px;
+            }
+
+            .table {
+                font-size: 12px;
+                min-width: 800px;
+            }
+
+            .table th,
+            .table td {
+                padding: 8px 6px;
+                white-space: nowrap;
+            }
+
+            .btn {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 14px;
+            }
+
+            .form-label {
+                font-size: 13px;
+            }
+
+            /* Force columns to full width on mobile */
+            .row > [class*="col-md-"],
+            .row > [class*="col-lg-"],
+            .row > [class*="col-xl-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
+            /* Search and filter section */
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .d-flex.justify-content-between > * {
+                width: 100%;
+            }
+
+            /* Card body responsive */
+            .card-body {
+                padding: 12px;
+            }
+
+            /* Badge responsive */
+            .badge {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+
+            /* Input group responsive */
+            .input-group {
+                width: 100%;
+            }
+
+            .input-group-text {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            /* Table container responsive */
+            .table-container {
+                margin: 0 -12px;
+                padding: 0 12px;
+            }
+
+            /* Button in table header */
+            .table th button {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .card {
+                padding: 10px;
+            }
+
+            .card h4 {
+                font-size: 16px;
+            }
+
+            .card h6 {
+                font-size: 13px;
+            }
+
+            .table {
+                font-size: 11px;
+                min-width: 700px;
+            }
+
+            .table th,
+            .table td {
+                padding: 6px 4px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .btn-sm {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+
+            .form-label {
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+
+            .badge {
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+
+            .custom-pagination .page-link {
+                width: 28px;
+                height: 28px;
+                font-size: 11px;
+            }
+
+            /* Stack all columns */
+            .row > [class*="col-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin-bottom: 10px;
+            }
+
+            /* Button full width on mobile */
+            .btn.w-100 {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 8px;
+            }
+
+            .card h4 {
+                font-size: 14px;
+            }
+
+            .table {
+                font-size: 10px;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 5px 3px;
+            }
+
+            .btn {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 12px;
+                padding: 5px 8px;
+            }
+
+            .badge {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            .btn-sm {
+                padding: 4px 8px;
+                font-size: 10px;
+            }
+
+            .input-group-text {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .table-container {
+                margin: 0 -8px;
+                padding: 0 8px;
+            }
+
+            .table th button {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+
+            .card h6 {
                 font-size: 12px;
             }
         }
@@ -89,35 +334,36 @@
     @endscript
 
     <div class="card">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="mb-0">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h4 class="mb-0" style="flex: 1; min-width: 200px;">
                 <i class="fas fa-calendar-times text-danger"></i>
-                اقامت‌گران با سررسید گذشته (امروز و قبل از امروز)
+                <span class="d-none d-md-inline">اقامت‌گران با سررسید گذشته (امروز و قبل از امروز)</span>
+                <span class="d-md-none">سررسید گذشته</span>
             </h4>
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <div class="badge bg-danger">
                     {{ $residents->total() }} مورد
                 </div>
-                @if($selectedCount > 0)
+                @if(!empty($selectedResidents) && count($selectedResidents) > 0)
                     <div class="badge bg-primary">
-                        {{ $selectedCount }} انتخاب شده
+                        {{ count($selectedResidents) }} انتخاب شده
                     </div>
                 @endif
             </div>
         </div>
 
         <!-- بخش انتخاب الگو و ارسال -->
-        @if($selectedCount > 0)
+        @if(!empty($selectedResidents) && count($selectedResidents) > 0)
             <div class="card mb-3" style="background: #f8f9fa; border: 1px solid #dee2e6;">
                 <div class="card-body">
                     <h6 class="mb-3">
                         <i class="fas fa-paper-plane text-primary"></i>
-                        ارسال پیامک به {{ $selectedCount }} نفر انتخاب شده
+                        ارسال پیامک به {{ count($selectedResidents) }} نفر انتخاب شده
                     </h6>
                     
                     <div class="row g-3">
                         <!-- انتخاب الگو -->
-                        <div class="col-md-10">
+                        <div class="col-12 col-md-6">
                             <label class="form-label">
                                 <i class="fas fa-file-alt"></i>
                                 انتخاب الگو
@@ -148,12 +394,32 @@
                         </div>
 
                         <!-- دکمه ارسال -->
-                        <div class="col-md-2 d-flex align-items-end">
+                        <div class="col-12 col-md-6 d-flex align-items-end">
                             <button 
+                                type="button"
                                 wire:click="sendPatternSms" 
                                 wire:loading.attr="disabled"
+                                wire:target="sendPatternSms"
+                                wire:disabled="{{ !$this->canSend ? 'true' : 'false' }}"
                                 class="btn btn-success w-100"
-                                @if(!$selectedPattern) disabled @endif
+                                id="send-sms-btn"
+                                style="
+                                    @if(!$this->canSend)
+                                        opacity: 0.6; 
+                                        cursor: not-allowed;
+                                        background: #6c757d;
+                                    @else
+                                        cursor: pointer; 
+                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                        border: none; 
+                                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); 
+                                        transition: all 0.3s ease;
+                                    @endif
+                                "
+                                @if($this->canSend)
+                                    onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.6)';"
+                                    onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.4)';"
+                                @endif
                             >
                                 <span wire:loading.remove wire:target="sendPatternSms">
                                     <i class="fas fa-paper-plane"></i>
@@ -165,6 +431,59 @@
                                 </span>
                             </button>
                         </div>
+                        
+                        <script>
+                            function updateSendButton() {
+                                const btn = document.getElementById('send-sms-btn');
+                                if (!btn) return;
+                                
+                                // بررسی از طریق Livewire
+                                @this.get('selectedResidents').then(selectedResidents => {
+                                    @this.get('selectedPattern').then(selectedPattern => {
+                                        const hasSelection = Array.isArray(selectedResidents) && selectedResidents.length > 0;
+                                        const hasPattern = selectedPattern !== null && selectedPattern !== '';
+                                        const canSend = hasSelection && hasPattern;
+                                        
+                                        if (canSend) {
+                                            btn.disabled = false;
+                                            btn.removeAttribute('disabled');
+                                            btn.style.opacity = '1';
+                                            btn.style.cursor = 'pointer';
+                                            btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                                            btn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                                        } else {
+                                            btn.disabled = true;
+                                            btn.setAttribute('disabled', 'disabled');
+                                            btn.style.opacity = '0.6';
+                                            btn.style.cursor = 'not-allowed';
+                                            btn.style.background = '#6c757d';
+                                            btn.style.boxShadow = 'none';
+                                        }
+                                    });
+                                });
+                            }
+                            
+                            document.addEventListener('livewire:init', () => {
+                                // به‌روزرسانی دکمه بعد از هر تغییر
+                                Livewire.hook('morph.updated', () => {
+                                    setTimeout(updateSendButton, 100);
+                                });
+                                
+                                Livewire.on('updateSendButton', () => {
+                                    setTimeout(updateSendButton, 100);
+                                });
+                                
+                                // به‌روزرسانی اولیه
+                                setTimeout(updateSendButton, 500);
+                            });
+                            
+                            // به‌روزرسانی بعد از هر تغییر در checkbox یا select
+                            document.addEventListener('change', (e) => {
+                                if (e.target.matches('input[type="checkbox"]') || e.target.matches('select')) {
+                                    setTimeout(updateSendButton, 200);
+                                }
+                            });
+                        </script>
                     </div>
 
                     <!-- Progress Bar -->
@@ -213,17 +532,37 @@
         </div>
 
         <!-- جدول -->
-        <div class="table-container">
+        <div class="table-responsive table-container">
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">
-                            <input 
-                                type="checkbox" 
+                        <th style="width: 120px;">
+                            <button 
+                                type="button"
                                 wire:click="toggleSelectAll"
-                                {{ $selectAll ? 'checked' : '' }}
-                                style="cursor: pointer;"
+                                wire:key="select-all-button"
+                                class="btn btn-sm"
+                                style="
+                                    background: {{ $selectAll ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }};
+                                    color: white;
+                                    border: none;
+                                    border-radius: 20px;
+                                    padding: 6px 16px;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                    transition: all 0.3s ease;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                "
+                                onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)';"
+                                onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)';"
                             >
+                                <i class="fas {{ $selectAll ? 'fa-check-square' : 'fa-square' }}"></i>
+                                <span>{{ $selectAll ? 'لغو انتخاب همه' : 'انتخاب همه' }}</span>
+                            </button>
                         </th>
                         <th>ردیف</th>
                         <th>نام</th>
@@ -245,13 +584,21 @@
                         <tr style="{{ $isDisabled ? 'opacity: 0.5; background-color: #f8f9fa;' : '' }}" 
                             title="{{ $isDisabled ? $disabledReason : '' }}">
                             <td>
-                                <input 
-                                    type="checkbox" 
-                                    wire:click="toggleSelectResident({{ $resident->id }})"
-                                    {{ in_array($resident->id, $selectedResidents) ? 'checked' : '' }}
-                                    {{ $isDisabled ? 'disabled' : '' }}
-                                    style="cursor: {{ $isDisabled ? 'not-allowed' : 'pointer' }};"
-                                >
+                                @if($isDisabled)
+                                    <input 
+                                        type="checkbox" 
+                                        disabled
+                                        style="cursor: not-allowed; opacity: 0.5;"
+                                    >
+                                @else
+                                    <input 
+                                        type="checkbox" 
+                                        wire:model.live="selectedResidents"
+                                        value="{{ $resident->id }}"
+                                        wire:key="resident-checkbox-{{ $resident->id }}-{{ $loop->index }}"
+                                        style="cursor: pointer;"
+                                    >
+                                @endif
                             </td>
                             <td>{{ $residents->firstItem() + $index }}</td>
                             <td>

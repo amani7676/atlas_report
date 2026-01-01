@@ -36,6 +36,20 @@ class Units extends Component
         $this->loadReportData();
     }
 
+    /**
+     * Listener برای event residents-synced
+     * وقتی داده‌ها از API sync می‌شوند، این متد فراخوانی می‌شود
+     */
+    protected $listeners = ['residents-synced' => 'refreshData'];
+
+    /**
+     * Refresh کردن داده‌ها بعد از sync
+     */
+    public function refreshData()
+    {
+        $this->loadUnits();
+    }
+
     public function loadUnits()
     {
         $this->loading = true;

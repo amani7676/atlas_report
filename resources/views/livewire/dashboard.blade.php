@@ -5,6 +5,13 @@
     </div>
 
     <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
+        <style>
+            @media (max-width: 768px) {
+                .grid {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+        </style>
         <div class="stats-card">
             <i class="fas fa-file-alt" style="font-size: 24px;"></i>
             <div class="stats-number">{{ $totalReports }}</div>

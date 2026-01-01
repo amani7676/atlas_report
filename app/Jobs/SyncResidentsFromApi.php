@@ -25,7 +25,9 @@ class SyncResidentsFromApi implements ShouldQueue
     public function handle(): void
     {
         try {
-            $apiUrl = 'http://atlas2.test/api/residents';
+            // دریافت URL از تنظیمات
+            $settings = \App\Models\Settings::getSettings();
+            $apiUrl = $settings->api_url ?? 'http://atlas2.test/api/residents';
             
             Log::info('Starting residents sync from API', ['url' => $apiUrl]);
             
@@ -138,16 +140,20 @@ class SyncResidentsFromApi implements ShouldQueue
                     'last_synced_at' => now(),
                 ];
                 
-                // ذخیره یا به‌روزرسانی
+                // ذخیره یا به‌روزرسانی با updateOrCreate
                 try {
                     $existing = Resident::where('resident_id', $residentId)->first();
+                    $wasNew = !$existing;
                     
-                    if ($existing) {
-                        $existing->update($data);
-                        $updatedCount++;
-                    } else {
-                        Resident::create($data);
+                    Resident::updateOrCreate(
+                        ['resident_id' => $residentId],
+                        $data
+                    );
+                    
+                    if ($wasNew) {
                         $createdCount++;
+                    } else {
+                        $updatedCount++;
                     }
                     
                     $syncedCount++;
@@ -162,6 +168,9 @@ class SyncResidentsFromApi implements ShouldQueue
             
             // پاک کردن cache
             Cache::forget('residents_api_data');
+            
+            // ذخیره زمان آخرین sync برای Scheduler
+            Cache::put('residents_last_sync_time', now(), now()->addDays(1));
             
             // ذخیره اطلاعات آخرین sync
             $syncData = [

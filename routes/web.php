@@ -48,6 +48,7 @@ Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('s
 Route::get('/api-keys', \App\Livewire\Admin\ApiKeyManager::class)->name('api-keys.index');
 Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index');
 Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index');
+Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.index');
 
 // API endpoint for syncing residents
 Route::post('/api/residents/sync', function () {
@@ -89,6 +90,31 @@ Route::post('/api/residents/sync', function () {
         ], 500);
     }
 })->middleware('web');
+
+// API endpoint for sync status (برای بررسی اینکه آیا sync انجام شده یا نه)
+Route::get('/api/residents/sync-status', function () {
+    $lastSyncTime = \Illuminate\Support\Facades\Cache::get('residents_last_sync_time');
+    $settings = \App\Models\Settings::getSettings();
+    $refreshInterval = $settings->refresh_interval ?? 5;
+    
+    if ($lastSyncTime) {
+        $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
+        return response()->json([
+            'synced' => true,
+            'last_sync_time' => $lastSyncTime->format('Y-m-d H:i:s'),
+            'refresh_interval' => $refreshInterval,
+            'synced_count' => $lastSync['synced_count'] ?? 0,
+            'created_count' => $lastSync['created_count'] ?? 0,
+            'updated_count' => $lastSync['updated_count'] ?? 0,
+        ]);
+    }
+    
+    return response()->json([
+        'synced' => false,
+        'last_sync_time' => null,
+        'refresh_interval' => $refreshInterval,
+    ]);
+});
 
 // API endpoint for last sync status
 Route::get('/api/residents/last-sync', function () {

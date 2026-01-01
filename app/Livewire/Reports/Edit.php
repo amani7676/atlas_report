@@ -25,6 +25,7 @@ class Edit extends Component
     {
         $this->categories = Category::all();
         $this->patterns = Pattern::where('is_active', true)
+            ->where('status', 'approved')
             ->whereNotNull('pattern_code')
             ->orderBy('title')
             ->get();

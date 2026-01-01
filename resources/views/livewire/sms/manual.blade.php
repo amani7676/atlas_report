@@ -36,13 +36,20 @@
                         wire:model.live.debounce.300ms="search"
                         placeholder="جستجوی اقامت‌گر..."
                         class="form-control"
-                        style="width: 300px;"
+                        style="width: 100%; max-width: 300px;"
                     >
                 </div>
             </div>
 
             <!-- Units and Residents -->
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+                <style>
+                    @media (max-width: 768px) {
+                        div[style*="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr))"] {
+                            grid-template-columns: 1fr !important;
+                        }
+                    }
+                </style>
                 @foreach($filteredUnits as $unitIndex => $unit)
                     @foreach($unit['rooms'] as $roomIndex => $room)
                         @if(isset($room['beds']) && count(array_filter($room['beds'], fn($bed) => $bed['resident'])) > 0)

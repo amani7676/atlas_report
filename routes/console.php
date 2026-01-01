@@ -8,11 +8,32 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// همگام‌سازی خودکار اطلاعات اقامت‌گران از API هر 1 دقیقه (غیرفعال شده)
-// Schedule::command('residents:sync')
-//     ->everyMinute()
-//     ->withoutOverlapping()
-//     ->runInBackground();
+// همگام‌سازی خودکار اطلاعات اقامت‌گران از API
+// این Schedule هر دقیقه چک می‌کند که آیا زمان sync رسیده است یا نه
+Schedule::call(function () {
+    $settings = \App\Models\Settings::getSettings();
+    $refreshInterval = $settings->refresh_interval ?? 5;
+    
+    if ($refreshInterval <= 0) {
+        return; // رفرش غیرفعال است
+    }
+    
+    // بررسی زمان آخرین sync
+    $lastSyncTime = \Illuminate\Support\Facades\Cache::get('residents_last_sync_time');
+    $now = now();
+    
+    // اگر اولین بار است یا زمان sync رسیده است
+    if (!$lastSyncTime || $now->diffInMinutes($lastSyncTime) >= $refreshInterval) {
+        \Artisan::call('residents:sync');
+        \Illuminate\Support\Facades\Cache::put('residents_last_sync_time', $now, now()->addDays(1));
+        \Log::info('Residents sync executed via scheduler', [
+            'refresh_interval' => $refreshInterval,
+            'last_sync_time' => $lastSyncTime?->format('Y-m-d H:i:s'),
+        ]);
+    }
+})->name('residents-auto-sync')
+  ->everyMinute()
+  ->withoutOverlapping();
 
 // بررسی و ارسال پیامک‌های خودکار هر 5 دقیقه
 Schedule::command('auto-sms:check')

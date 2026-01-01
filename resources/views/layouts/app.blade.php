@@ -76,6 +76,22 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .navbar > * {
+            flex-shrink: 0;
+        }
+
+        .navbar-title {
+            display: none !important;
+        }
+
+        @media (min-width: 769px) {
+            .navbar-title {
+                display: block !important;
+            }
         }
 
         .sidebar-header {
@@ -241,6 +257,42 @@
             border-collapse: collapse;
         }
 
+        /* Force all fixed widths to be responsive */
+        @media (max-width: 768px) {
+            [style*="width: 300px"],
+            [style*="width:300px"],
+            [style*="width: 250px"],
+            [style*="width:250px"],
+            [style*="width: 200px"],
+            [style*="width:200px"],
+            [style*="width: 150px"],
+            [style*="width:150px"],
+            [style*="width: 120px"],
+            [style*="width:120px"] {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+
+        /* Make all grid layouts responsive */
+        @media (max-width: 768px) {
+            [style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* Make all flex containers responsive */
+        @media (max-width: 768px) {
+            .d-flex.justify-content-between {
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .d-flex.justify-content-between > * {
+                width: 100% !important;
+            }
+        }
+
         .table th,
         .table td {
             padding: 12px;
@@ -255,6 +307,352 @@
 
         .table tr:hover {
             background: #f8f9fa;
+        }
+
+        /* Responsive Utilities */
+        .table-container,
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            -ms-overflow-style: -ms-autohiding-scrollbar;
+            display: block;
+        }
+
+        /* Force all tables to be scrollable on mobile */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0;
+        }
+
+        /* Ensure all tables have minimum width for scrolling */
+        @media (max-width: 768px) {
+            .table {
+                min-width: 600px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .table {
+                min-width: 500px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table {
+                min-width: 450px;
+            }
+        }
+
+        /* Force all grid layouts to be responsive */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr !important;
+                gap: 15px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .grid {
+                grid-template-columns: 1fr !important;
+                gap: 10px;
+            }
+        }
+
+        /* Responsive Grid Helpers - Force full width on mobile */
+        @media (max-width: 992px) {
+            .row > [class*="col-lg-"],
+            .row > [class*="col-xl-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .row > [class*="col-md-"],
+            .row > [class*="col-lg-"],
+            .row > [class*="col-xl-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
+            /* Force all columns to stack */
+            [class*="col-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin-bottom: 10px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .row > [class*="col-sm-"],
+            .row > [class*="col-md-"],
+            .row > [class*="col-lg-"],
+            .row > [class*="col-xl-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
+            /* Force all columns to stack on small screens */
+            [class*="col-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin-bottom: 8px;
+            }
+        }
+
+        /* Global Responsive Styles for all pages */
+        @media (max-width: 768px) {
+            /* Cards */
+            .card {
+                padding: 12px !important;
+                margin-bottom: 12px !important;
+            }
+
+            .card-body {
+                padding: 12px !important;
+            }
+
+            /* Headings */
+            h1 { font-size: 24px !important; }
+            h2 { font-size: 20px !important; }
+            h3 { font-size: 18px !important; }
+            h4 { font-size: 16px !important; }
+            h5 { font-size: 15px !important; }
+            h6 { font-size: 14px !important; }
+
+            /* Tables */
+            .table {
+                font-size: 12px !important;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 8px 6px !important;
+                font-size: 12px !important;
+            }
+
+            /* Forms */
+            .form-control,
+            .form-select,
+            .form-input {
+                font-size: 14px !important;
+                padding: 8px 12px !important;
+            }
+
+            .form-label {
+                font-size: 13px !important;
+                margin-bottom: 6px !important;
+            }
+
+            /* Buttons */
+            .btn {
+                padding: 8px 14px !important;
+                font-size: 13px !important;
+            }
+
+            .btn-sm {
+                padding: 6px 12px !important;
+                font-size: 12px !important;
+            }
+
+            /* Input Groups */
+            .input-group {
+                width: 100% !important;
+            }
+
+            .input-group-text {
+                padding: 8px 12px !important;
+                font-size: 14px !important;
+            }
+
+            /* Badges */
+            .badge {
+                font-size: 12px !important;
+                padding: 5px 10px !important;
+            }
+
+            /* Pagination */
+            .pagination {
+                font-size: 12px !important;
+            }
+
+            .page-link {
+                padding: 6px 10px !important;
+                font-size: 12px !important;
+            }
+
+            /* Modals */
+            .modal-dialog {
+                margin: 10px !important;
+                max-width: calc(100% - 20px) !important;
+            }
+
+            .modal-content {
+                border-radius: 8px !important;
+            }
+
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                padding: 12px 15px !important;
+            }
+
+            /* Alerts */
+            .alert {
+                font-size: 13px !important;
+                padding: 10px 15px !important;
+            }
+
+            /* Remove fixed widths */
+            [style*="width:"] {
+                max-width: 100% !important;
+            }
+
+            /* Force full width for common elements */
+            .w-100,
+            .w-full {
+                width: 100% !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            /* Cards */
+            .card {
+                padding: 10px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .card-body {
+                padding: 10px !important;
+            }
+
+            /* Headings */
+            h1 { font-size: 20px !important; }
+            h2 { font-size: 18px !important; }
+            h3 { font-size: 16px !important; }
+            h4 { font-size: 15px !important; }
+            h5 { font-size: 14px !important; }
+            h6 { font-size: 13px !important; }
+
+            /* Tables */
+            .table {
+                font-size: 11px !important;
+                min-width: 500px;
+            }
+
+            .table th,
+            .table td {
+                padding: 6px 4px !important;
+                font-size: 11px !important;
+            }
+
+            /* Forms */
+            .form-control,
+            .form-select,
+            .form-input {
+                font-size: 13px !important;
+                padding: 6px 10px !important;
+            }
+
+            .form-label {
+                font-size: 12px !important;
+            }
+
+            /* Buttons */
+            .btn {
+                padding: 6px 12px !important;
+                font-size: 12px !important;
+            }
+
+            .btn-sm {
+                padding: 5px 10px !important;
+                font-size: 11px !important;
+            }
+
+            /* Input Groups */
+            .input-group-text {
+                padding: 6px 10px !important;
+                font-size: 13px !important;
+            }
+
+            /* Badges */
+            .badge {
+                font-size: 11px !important;
+                padding: 4px 8px !important;
+            }
+
+            /* Pagination */
+            .page-link {
+                padding: 5px 8px !important;
+                font-size: 11px !important;
+            }
+
+            /* Modals */
+            .modal-dialog {
+                margin: 5px !important;
+                max-width: calc(100% - 10px) !important;
+            }
+
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                padding: 10px 12px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* Cards */
+            .card {
+                padding: 8px !important;
+                margin-bottom: 8px !important;
+            }
+
+            /* Headings */
+            h1 { font-size: 18px !important; }
+            h2 { font-size: 16px !important; }
+            h3 { font-size: 15px !important; }
+            h4 { font-size: 14px !important; }
+            h5 { font-size: 13px !important; }
+            h6 { font-size: 12px !important; }
+
+            /* Tables */
+            .table {
+                font-size: 10px !important;
+                min-width: 450px;
+            }
+
+            .table th,
+            .table td {
+                padding: 5px 3px !important;
+                font-size: 10px !important;
+            }
+
+            /* Forms */
+            .form-control,
+            .form-select {
+                font-size: 12px !important;
+                padding: 5px 8px !important;
+            }
+
+            /* Buttons */
+            .btn {
+                padding: 5px 10px !important;
+                font-size: 11px !important;
+            }
         }
 
         /* Toast Notification Styles */
@@ -436,11 +834,52 @@
             cursor: pointer;
         }
 
+        /* Table Responsive */
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-responsive {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         /* Mobile Responsive Styles */
+        @media (max-width: 992px) {
+            .main-content {
+                padding: 15px;
+            }
+
+            .card {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            .table th,
+            .table td {
+                padding: 10px 8px;
+                font-size: 13px;
+            }
+
+            .btn {
+                padding: 7px 14px;
+                font-size: 13px;
+            }
+
+            /* Responsive Grid */
+            .row > [class*="col-"] {
+                margin-bottom: 15px;
+            }
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(100%);
                 box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+                width: 280px;
             }
 
             .sidebar.open {
@@ -456,64 +895,232 @@
                 display: block;
             }
 
+            .navbar {
+                padding: 0 15px;
+                height: auto;
+                min-height: 55px;
+                flex-wrap: wrap;
+            }
+
+            .navbar h3 {
+                font-size: 18px;
+                margin-right: 10px;
+                flex: 1;
+                min-width: 200px;
+            }
+
+            .navbar > div {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            #refresh-timer {
+                font-size: 12px;
+                padding: 4px 10px;
+            }
+
+            #refresh-timer span {
+                font-size: 12px;
+            }
+
             .main-content {
-                padding: 15px;
+                padding: 12px;
             }
 
             .card {
-                padding: 15px;
-                margin-bottom: 15px;
+                padding: 12px;
+                margin-bottom: 12px;
+                border-radius: 8px;
             }
 
-            .sidebar-menu > li > a {
-                padding: 14px 20px;
+            .card h2,
+            .card h3 {
+                font-size: 18px;
+            }
+
+            .card h4 {
+                font-size: 16px;
+            }
+
+            .card h5 {
                 font-size: 15px;
             }
 
-            .submenu a {
-                padding: 12px 20px 12px 45px;
+            .card h6 {
                 font-size: 14px;
             }
 
+            .sidebar-menu > li > a {
+                padding: 12px 18px;
+                font-size: 14px;
+            }
+
+            .submenu a {
+                padding: 10px 18px 10px 40px;
+                font-size: 13px;
+            }
+
             .menu-section {
-                padding: 12px 20px 8px;
+                padding: 10px 18px 6px;
                 font-size: 11px;
             }
 
             .menu-item.has-submenu > a::after {
-                font-size: 14px;
+                font-size: 12px;
+            }
+
+            /* Table Responsive */
+            .table-container {
+                margin: 0 -12px;
             }
 
             .table {
+                font-size: 12px;
+                min-width: 600px;
+            }
+
+            .table thead th {
+                padding: 8px 6px;
+                font-size: 11px;
+                white-space: nowrap;
+            }
+
+            .table tbody td {
+                padding: 8px 6px;
+                font-size: 11px;
+            }
+
+            /* Form Elements */
+            .form-control,
+            .form-select {
                 font-size: 14px;
+                padding: 8px 12px;
             }
 
-            .table th,
-            .table td {
-                padding: 8px 5px;
+            .form-label {
+                font-size: 13px;
+                margin-bottom: 6px;
             }
 
+            /* Buttons */
             .btn {
-                padding: 6px 12px;
-                font-size: 14px;
+                padding: 8px 14px;
+                font-size: 13px;
             }
 
+            .btn-sm {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            /* Grid System */
+            .row {
+                margin-left: -8px;
+                margin-right: -8px;
+            }
+
+            .row > [class*="col-"] {
+                padding-left: 8px;
+                padding-right: 8px;
+                margin-bottom: 12px;
+            }
+
+            /* Stats Cards */
             .stats-card {
-                padding: 15px;
+                padding: 12px;
+                margin-bottom: 12px;
             }
 
             .stats-number {
-                font-size: 28px;
+                font-size: 24px;
+            }
+
+            .stats-label {
+                font-size: 12px;
+            }
+
+            /* Search and Filters */
+            .search-box,
+            .filter-box {
+                margin-bottom: 12px;
+            }
+
+            /* Pagination */
+            .pagination {
+                font-size: 12px;
+            }
+
+            .page-link {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            /* Badge */
+            .badge {
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+
+            /* Modal */
+            .modal-dialog {
+                margin: 10px;
+            }
+
+            .modal-content {
+                border-radius: 8px;
+            }
+
+            .modal-header {
+                padding: 12px 15px;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .modal-footer {
+                padding: 10px 15px;
             }
         }
 
-        @media (max-width: 480px) {
-            .navbar h3 {
-                font-size: 16px;
+        @media (max-width: 576px) {
+            .navbar {
+                padding: 0 10px;
+                min-height: 50px;
+                height: auto;
+                flex-wrap: wrap;
             }
 
-            .sidebar-header h2 {
-                font-size: 20px;
+            .navbar h3 {
+                font-size: 16px;
+                margin-right: 8px;
+                flex: 1;
+                min-width: 150px;
+            }
+
+            .navbar > div {
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            #refresh-timer {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+
+            #refresh-timer span {
+                font-size: 11px;
+            }
+
+            .navbar a {
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+
+            .navbar a span {
+                font-size: 12px;
             }
 
             .main-content {
@@ -522,11 +1129,116 @@
 
             .card {
                 padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .card h2,
+            .card h3 {
+                font-size: 16px;
+            }
+
+            .card h4 {
+                font-size: 15px;
+            }
+
+            .card h5 {
+                font-size: 14px;
+            }
+
+            .card h6 {
+                font-size: 13px;
+            }
+
+            .table {
+                font-size: 11px;
+                min-width: 500px;
+            }
+
+            .table thead th {
+                padding: 6px 4px;
+                font-size: 10px;
+            }
+
+            .table tbody td {
+                padding: 6px 4px;
+                font-size: 10px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .btn-sm {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+
+            .form-label {
+                font-size: 12px;
+            }
+
+            .stats-number {
+                font-size: 20px;
+            }
+
+            .stats-label {
+                font-size: 11px;
+            }
+
+            .page-link {
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+
+            .badge {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            /* Stack columns on very small screens */
+            .row > [class*="col-md-"],
+            .row > [class*="col-lg-"],
+            .row > [class*="col-xl-"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar-header h2 {
+                font-size: 18px;
+            }
+
+            .main-content {
+                padding: 8px;
+            }
+
+            .card {
+                padding: 8px;
+            }
+
+            .table {
+                font-size: 10px;
+                min-width: 450px;
             }
 
             .btn {
                 padding: 5px 10px;
-                font-size: 13px;
+                font-size: 11px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 12px;
+                padding: 5px 8px;
             }
         }
 
@@ -731,7 +1443,7 @@
 
                 <!-- پیام‌های الگویی -->
                 <div class="menu-section">پیام‌های الگویی</div>
-                <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('patterns*') || request()->is('variables*') || request()->is('blacklists*') || request()->is('api-keys*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('blacklists*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-file-code"></i>
                         <span>پیام‌های الگویی</span>
@@ -756,36 +1468,6 @@
                             </a>
                         </li>
                         <li>
-                            <a href="/api-keys" class="{{ request()->is('api-keys*') ? 'active' : '' }}">
-                                <i class="fas fa-key"></i>
-                                <span>مدیریت API Key</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/patterns" class="{{ request()->is('patterns*') && !request()->is('patterns/create*') && !request()->is('patterns/edit*') ? 'active' : '' }}">
-                                <i class="fas fa-eye"></i>
-                                <span>مشاهده الگوها</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/patterns/create" class="{{ request()->is('patterns/create*') ? 'active' : '' }}">
-                                <i class="fas fa-plus-circle"></i>
-                                <span>درج الگو</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/patterns" class="{{ request()->is('patterns*') && request()->is('patterns/edit*') ? 'active' : '' }}">
-                                <i class="fas fa-edit"></i>
-                                <span>ویرایش الگو</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/variables" class="{{ request()->is('variables*') ? 'active' : '' }}">
-                                <i class="fas fa-code"></i>
-                                <span>مدیریت متغیرها</span>
-                            </a>
-                        </li>
-                        <li>
                             <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
                                 <i class="fas fa-ban"></i>
                                 <span>لیست‌های سیاه</span>
@@ -796,12 +1478,36 @@
 
                 <!-- سایر -->
                 <div class="menu-section">سایر</div>
-                <li class="menu-item has-submenu {{ request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') || request()->is('settings*') || request()->is('patterns*') || request()->is('variables*') || request()->is('api-keys*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-cogs"></i>
                         <span>سایر</span>
                     </a>
                     <ul class="submenu">
+                        <li>
+                            <a href="/settings" class="{{ request()->is('settings*') ? 'active' : '' }}">
+                                <i class="fas fa-sliders-h"></i>
+                                <span>تنظیمات</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/patterns" class="{{ request()->is('patterns*') ? 'active' : '' }}">
+                                <i class="fas fa-eye"></i>
+                                <span>مشاهده الگوها</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/api-keys" class="{{ request()->is('api-keys*') ? 'active' : '' }}">
+                                <i class="fas fa-key"></i>
+                                <span>مدیریت API Key</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/variables" class="{{ request()->is('variables*') ? 'active' : '' }}">
+                                <i class="fas fa-code"></i>
+                                <span>مدیریت متغیرها</span>
+                            </a>
+                        </li>
                         <li>
                             <a href="/table-names" class="{{ request()->is('table-names*') ? 'active' : '' }}">
                                 <i class="fas fa-table"></i>
@@ -890,11 +1596,13 @@
                 <button class="mobile-menu-btn" onclick="toggleSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
-                <h3 style="margin-right: 20px; color: var(--primary-color);">
-                    @yield('title', 'سیستم گزارش‌گیری')
-                </h3>
                 <div style="margin-right: auto;"></div>
-                <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <!-- تایمر رفرش خودکار -->
+                    <div id="refresh-timer" style="display: none; align-items: center; gap: 8px; padding: 5px 12px; background: rgba(67, 97, 238, 0.1); border-radius: 20px; font-size: 14px; color: var(--primary-color); font-weight: 500;">
+                        <i class="fas fa-clock"></i>
+                        <span id="timer-text">--:--</span>
+                    </div>
                     @livewire('layout.sync-button')
                     <a href="/residents/expired-today" style="color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; transition: all 0.3s;" 
                        class="{{ request()->is('residents/expired-today') ? 'active' : '' }}"
@@ -1088,31 +1796,6 @@
             console.log('===================');
         });
 
-        // Listen for residents sync notification
-        @if(config('broadcasting.default') !== 'log')
-        window.Echo = window.Echo || {};
-        if (typeof Echo !== 'undefined' && Echo.channel) {
-            Echo.channel('residents-sync')
-                .listen('.residents.synced', (e) => {
-                    showToast('success', 'Success', '', 3000);
-                });
-        }
-        @else
-        // Fallback: Poll for sync status every 10 seconds (غیرفعال شده)
-        // let lastSyncTime = null;
-        // setInterval(() => {
-        //     fetch('/api/residents/last-sync')
-        //         .then(res => res.json())
-        //         .then(data => {
-        //             if (data.time && data.time !== lastSyncTime) {
-        //                 lastSyncTime = data.time;
-        //                 const message = `${data.message || 'دیتابیس اقامت‌گران به‌روزرسانی شد'}\nایجاد شده: ${data.created_count || 0}\nبه‌روزرسانی شده: ${data.updated_count || 0}`;
-        //                 showToast('success', '✅ بروزرسانی شد', message, 5000);
-        //             }
-        //         })
-        //         .catch(err => console.error('Error checking sync status:', err));
-        // }, 10000); // Check every 10 seconds
-        @endif
 
         // تابع نمایش خطای کامل API ملی پیامک
         window.showError = function(errorData) {
@@ -1284,102 +1967,247 @@
             }
         });
 
-        // همگام‌سازی خودکار هنگام رفرش هر صفحه
+
+        // رفرش خودکار صفحه بر اساس تنظیمات
         (function() {
-            // بررسی نوع navigation برای تشخیص رفرش کامل صفحه
-            let shouldSync = false;
+            // جلوگیری از ایجاد interval تکراری
+            if (window.timerInterval) {
+                clearInterval(window.timerInterval);
+                window.timerInterval = null;
+            }
+            if (window.refreshTimeout) {
+                clearTimeout(window.refreshTimeout);
+                window.refreshTimeout = null;
+            }
+
+            @php
+                try {
+                    $settings = \App\Models\Settings::getSettings();
+                    $refreshInterval = $settings->refresh_interval ?? 5;
+                } catch (\Exception $e) {
+                    $refreshInterval = 5; // مقدار پیش‌فرض در صورت خطا
+                }
+            @endphp
             
-            // روش 1: استفاده از Performance Navigation Timing API (جدید - توصیه شده)
-            if (window.performance && window.performance.getEntriesByType) {
-                const navEntries = window.performance.getEntriesByType('navigation');
-                if (navEntries.length > 0) {
-                    const navType = navEntries[0].type;
-                    // فقط در صورت reload یا navigate کامل صفحه همگام‌سازی انجام شود
-                    shouldSync = navType === 'reload' || navType === 'navigate';
+            const refreshInterval = {{ $refreshInterval }};
+            const timerElement = document.getElementById('timer-text');
+            const timerContainer = document.getElementById('refresh-timer');
+            
+            // تابع برای راه‌اندازی مجدد تایمر (برای استفاده در event listener)
+            window.restartTimer = function() {
+                if (window.timerInterval) {
+                    clearInterval(window.timerInterval);
+                }
+                localStorage.removeItem('timerStartTime');
+                localStorage.removeItem('refreshInterval');
+                location.reload();
+            };
+            
+            // تابع برای فرمت کردن زمان (دقیقه:ثانیه)
+            function formatTime(totalSeconds) {
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const m = String(minutes).padStart(2, '0');
+                const s = String(seconds).padStart(2, '0');
+                return m + ':' + s;
+            }
+
+            // متغیر برای ذخیره زمان شروع تایمر
+            let timerStartTime = null;
+            
+            // تابع برای شروع تایمر از مقدار تنظیمات
+            function startTimer() {
+                timerStartTime = Date.now();
+                localStorage.setItem('timerStartTime', timerStartTime);
+                localStorage.setItem('lastRefreshTime', timerStartTime);
+                updateTimer();
+            }
+            
+            // تابع برای به‌روزرسانی تایمر
+            function updateTimer() {
+                if (!timerElement || !timerContainer) {
+                    return;
+                }
+
+                // دریافت زمان شروع از localStorage
+                let startTime = parseInt(localStorage.getItem('timerStartTime'));
+                
+                // اگر زمان شروع وجود نداشت، الان را ثبت کن و از مقدار تنظیمات شروع کن
+                if (!startTime) {
+                    startTimer();
+                    return;
+                }
+
+                const now = Date.now();
+                const elapsed = now - startTime;
+                const refreshIntervalMs = refreshInterval * 60 * 1000;
+                const remaining = refreshIntervalMs - elapsed;
+                const remainingSeconds = Math.max(0, Math.floor(remaining / 1000));
+                
+                // نمایش تایمر
+                if (remainingSeconds > 0) {
+                    timerElement.textContent = formatTime(remainingSeconds);
+                    
+                    // تغییر رنگ وقتی کمتر از 1 دقیقه باقی مانده
+                    const remainingMinutes = Math.floor(remainingSeconds / 60);
+                    if (remainingMinutes < 1) {
+                        timerContainer.style.background = 'rgba(255, 158, 0, 0.1)';
+                        timerContainer.style.color = 'var(--warning-color)';
+                    } else {
+                        timerContainer.style.background = 'rgba(67, 97, 238, 0.1)';
+                        timerContainer.style.color = 'var(--primary-color)';
+                    }
+                } else {
+                    timerElement.textContent = '00:00';
+                    timerContainer.style.background = 'rgba(247, 37, 133, 0.1)';
+                    timerContainer.style.color = 'var(--danger-color)';
+                    
+                    // اگر زمان تمام شد، sync کن و دوباره شروع کن
+                    if (!window.syncInProgress) {
+                        window.syncInProgress = true;
+                        triggerRefresh();
+                    }
                 }
             }
-            
-            // روش 2: استفاده از Performance Navigation API (قدیمی - fallback)
-            if (!shouldSync && window.performance && window.performance.navigation) {
-                const navType = window.performance.navigation.type;
-                shouldSync = navType === window.performance.navigation.TYPE_RELOAD ||
-                           navType === window.performance.navigation.TYPE_NAVIGATE;
-            }
-            
-            // اگر navigation type پیدا نشد، فرض می‌کنیم که این یک لود کامل صفحه است (اولین بار)
-            if (shouldSync || (typeof shouldSync === 'undefined' && !window.residentsSyncDone)) {
-                // استفاده از متغیر global برای جلوگیری از همگام‌سازی مکرر در همان session
-                if (window.residentsSyncInProgress) {
+
+            // تابع برای sync کردن داده‌ها (بدون رفرش صفحه)
+            function triggerRefresh() {
+                console.log(`⏰ زمان sync رسیده است. در حال فراخوانی API برای sync داده‌ها...`);
+                
+                // دریافت CSRF token
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                
+                if (!csrfToken) {
+                    console.error('❌ CSRF token not found');
+                    setTimeout(() => {
+                        startTimer();
+                        window.syncInProgress = false;
+                    }, 2000);
                     return;
                 }
                 
-                // علامت‌گذاری که همگام‌سازی انجام شده است
-                window.residentsSyncDone = true;
-                window.residentsSyncInProgress = true;
+                // فراخوانی API برای همگام‌سازی داده‌ها
+                fetch('/api/residents/sync', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        console.log('✅ دیتابیس به‌روزرسانی شد:', data.data);
+                        
+                        // Refresh همه Livewire component ها
+                        if (typeof Livewire !== 'undefined') {
+                            // Dispatch event برای refresh کردن component ها
+                            Livewire.dispatch('residents-synced', {
+                                synced_count: data.data.synced_count,
+                                created_count: data.data.created_count,
+                                updated_count: data.data.updated_count
+                            });
+                            
+                            // کمی تاخیر برای اطمینان از اینکه event dispatch شده است
+                            setTimeout(() => {
+                                // Force refresh همه component های Livewire
+                                if (Livewire.all) {
+                                    Livewire.all().forEach(component => {
+                                        if (component && typeof component.$refresh === 'function') {
+                                            try {
+                                                component.$refresh();
+                                            } catch (e) {
+                                                console.warn('Error refreshing component:', e);
+                                            }
+                                        }
+                                    });
+                                }
+                            }, 500);
+                        }
+                        
+                        // بعد از sync موفق، زمان شروع تایمر را ریست کن
+                        startTimer();
+                    } else {
+                        console.error('❌ خطا در همگام‌سازی:', data.message);
+                        // حتی در صورت خطا، زمان را به‌روزرسانی کن تا تایمر ادامه پیدا کند
+                        startTimer();
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ خطا در همگام‌سازی:', error);
+                    // حتی در صورت خطا، زمان را به‌روزرسانی کن تا تایمر ادامه پیدا کند
+                    startTimer();
+                })
+                .finally(() => {
+                    window.syncInProgress = false;
+                });
+            }
+
+            // نمایش تایمر در همه صفحات
+            if (timerContainer) {
+                timerContainer.style.display = 'flex';
+            }
+            
+            if (refreshInterval && refreshInterval > 0) {
+                console.log(`⏰ رفرش خودکار فعال: صفحه هر ${refreshInterval} دقیقه یکبار به‌روزرسانی می‌شود.`);
                 
-                // همگام‌سازی داده‌ها از API
-                syncResidentsOnPageLoad();
+                // بررسی اینکه آیا زمان شروع تایمر وجود دارد
+                const existingStartTime = parseInt(localStorage.getItem('timerStartTime'));
+                const existingRefreshInterval = parseInt(localStorage.getItem('refreshInterval'));
+                
+                // اگر زمان شروع وجود ندارد یا مقدار تنظیمات تغییر کرده، تایمر را از اول شروع کن
+                if (!existingStartTime || existingRefreshInterval !== refreshInterval) {
+                    console.log('شروع تایمر از مقدار تنظیمات:', refreshInterval, 'دقیقه');
+                    startTimer();
+                    localStorage.setItem('refreshInterval', refreshInterval);
+                } else {
+                    // اگر زمان شروع وجود دارد، تایمر را ادامه بده
+                    timerStartTime = existingStartTime;
+                    updateTimer();
+                }
+                
+                // به‌روزرسانی تایمر هر ثانیه
+                if (window.timerInterval) {
+                    clearInterval(window.timerInterval);
+                }
+                window.timerInterval = setInterval(updateTimer, 1000);
+                
+                // بررسی وضعیت sync هر 30 ثانیه (فقط برای به‌روزرسانی زمان sync در localStorage)
+                setInterval(function() {
+                    fetch('/api/residents/sync-status')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.synced && data.last_sync_time) {
+                                // فقط برای اطلاعات، زمان sync را ذخیره کن
+                                const serverTime = new Date(data.last_sync_time).getTime();
+                                localStorage.setItem('lastRefreshTime', serverTime);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('خطا در بررسی وضعیت sync:', error);
+                        });
+                }, 30000); // هر 30 ثانیه چک کن
+            } else {
+                // اگر رفرش غیرفعال است، تایمر را نمایش بده اما با پیام غیرفعال
+                if (timerElement) {
+                    timerElement.textContent = 'غیرفعال';
+                }
+                if (timerContainer) {
+                    timerContainer.style.background = 'rgba(108, 117, 125, 0.1)';
+                    timerContainer.style.color = '#6c757d';
+                }
+                console.log('⏰ رفرش خودکار غیرفعال است (مقدار تنظیمات: ' + refreshInterval + ' دقیقه)');
             }
         })();
-
-        // تابع همگام‌سازی هنگام لود شدن صفحه
-        function syncResidentsOnPageLoad() {
-            console.log('🔄 شروع همگام‌سازی خودکار داده‌های اقامت‌گران از API...');
-            
-            // دریافت CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            
-            if (!csrfToken) {
-                console.error('❌ CSRF token not found');
-                window.residentsSyncInProgress = false;
-                return;
-            }
-
-            // ارسال درخواست همگام‌سازی
-            fetch('/api/residents/sync', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    console.log('✅ همگام‌سازی با موفقیت انجام شد:', data.data);
-                    // نمایش آلارم موفقیت
-                    showToast('success', 'Success', '', 3000);
-                } else {
-                    console.error('❌ خطا در همگام‌سازی:', data.message);
-                    // نمایش آلارم خطا
-                    showToast('error', 'Error', '', 3000);
-                }
-            })
-            .catch(error => {
-                console.error('❌ خطا در همگام‌سازی:', error);
-                // نمایش آلارم خطا
-                showToast('error', 'Error', '', 3000);
-            })
-            .finally(() => {
-                // پاک کردن flag بعد از اتمام
-                window.residentsSyncInProgress = false;
-            });
-        }
-        
-        // پاک کردن flag هنگام رفرش کامل صفحه
-        window.addEventListener('beforeunload', function() {
-            // پاک کردن flag برای رفرش بعدی
-            window.residentsSyncDone = false;
-            window.residentsSyncInProgress = false;
-        });
     </script>
     @livewireScripts
 </body>
 
 </html>
+
