@@ -3,6 +3,43 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- استایل برای ردیف‌های انتخاب شده -->
+    <style>
+        .selected-resident-row {
+            background-color: #C1E59F !important;
+        }
+        
+        .selected-resident-row td {
+            background-color: #C1E59F !important;
+        }
+        
+        /* Override table-hover برای ردیف‌های انتخاب شده */
+        .table-hover tbody tr.selected-resident-row:hover {
+            background-color: #B0D88F !important;
+        }
+        
+        .table-hover tbody tr.selected-resident-row:hover td {
+            background-color: #B0D88F !important;
+        }
+        
+        /* Override table-striped برای ردیف‌های انتخاب شده */
+        .table-striped tbody tr.selected-resident-row:nth-of-type(odd) {
+            background-color: #C1E59F !important;
+        }
+        
+        .table-striped tbody tr.selected-resident-row:nth-of-type(odd) td {
+            background-color: #C1E59F !important;
+        }
+        
+        .table-striped tbody tr.selected-resident-row:nth-of-type(even) {
+            background-color: #C1E59F !important;
+        }
+        
+        .table-striped tbody tr.selected-resident-row:nth-of-type(even) td {
+            background-color: #C1E59F !important;
+        }
+    </style>
 
     <div class="container-fluid py-3" dir="rtl">
         <!-- نمایش پاسخ دیتابیس بعد از ثبت گزارش -->
@@ -219,13 +256,17 @@
                                                 <tbody>
                                                     @foreach($room['beds'] as $bed)
                                                         @if($bed['resident'])
-                                                            <tr>
+                                                            @php
+                                                                $residentKey = $unitIndex . '_' . $roomIndex . '_' . $bed['id'];
+                                                                $isSelected = isset($selectedResidents[$residentKey]);
+                                                            @endphp
+                                                            <tr wire:key="resident-row-{{ $residentKey }}" class="{{ $isSelected ? 'selected-resident-row' : '' }}">
                                                                 <td>
                                                                     <input
                                                                         class="form-check-input"
                                                                         type="checkbox"
-                                                                        wire:model="selectedResidents.{{ $unitIndex }}_{{ $roomIndex }}_{{ $bed['id'] }}"
-                                                                        wire:click="toggleSelectResident('{{ $unitIndex }}_{{ $roomIndex }}_{{ $bed['id'] }}', {{ json_encode($bed['resident']) }}, {{ json_encode($bed) }}, {{ $unitIndex }}, {{ $roomIndex }})"
+                                                                        wire:model="selectedResidents.{{ $residentKey }}"
+                                                                        wire:click="toggleSelectResident('{{ $residentKey }}', {{ json_encode($bed['resident']) }}, {{ json_encode($bed) }}, {{ $unitIndex }}, {{ $roomIndex }})"
                                                                     >
                                                                 </td>
                                                                 <td>{{ $bed['resident']['full_name'] }}</td>

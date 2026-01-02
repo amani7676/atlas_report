@@ -57,17 +57,30 @@
         
         /* استایل برای ردیف‌های انتخاب شده - باید بعد از hover باشد */
         .table tbody tr.selected-row {
-            background-color: #b9fbc0 !important;
+            background-color: #CBF3BB !important;
+        }
+        
+        .table tbody tr.selected-row td {
+            background-color: #CBF3BB !important;
         }
         
         .table tbody tr.selected-row:hover {
-            background-color: #a8f0b0 !important;
+            background-color: #B8E8A5 !important;
+        }
+        
+        .table tbody tr.selected-row:hover td {
+            background-color: #B8E8A5 !important;
         }
         
         /* اطمینان از اعمال رنگ برای ردیف‌های انتخاب شده */
         .table-sm tbody tr.selected-row,
         .table-hover tbody tr.selected-row {
-            background-color: #b9fbc0 !important;
+            background-color: #CBF3BB !important;
+        }
+        
+        .table-sm tbody tr.selected-row td,
+        .table-hover tbody tr.selected-row td {
+            background-color: #CBF3BB !important;
         }
 
         .table thead th {
@@ -620,7 +633,7 @@
                                                 @endphp
                                                 <tr wire:key="resident-report-{{ $report->id }}" 
                                                     @if($isChecked)
-                                                        style="background-color: #b9fbc0 !important; transition: background-color 0.2s ease;"
+                                                        style="background-color: #CBF3BB !important; transition: background-color 0.2s ease;"
                                                         class="selected-row"
                                                     @else
                                                         style="background-color: transparent; transition: background-color 0.2s ease;"
