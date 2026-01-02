@@ -538,14 +538,6 @@
                     لیست پیام‌های ارسال شده
                 </a>
             </li>
-            <li class="nav-item" role="presentation">
-                <a class="nav-link {{ request()->is('sms/violation-sms') ? 'active' : '' }}" 
-                   href="/sms/violation-sms"
-                   style="color: {{ request()->is('sms/violation-sms') ? '#0d6efd' : '#6c757d' }}; border-bottom: {{ request()->is('sms/violation-sms') ? '2px solid #0d6efd' : 'none' }}; padding: 12px 20px; font-weight: {{ request()->is('sms/violation-sms') ? '600' : '400' }};">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    پیامک‌های تخلفات
-                </a>
-            </li>
         </ul>
 
         <!-- Header Card (مشابه گزارش تخلفی) -->

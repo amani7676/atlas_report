@@ -8,6 +8,7 @@ use App\Listeners\ProcessAutoSmsOnChange;
 use App\Listeners\SendViolationSms;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Carbon\Carbon;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // تنظیم timezone به Asia/Tehran
+        date_default_timezone_set('Asia/Tehran');
+        Carbon::setLocale('fa');
+
         Event::listen(
             ResidentReportCreated::class,
             SendViolationSms::class

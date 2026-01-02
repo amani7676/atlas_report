@@ -1408,7 +1408,7 @@
 
                 <!-- اقامت‌گران -->
                 <div class="menu-section">اقامت‌گران</div>
-                <li class="menu-item has-submenu {{ request()->is('residents*') || request()->is('resident-reports*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('residents*') || request()->is('resident-reports*') || request()->is('sms/violation-sms') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-users"></i>
                         <span>اقامت‌گران</span>
@@ -1436,6 +1436,12 @@
                             <a href="/residents/group-sms" class="{{ request()->is('residents/group-sms') ? 'active' : '' }}">
                                 <i class="fas fa-paper-plane"></i>
                                 <span>ارسال گروهی پیامک</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>پیامک‌های تخلفی</span>
                             </a>
                         </li>
                     </ul>
@@ -1531,14 +1537,14 @@
 
                 <!-- پیام‌های ساده -->
                 <div class="menu-section">پیام‌های ساده</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') && !request()->is('constants*') && !request()->is('sms/auto*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') && !request()->is('constants*') && !request()->is('sms/auto*') && !request()->is('sms/violation-sms') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-sms"></i>
                         <span>پیام‌های ساده</span>
                     </a>
                     <ul class="submenu">
                         <li>
-                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') && !request()->is('sms/auto*') ? 'active' : '' }}">
+                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') && !request()->is('sms/auto*') && !request()->is('sms/violation-sms') ? 'active' : '' }}">
                                 <i class="fas fa-sms"></i>
                                 <span>مدیریت پیام‌های SMS</span>
                             </a>
@@ -1578,14 +1584,9 @@
                                 <span>مدیریت ارسال خودکار</span>
                             </a>
                         </li>
-                        <li>
-                            <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>پیامک‌های تخلفات</span>
-                            </a>
-                        </li>
                     </ul>
                 </li>
+
             </ul>
         </nav>
 

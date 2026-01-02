@@ -46,13 +46,28 @@
 
         /* استایل‌های زیبا برای جدول گزارش‌ها */
         .table tbody tr {
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease;
         }
-
-        .table tbody tr:hover {
-            background-color: #f8f9fa;
+        
+        .table tbody tr:hover:not(.selected-row) {
+            background-color: #f8f9fa !important;
             transform: translateY(-1px);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* استایل برای ردیف‌های انتخاب شده - باید بعد از hover باشد */
+        .table tbody tr.selected-row {
+            background-color: #b9fbc0 !important;
+        }
+        
+        .table tbody tr.selected-row:hover {
+            background-color: #a8f0b0 !important;
+        }
+        
+        /* اطمینان از اعمال رنگ برای ردیف‌های انتخاب شده */
+        .table-sm tbody tr.selected-row,
+        .table-hover tbody tr.selected-row {
+            background-color: #b9fbc0 !important;
         }
 
         .table thead th {
@@ -581,7 +596,12 @@
                                     </div>
                                 </div>
                                 
-                                <h6 class="mb-2">لیست گزارش‌ها:</h6>
+                                <h6 class="mb-2">
+                                    لیست گزارش‌ها:
+                                    <span class="badge bg-info ms-2">
+                                        {{ $this->checkedReportsCount }} از {{ $this->residentReportsCount }}
+                                    </span>
+                                </h6>
                                 <div style="max-height: 250px; overflow-y: auto;">
                                     <table class="table table-sm table-hover">
                                         <thead class="table-light sticky-top">
@@ -595,7 +615,16 @@
                                         </thead>
                                         <tbody>
                                             @forelse($residentReports as $report)
-                                                <tr>
+                                                @php
+                                                    $isChecked = (bool)($report->is_checked ?? false);
+                                                @endphp
+                                                <tr wire:key="resident-report-{{ $report->id }}" 
+                                                    @if($isChecked)
+                                                        style="background-color: #b9fbc0 !important; transition: background-color 0.2s ease;"
+                                                        class="selected-row"
+                                                    @else
+                                                        style="background-color: transparent; transition: background-color 0.2s ease;"
+                                                    @endif>
                                                     <td style="text-align: center; vertical-align: middle;">
                                                         <!-- Material Design Checkbox -->
                                                         <div class="form-check" style="margin: 0; padding: 0;">
@@ -604,7 +633,8 @@
                                                                    @if($report->is_checked) checked @endif
                                                                    wire:click="toggleChecked({{ $report->id }})"
                                                                    style="width: 18px; height: 18px; cursor: pointer; margin: 0;"
-                                                                   wire:loading.attr="disabled">
+                                                                   wire:loading.attr="disabled"
+                                                                   wire:key="checkbox-{{ $report->id }}">
                                                             <div wire:loading wire:target="toggleChecked({{ $report->id }})" class="spinner-border spinner-border-sm" role="status" style="width: 18px; height: 18px;">
                                                                 <span class="visually-hidden">Loading...</span>
                                                             </div>

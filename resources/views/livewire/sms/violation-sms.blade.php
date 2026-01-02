@@ -1,4 +1,54 @@
 <div>
+    <!-- استایل‌های سفارشی برای صفحه‌بندی زیبا -->
+    <style>
+        .custom-pagination .page-link {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 3px;
+            border: 1px solid #dee2e6;
+            color: #0d6efd;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+        }
+
+        .custom-pagination .page-link:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4);
+        }
+
+        .custom-pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+        }
+
+        .custom-pagination .page-link i {
+            font-size: 0.75rem;
+        }
+
+        /* استایل‌های ریسپانسیو برای موبایل */
+        @media (max-width: 768px) {
+            .custom-pagination .page-link {
+                width: 30px;
+                height: 30px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h2><i class="fas fa-exclamation-triangle"></i> پیامک‌های ارسال شده خودکار تخلفات</h2>
@@ -161,8 +211,49 @@
 
         <!-- Pagination -->
         @if($smsList->hasPages())
-            <div style="margin-top: 20px;">
-                {{ $smsList->links() }}
+            <div style="margin-top: 20px; padding: 15px; background: white; border-top: 1px solid #dee2e6; border-radius: 0 0 10px 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="color: #6c757d; font-size: 14px;">
+                    نمایش
+                    <strong>{{ $smsList->firstItem() ?? 0 }}</strong>
+                    تا
+                    <strong>{{ $smsList->lastItem() ?? 0 }}</strong>
+                    از
+                    <strong>{{ $smsList->total() }}</strong>
+                    نتیجه
+                </div>
+                {{-- صفحه‌بندی سفارشی --}}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination custom-pagination mb-0">
+                        {{-- دکمه "قبلی" --}}
+                        <li class="page-item {{ $smsList->onFirstPage() ? 'disabled' : '' }}">
+                            <a class="page-link" href="#" wire:click="previousPage" tabindex="-1"
+                                aria-disabled="{{ $smsList->onFirstPage() ? 'true' : 'false' }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+
+                        {{-- شماره صفحات --}}
+                        @foreach ($smsList->getUrlRange(1, $smsList->lastPage()) as $page => $url)
+                            @if ($page == $smsList->currentPage())
+                                <li class="page-item active">
+                                    <span class="page-link">{{ $page }}</span>
+                                </li>
+                            @else
+                                <li class="page-item">
+                                    <a class="page-link" href="#" wire:click="gotoPage({{ $page }})">{{ $page }}</a>
+                                </li>
+                            @endif
+                        @endforeach
+
+                        {{-- دکمه "بعدی" --}}
+                        <li class="page-item {{ !$smsList->hasMorePages() ? 'disabled' : '' }}">
+                            <a class="page-link" href="#" wire:click="nextPage"
+                                aria-disabled="{{ !$smsList->hasMorePages() ? 'true' : 'false' }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
             </div>
         @endif
     </div>

@@ -206,8 +206,9 @@ class ResidentReports extends Component
         $repeatViolation = Constant::where('key', 'repeat_violation')->first();
         $repeatViolationValue = $repeatViolation ? (int)$repeatViolation->value : 0;
 
+        // اگر مقدار 0 یا کمتر باشد، از مقدار پیش‌فرض 3 استفاده می‌کنیم
         if ($repeatViolationValue <= 0) {
-            return collect([]);
+            $repeatViolationValue = 3;
         }
 
         // پیدا کردن اقامت‌گرانی که یک نوع گزارش را چند بار داشته‌اند
@@ -264,8 +265,9 @@ class ResidentReports extends Component
         $countViolation = Constant::where('key', 'count_violation')->first();
         $countViolationValue = $countViolation ? (int)$countViolation->value : 0;
 
+        // اگر مقدار 0 یا کمتر باشد، از مقدار پیش‌فرض 5 استفاده می‌کنیم
         if ($countViolationValue <= 0) {
-            return collect([]);
+            $countViolationValue = 5;
         }
 
         $query = ResidentReport::selectRaw('
@@ -729,9 +731,26 @@ class ResidentReports extends Component
                 $report->is_checked = !$report->is_checked;
                 $report->save();
 
-                // بارگذاری مجدد گزارش‌های این اقامت‌گر
+                // به‌روزرسانی مستقیم در collection برای نمایش فوری
+                if ($this->residentReports) {
+                    $updatedReport = $this->residentReports->firstWhere('id', $reportId);
+                    if ($updatedReport) {
+                        $updatedReport->is_checked = $report->is_checked;
+                    }
+                }
+
+                // بارگذاری مجدد گزارش‌های این اقامت‌گر برای اطمینان از sync
                 if ($this->selectedResident) {
-                    $this->selectResident($this->selectedResident);
+                    $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
+                    if ($resident) {
+                        $this->residentReports = ResidentReport::whereHas('report', function($q) {
+                            $q->where('category_id', 1);
+                        })
+                        ->where('resident_id', $resident->id)
+                        ->with(['report', 'report.category', 'resident'])
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -818,7 +837,22 @@ class ResidentReports extends Component
             }
 
             // بارگذاری مجدد گزارش‌ها برای به‌روزرسانی UI
-            $this->selectResident($this->selectedResident);
+            // ابتدا resident را پیدا می‌کنیم
+            $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
+            
+            if ($resident) {
+                // استفاده از resident_id از جدول residents
+                $this->residentReports = ResidentReport::whereHas('report', function($q) {
+                    $q->where('category_id', 1); // دسته‌بندی تخلف
+                })
+                ->where('resident_id', $resident->id)
+                ->with(['report', 'report.category', 'resident'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+                
+                // بارگذاری مجدد بخشودگی‌ها
+                $this->loadResidentGrants($this->selectedResident);
+            }
 
         } catch (\Exception $e) {
             \Log::error('Error checking all reports', [
@@ -874,7 +908,17 @@ class ResidentReports extends Component
             ]);
 
             // بارگذاری مجدد گزارش‌ها برای به‌روزرسانی UI
-            $this->selectResident($this->selectedResident);
+            // استفاده از resident_id از جدول residents
+            $this->residentReports = ResidentReport::whereHas('report', function($q) {
+                $q->where('category_id', 1); // دسته‌بندی تخلف
+            })
+            ->where('resident_id', $resident->id)
+            ->with(['report', 'report.category', 'resident'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+            // بارگذاری مجدد بخشودگی‌ها
+            $this->loadResidentGrants($this->selectedResident);
         } catch (\Exception $e) {
             \Log::error('Error unchecking all reports', [
                 'error' => $e->getMessage(),
@@ -915,6 +959,26 @@ class ResidentReports extends Component
         }
 
         return number_format($totalScore, 0);
+    }
+
+    /**
+     * تعداد گزارش‌های چک شده اقامت‌گر انتخابی
+     */
+    public function getCheckedReportsCountProperty()
+    {
+        if (empty($this->residentReports)) {
+            return 0;
+        }
+
+        return $this->residentReports->where('is_checked', true)->count();
+    }
+
+    /**
+     * تعداد کل گزارش‌های اقامت‌گر انتخابی
+     */
+    public function getResidentReportsCountProperty()
+    {
+        return $this->residentReports ? $this->residentReports->count() : 0;
     }
 
     /**
