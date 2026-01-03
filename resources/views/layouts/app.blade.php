@@ -1758,7 +1758,7 @@
 
             container.appendChild(toast);
 
-            // Auto remove after duration
+            // Auto remove after duration (اگر duration = 0 باشد، بسته نمی‌شود)
             if (duration > 0) {
                 setTimeout(() => {
                     toast.classList.add('hiding');
@@ -1769,16 +1769,27 @@
                     }, 300);
                 }, duration);
             }
+            // اگر duration = 0 باشد، toast بسته نمی‌شود و فقط با کلیک روی ضربدر بسته می‌شود
         }
 
-        // Listen for toast events
+        // Listen for toast events (from Livewire)
+        Livewire.on('showToast', (data) => {
+            showToast(
+                data.type || 'info',
+                data.title || 'اعلان',
+                data.message || '',
+                data.duration !== undefined ? data.duration : 5000
+            );
+        });
+        
+        // Listen for toast events (from window events)
         window.addEventListener('showToast', event => {
             const detail = event.detail;
             showToast(
                 detail.type || 'info',
                 detail.title || 'اعلان',
                 detail.message || '',
-                detail.duration || 5000
+                detail.duration !== undefined ? detail.duration : 5000
             );
         });
 

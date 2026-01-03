@@ -37,6 +37,40 @@ class SendViolationSms
                 'resident_report_id' => $residentReport->id ?? null,
             ]);
             
+            // بررسی اینکه آیا پیامک قبلاً ارسال شده است (برای جلوگیری از ارسال دوبار)
+            // اگر has_been_sent true باشد، یعنی پیامک از Units.php ارسال شده است
+            if ($residentReport->has_been_sent) {
+                Log::info('SMS already sent from Units.php - skipping Event Listener', [
+                    'resident_report_id' => $residentReport->id,
+                    'report_id' => $residentReport->report_id,
+                    'has_been_sent' => true,
+                ]);
+                return;
+            }
+            
+            // بررسی اینکه آیا SmsMessageResident برای این report_id و resident_id قبلاً ایجاد شده است
+            $existingSms = SmsMessageResident::where('report_id', $residentReport->report_id)
+                ->where(function($query) use ($residentReport) {
+                    if ($residentReport->resident_id) {
+                        $query->where('resident_id', $residentReport->resident_id);
+                    }
+                    if ($residentReport->phone) {
+                        $query->orWhere('phone', $residentReport->phone);
+                    }
+                })
+                ->where('is_pattern', true)
+                ->first();
+            
+            if ($existingSms) {
+                Log::info('SMS already sent - SmsMessageResident exists - skipping Event Listener', [
+                    'resident_report_id' => $residentReport->id,
+                    'report_id' => $residentReport->report_id,
+                    'sms_message_resident_id' => $existingSms->id,
+                    'sms_status' => $existingSms->status,
+                ]);
+                return;
+            }
+            
             // بارگذاری روابط
             $residentReport->load(['report.category', 'resident']);
             
