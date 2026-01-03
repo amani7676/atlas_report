@@ -17,14 +17,17 @@ class Create extends Component
     public $increase_coefficient = '1';
     public $auto_ability = true;
     public $patterns = [];
-    public $selectedPatterns = [];
+    public $selectedPattern = '';
 
     public function mount()
     {
         $this->categories = Category::all();
+        
+        // فقط الگوهایی که هنوز به هیچ گزارشی متصل نشده‌اند
         $this->patterns = Pattern::where('is_active', true)
             ->where('status', 'approved')
             ->whereNotNull('pattern_code')
+            ->whereDoesntHave('reports')
             ->orderBy('title')
             ->get();
     }
@@ -35,11 +38,22 @@ class Create extends Component
         'description' => 'required|string',
         'negative_score' => 'required|integer|min:0',
         'increase_coefficient' => 'required|numeric|min:0',
+        'selectedPattern' => 'required|exists:patterns,id',
     ];
 
     public function save()
     {
         $this->validate();
+
+        // بررسی اینکه آیا الگوی انتخاب شده قبلاً به گزارش دیگری متصل شده یا نه
+        $pattern = Pattern::find($this->selectedPattern);
+        if ($pattern) {
+            $existingReport = $pattern->reports()->first();
+            if ($existingReport) {
+                $this->addError('selectedPattern', 'این الگو قبلاً به گزارش "' . $existingReport->title . '" متصل شده است. هر الگو فقط می‌تواند به یک گزارش متصل شود.');
+                return;
+            }
+        }
 
         $report = Report::create([
             'category_id' => $this->category_id,
@@ -50,16 +64,14 @@ class Create extends Component
             'auto_ability' => $this->auto_ability
         ]);
 
-        // اتصال الگوها به گزارش
-        if (!empty($this->selectedPatterns)) {
-            $syncData = [];
-            foreach ($this->selectedPatterns as $index => $patternId) {
-                $syncData[$patternId] = [
-                    'sort_order' => $index + 1,
+        // اتصال الگو به گزارش (فقط یک الگو)
+        if (!empty($this->selectedPattern)) {
+            $report->patterns()->sync([
+                $this->selectedPattern => [
+                    'sort_order' => 1,
                     'is_active' => true,
-                ];
-            }
-            $report->patterns()->sync($syncData);
+                ]
+            ]);
         }
 
         $this->dispatch('showAlert', [
@@ -72,35 +84,14 @@ class Create extends Component
 
         // بازگرداندن لیست دسته‌بندی‌ها و الگوها بعد از reset
         $this->categories = Category::all();
+        // فقط الگوهایی که هنوز به هیچ گزارشی متصل نشده‌اند
         $this->patterns = Pattern::where('is_active', true)
             ->where('status', 'approved')
             ->whereNotNull('pattern_code')
+            ->whereDoesntHave('reports')
             ->orderBy('title')
             ->get();
-        $this->selectedPatterns = [];
-    }
-    
-    public function togglePattern($patternId)
-    {
-        $patternId = (int)$patternId;
-        $index = array_search($patternId, $this->selectedPatterns);
-        
-        if ($index !== false) {
-            // حذف از لیست
-            unset($this->selectedPatterns[$index]);
-            $this->selectedPatterns = array_values($this->selectedPatterns);
-        } else {
-            // اضافه به لیست
-            $this->selectedPatterns[] = $patternId;
-        }
-        
-        // اطمینان از اینکه آرایه به درستی re-index شده است
-        $this->selectedPatterns = array_values(array_unique($this->selectedPatterns));
-    }
-    
-    public function removePattern($patternId)
-    {
-        $this->selectedPatterns = array_values(array_diff($this->selectedPatterns, [$patternId]));
+        $this->selectedPattern = '';
     }
 
     public function render()

@@ -83,8 +83,13 @@ class PatternManual extends Component
     
     public function loadPatterns()
     {
+        // فقط الگوهایی که تایید شده، فعال، دارای pattern_code و برایشان گزارش ست شده نمایش داده می‌شوند
         $this->patterns = Pattern::where('is_active', true)
+            ->where('status', 'approved')
             ->whereNotNull('pattern_code')
+            ->whereHas('reports', function ($query) {
+                $query->where('report_pattern.is_active', true);
+            })
             ->orderBy('title')
             ->get();
     }
@@ -328,6 +333,21 @@ class PatternManual extends Component
             return;
         }
 
+        // بررسی اینکه آیا برای الگوی انتخابی گزارش ست شده یا نه
+        $pattern = Pattern::find($this->selectedPattern);
+        if ($pattern) {
+            $reports = $pattern->reports()->wherePivot('is_active', true)->get();
+            if ($reports->isEmpty() && !$this->selectedReport) {
+                // اگر گزارش ست نشده باشد و کاربر هم گزارش انتخاب نکرده باشد، فقط آلارم نمایش می‌دهیم و هیچ کاری نمی‌کنیم
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'خطا!',
+                    'text' => 'گزارشی برای پیام انتخابی ثبت نشده. لطفاً ابتدا گزارش را برای این الگو تنظیم کنید.'
+                ]);
+                return;
+            }
+        }
+
         if (empty($this->selectedResident['phone'])) {
             $this->dispatch('showAlert', [
                 'type' => 'error',
@@ -477,45 +497,58 @@ class PatternManual extends Component
                     'report_id' => $this->selectedReport,
                 ]);
                 
-                // فقط ایجاد رکورد در sms_message_residents برای نمایش
-                // Event خودش رکورد را ایجاد می‌کند، اما برای اطمینان اینجا هم ایجاد می‌کنیم
-                $smsMessageResident = SmsMessageResident::where('report_id', $this->selectedReport)
-                    ->where('pattern_id', $pattern->id)
-                    ->where('resident_id', $residentDbId)
-                    ->where('created_at', '>=', now()->subMinutes(5)) // فقط در 5 دقیقه گذشته
-                    ->first();
+                // منتظر می‌مانیم تا Event پیامک را ارسال کند
+                // Event خودش رکورد را در sms_message_residents ایجاد می‌کند
+                // چند بار تلاش می‌کنیم تا SMS result را پیدا کنیم
+                $smsMessageResident = null;
+                $maxAttempts = 10;
+                $attemptDelay = 300000; // 0.3 ثانیه
                 
-                if (!$smsMessageResident) {
-                    $smsMessageResident = SmsMessageResident::create([
-                        'sms_message_id' => null,
-                        'report_id' => $this->selectedReport,
-                        'pattern_id' => $pattern->id,
-                        'is_pattern' => true,
-                        'pattern_variables' => implode(';', $variables),
-                        'resident_id' => $residentDbId,
-                        'resident_name' => $this->selectedResident['name'],
-                        'phone' => $phone,
-                        'title' => $pattern->title,
-                        'description' => $pattern->text,
-                        'status' => 'pending',
-                    ]);
+                for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+                    if ($attempt > 0) {
+                        usleep($attemptDelay);
+                    }
+                    
+                    // جستجوی رکورد ایجاد شده توسط Event
+                    $smsMessageResident = SmsMessageResident::where('report_id', $this->selectedReport)
+                        ->where('pattern_id', $pattern->id)
+                        ->where('resident_id', $residentDbId)
+                        ->where('created_at', '>=', now()->subMinutes(5)) // فقط در 5 دقیقه گذشته
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                    
+                    if ($smsMessageResident) {
+                        break; // پیدا شد، از حلقه خارج می‌شویم
+                    }
                 }
                 
-                // تاخیر کوتاه برای اطمینان از اجرای Event
-                usleep(500000); // 0.5 ثانیه
-                
                 // بررسی وضعیت ارسال از Event
-                $smsMessageResident->refresh();
-                $isSuccess = $smsMessageResident->status === 'sent';
-                
-                $result = [
-                    'success' => $isSuccess,
-                    'message' => $isSuccess ? 'پیامک با موفقیت ارسال شد (از طریق Event)' : ($smsMessageResident->error_message ?? 'در حال ارسال...'),
-                    'response_code' => $smsMessageResident->response_code ?? null,
-                    'report_created' => $reportCreated,
-                    'report_error' => $reportError,
-                    'resident_report_id' => $residentReportId,
-                ];
+                if ($smsMessageResident) {
+                    $smsMessageResident->refresh();
+                    $isSuccess = $smsMessageResident->status === 'sent';
+                    
+                    $result = [
+                        'success' => $isSuccess,
+                        'message' => $isSuccess ? 'پیامک با موفقیت ارسال شد (از طریق Event)' : ($smsMessageResident->error_message ?? 'در حال ارسال...'),
+                        'response_code' => $smsMessageResident->response_code ?? null,
+                        'rec_id' => $smsMessageResident->rec_id ?? null,
+                        'api_response' => $smsMessageResident->api_response ?? null,
+                        'raw_response' => $smsMessageResident->raw_response ?? null,
+                        'report_created' => $reportCreated,
+                        'report_error' => $reportError,
+                        'resident_report_id' => $residentReportId,
+                    ];
+                } else {
+                    // اگر رکورد پیدا نشد، یک نتیجه موقت برمی‌گردانیم
+                    $result = [
+                        'success' => false,
+                        'message' => 'در حال ارسال پیامک...',
+                        'response_code' => null,
+                        'report_created' => $reportCreated,
+                        'report_error' => $reportError,
+                        'resident_report_id' => $residentReportId,
+                    ];
+                }
             } else {
                 // اگر ResidentReport ایجاد نشد، دستی پیامک ارسال می‌کنیم
                 \Log::info('PatternManual - No ResidentReport created, sending SMS manually', [
@@ -557,16 +590,16 @@ class PatternManual extends Component
                 $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
                 if ($senderNumberObj) {
                     $apiKey = $senderNumberObj->api_key;
-                    }
+                }
             }
 
-                // استفاده از sendByBaseNumber (SOAP API)
-            $result = $melipayamakService->sendByBaseNumber(
+            // استفاده از sendByBaseNumber2 که ابتدا Console API را امتحان می‌کند
+            $result = $melipayamakService->sendByBaseNumber2(
                 $phone,
                 $bodyId,
-                    $variables,
-                    $senderNumberObj ? $senderNumberObj->number : null,
-                    $apiKey
+                $variables,
+                $senderNumberObj ? $senderNumberObj->number : null,
+                $apiKey
             );
 
             // اضافه کردن اطلاعات ثبت گزارش به نتیجه

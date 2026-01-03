@@ -173,15 +173,6 @@
                                         @endif
                                     </div>
                                 @endif
-                                <p style="margin-top: 8px; font-size: 11px; color: #78716c;">
-                                    @if(count($availableSenderNumbers) > 0)
-                                        شماره فرستنده را از لیست انتخاب کنید. برای مدیریت شماره‌ها به 
-                                        <a href="/sender-numbers" target="_blank" style="color: #10b981; text-decoration: underline;">صفحه مدیریت شماره‌های فرستنده</a> بروید.
-                                    @else
-                                        این شماره برای ارسال پیامک الگویی استفاده می‌شود. برای تغییر، متغیر <code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px;">MELIPAYAMAK_PATTERN_FROM</code> را در فایل <code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px;">.env</code> تنظیم کنید یا از 
-                                        <a href="/sender-numbers" target="_blank" style="color: #10b981; text-decoration: underline;">صفحه مدیریت شماره‌های فرستنده</a> استفاده کنید.
-                                    @endif
-                                </p>
                             </div>
 
                             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">

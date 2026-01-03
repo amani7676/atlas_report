@@ -966,9 +966,10 @@
                     @if($selectedPattern)
                         @if($selectedCount > 0)
                             <button 
-                                class="mdc-button mdc-button--raised" 
-                                wire:click="sendSms" 
+                                type="button"
+                                onclick="startSendingProcess()"
                                 wire:loading.attr="disabled"
+                                class="mdc-button mdc-button--raised" 
                                 style="background: var(--mdc-on-primary); color: var(--mdc-primary);"
                                 @if($isSending) disabled @endif
                             >
@@ -1001,4 +1002,235 @@
             </div>
         </div>
     </div>
+
+    <!-- مدال پیشرفت ارسال پیام -->
+    @if($showProgressModal || $isSending)
+    <div class="modal fade show d-block" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="false" style="display: block !important; background: rgba(0,0,0,0.5); z-index: 9999;" wire:key="progress-modal-{{ $sendingProgress['total'] ?? 0 }}">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="progressModalLabel">
+                        <i class="fas fa-paper-plane me-2"></i>
+                        در حال ارسال پیام‌ها...
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <!-- آمار کلی -->
+                    <div class="row mb-4">
+                        <div class="col-12 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="mb-2">آمار کلی</h6>
+                                    <div class="d-flex justify-content-around">
+                                        <div>
+                                            <div class="text-muted small">کل پیام‌ها</div>
+                                            <div class="h5 mb-0 text-primary">{{ $sendingProgress['total'] ?? 0 }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small">ارسال شده</div>
+                                            <div class="h5 mb-0 text-success">{{ $sendingProgress['sent'] ?? 0 }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small">خطا</div>
+                                            <div class="h5 mb-0 text-danger">{{ $sendingProgress['failed'] ?? 0 }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small">مانده</div>
+                                            <div class="h5 mb-0 text-warning">{{ ($sendingProgress['total'] ?? 0) - ($sendingProgress['sent'] ?? 0) - ($sendingProgress['failed'] ?? 0) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- نوار پیشرفت -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small text-muted">پیشرفت</span>
+                            <span class="small text-muted">
+                                {{ $sendingProgress['current_index'] ?? 0 }} از {{ $sendingProgress['total'] ?? 0 }}
+                            </span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            @php
+                                $progressPercent = ($sendingProgress['total'] ?? 0) > 0 
+                                    ? ((($sendingProgress['sent'] ?? 0) + ($sendingProgress['failed'] ?? 0)) / ($sendingProgress['total'] ?? 1)) * 100 
+                                    : 0;
+                            @endphp
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                 role="progressbar" 
+                                 style="width: {{ $progressPercent }}%"
+                                 aria-valuenow="{{ $progressPercent }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                {{ number_format($progressPercent, 1) }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- اقامت‌گر فعلی (فقط در حین ارسال) -->
+                    @if(($sendingProgress['current'] ?? null) && !($sendingProgress['completed'] ?? false))
+                    <div class="alert alert-info mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div>
+                                <strong>در حال ارسال به:</strong>
+                                <div class="mt-1">{{ $sendingProgress['current'] }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- نتیجه ارسال (بعد از اتمام) -->
+                    @if($sendingProgress['completed'] ?? false)
+                    <div class="alert {{ ($sendingProgress['failed'] ?? 0) > 0 ? 'alert-warning' : 'alert-success' }} mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas {{ ($sendingProgress['failed'] ?? 0) > 0 ? 'fa-exclamation-triangle' : 'fa-check-circle' }} me-2"></i>
+                            <div>
+                                <strong>نتیجه ارسال:</strong>
+                                <div class="mt-1">{{ $sendingProgress['result_message'] ?? 'ارسال انجام شد' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- جزئیات پاسخ‌های API ملی پیامک -->
+                    @if(!empty($sendResults))
+                    <div class="mt-3">
+                        <h6 class="mb-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            جزئیات پاسخ‌های API ملی پیامک:
+                        </h6>
+                        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
+                            @foreach($sendResults as $index => $result)
+                            <div class="mb-3 p-3" style="background: {{ $result['success'] ? '#f0f9ff' : '#fff3cd' }}; border-radius: 5px; border-right: 3px solid {{ $result['success'] ? '#28a745' : '#f72585' }};">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <strong style="color: {{ $result['success'] ? '#28a745' : '#f72585' }};">
+                                        {{ $index + 1 }}. {{ $result['resident_name'] }} ({{ $result['phone'] }})
+                                    </strong>
+                                    <span class="badge {{ $result['success'] ? 'bg-success' : 'bg-danger' }}">
+                                        {{ $result['success'] ? '✓ موفق' : '✗ خطا' }}
+                                    </span>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <strong>پیام:</strong> 
+                                    <span style="color: {{ $result['success'] ? '#28a745' : '#f72585' }};">
+                                        {{ $result['message'] ?? 'بدون پیام' }}
+                                    </span>
+                                </div>
+                                
+                                @if(isset($result['response_code']))
+                                <div class="mb-2">
+                                    <strong>کد پاسخ:</strong> 
+                                    <code>{{ $result['response_code'] }}</code>
+                                </div>
+                                @endif
+                                
+                                @if(isset($result['rec_id']))
+                                <div class="mb-2">
+                                    <strong>RecId:</strong> 
+                                    <code>{{ $result['rec_id'] }}</code>
+                                </div>
+                                @endif
+                                
+                                @if(isset($result['api_response']))
+                                <div class="mb-2">
+                                    <strong>پاسخ API:</strong>
+                                    <pre style="background: #f8f9fa; padding: 8px; border-radius: 3px; font-size: 11px; margin-top: 5px; overflow-x: auto;">{{ is_array($result['api_response']) ? json_encode($result['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $result['api_response'] }}</pre>
+                                </div>
+                                @endif
+                                
+                                @if(isset($result['raw_response']))
+                                <div class="mb-2">
+                                    <strong>پاسخ خام (Raw Response):</strong>
+                                    <pre style="background: #f8f9fa; padding: 8px; border-radius: 3px; font-size: 11px; margin-top: 5px; overflow-x: auto; max-height: 150px; overflow-y: auto;">{{ is_array($result['raw_response']) ? json_encode($result['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $result['raw_response'] }}</pre>
+                                </div>
+                                @endif
+                                
+                                @if(isset($result['full_result']))
+                                <details class="mt-2">
+                                    <summary style="cursor: pointer; color: #0066cc; font-weight: bold;">
+                                        <i class="fas fa-chevron-down me-1"></i>
+                                        نمایش تمام اطلاعات نتیجه
+                                    </summary>
+                                    <pre style="background: #f8f9fa; padding: 8px; border-radius: 3px; font-size: 11px; margin-top: 5px; overflow-x: auto; max-height: 200px; overflow-y: auto;">{{ json_encode($result['full_result'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                                </details>
+                                @endif
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    @if(!($sendingProgress['completed'] ?? false))
+                    <button type="button" 
+                            class="btn btn-danger" 
+                            wire:click="cancelSending"
+                            wire:loading.attr="disabled">
+                        <i class="fas fa-times me-1"></i>
+                        لغو ارسال
+                    </button>
+                    @else
+                    <button type="button" 
+                            class="btn btn-primary" 
+                            wire:click="closeProgressModal"
+                            wire:loading.attr="disabled">
+                        <i class="fas fa-check me-1"></i>
+                        بستن
+                    </button>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- قفل صفحه هنگام ارسال -->
+    <div class="modal-backdrop fade show" style="z-index: 9998; pointer-events: all;"></div>
+    @endif
+
+    @script
+    <script>
+        // شروع فرآیند ارسال
+        window.startSendingProcess = function() {
+            // ابتدا مدال را نمایش بده
+            @this.call('startSending').then(() => {
+                // بعد از نمایش مدال، ارسال را شروع کن
+                setTimeout(() => {
+                    @this.call('sendPatternSms');
+                }, 200);
+            });
+        };
+        
+        // مدیریت قفل صفحه هنگام نمایش مدال
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('show-progress-modal', () => {
+                // بلافاصله قفل صفحه
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+                document.body.style.width = '100%';
+                
+                // اطمینان از نمایش مدال
+                setTimeout(() => {
+                    const modal = document.querySelector('[wire\\:key*="progress-modal"]');
+                    if (modal) {
+                        modal.style.display = 'block';
+                        modal.classList.add('show', 'd-block');
+                    }
+                }, 50);
+            });
+            
+            Livewire.on('hide-progress-modal', () => {
+                // باز کردن قفل صفحه
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.width = '';
+            });
+        });
+    </script>
+    @endscript
 </div>

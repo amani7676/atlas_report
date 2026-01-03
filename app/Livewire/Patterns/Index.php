@@ -731,7 +731,10 @@ class Index extends Component
 
     public function getPatternsQueryProperty()
     {
-        return Pattern::when($this->search, function ($query) {
+        return Pattern::withCount(['reports' => function ($query) {
+            $query->where('report_pattern.is_active', true);
+        }])
+        ->when($this->search, function ($query) {
             $query->where('title', 'like', '%' . $this->search . '%')
                 ->orWhere('text', 'like', '%' . $this->search . '%')
                 ->orWhere('pattern_code', 'like', '%' . $this->search . '%');

@@ -83,77 +83,34 @@
                 </small>
             </div>
 
-            <!-- انتخاب الگوهای پیامک -->
+            <!-- انتخاب الگوی پیامک -->
             <div class="form-group" style="margin-top: 30px;">
                 <label class="form-label">
                     <i class="fas fa-sms"></i>
-                    الگوهای پیامک مرتبط (اختیاری)
+                    الگوی پیامک مرتبط *
                 </label>
                 <small style="display: block; color: #666; margin-bottom: 10px; font-size: 12px;">
-                    می‌توانید یک یا چند الگوی پیامک را به این گزارش متصل کنید. این الگوها در صفحه ارسال پیامک دستی نمایش داده می‌شوند.
+                    باید یک الگوی پیامک را برای این گزارش انتخاب کنید. این الگو در صفحه ارسال پیامک دستی و ارسال خودکار استفاده می‌شود.
                 </small>
                 
                 @if(count($patterns) > 0)
-                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                    <select wire:model="selectedPattern" class="form-control" required>
+                        <option value="">انتخاب الگوی پیامک</option>
                         @foreach($patterns as $pattern)
-                            <div 
-                                wire:key="pattern-{{ $pattern->id }}"
-                                style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; border: 2px solid {{ in_array($pattern->id, $selectedPatterns) ? '#4361ee' : '#ddd' }}; border-radius: 8px; cursor: pointer; background: {{ in_array($pattern->id, $selectedPatterns) ? '#e7f3ff' : '#fff' }}; transition: all 0.3s; user-select: none;"
-                                wire:click="togglePattern({{ $pattern->id }})"
-                                role="button"
-                                tabindex="0"
-                            >
-                                <input 
-                                    type="checkbox" 
-                                    checked="{{ in_array($pattern->id, $selectedPatterns) ? 'checked' : '' }}"
-                                    style="cursor: pointer; pointer-events: none;"
-                                    readonly
-                                    tabindex="-1"
-                                >
-                                <div>
-                                    <strong style="display: block; font-size: 14px;">{{ $pattern->title }}</strong>
-                                    @if($pattern->pattern_code)
-                                        <small style="color: #666; font-size: 11px;">کد: {{ $pattern->pattern_code }}</small>
-                                    @endif
-                                </div>
-                            </div>
+                            <option value="{{ $pattern->id }}">
+                                {{ $pattern->title }}
+                                @if($pattern->pattern_code)
+                                    (کد: {{ $pattern->pattern_code }})
+                                @endif
+                            </option>
                         @endforeach
-                    </div>
+                    </select>
+                    @error('selectedPattern') <span style="color: #f72585; font-size: 14px;">{{ $message }}</span> @enderror
                 @else
-                    <p style="color: #666; font-size: 14px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
-                        <i class="fas fa-info-circle"></i>
+                    <p style="color: #f72585; font-size: 14px; padding: 15px; background: #fff3cd; border-radius: 6px; border-right: 4px solid #f72585;">
+                        <i class="fas fa-exclamation-triangle"></i>
                         هیچ الگوی فعالی یافت نشد. لطفاً ابتدا الگوهایی را در بخش "الگوها" ایجاد کنید.
                     </p>
-                @endif
-                
-                @if(count($selectedPatterns) > 0)
-                    <div style="background: #e7f3ff; padding: 15px; border-radius: 6px; margin-top: 15px;">
-                        <strong style="display: block; margin-bottom: 10px; color: #4361ee;">
-                            <i class="fas fa-check-circle"></i>
-                            الگوهای انتخاب شده ({{ count($selectedPatterns) }}):
-                        </strong>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            @foreach($selectedPatterns as $patternId)
-                                @php
-                                    $pattern = $patterns->firstWhere('id', $patternId);
-                                @endphp
-                                @if($pattern)
-                                    <span 
-                                        style="background: #4361ee; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;"
-                                    >
-                                        {{ $pattern->title }}
-                                        <button 
-                                            type="button"
-                                            wire:click="removePattern({{ $pattern->id }})"
-                                            style="background: rgba(255,255,255,0.3); border: none; color: white; cursor: pointer; padding: 2px 6px; border-radius: 50%; font-size: 10px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;"
-                                        >
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </span>
-                                @endif
-                            @endforeach
-                        </div>
-                    </div>
                 @endif
             </div>
 

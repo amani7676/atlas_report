@@ -23,6 +23,7 @@ class SmsMessageResident extends Model
         'sent_at',
         'error_message',
         'response_code',
+        'rec_id',
         'api_response',
         'raw_response',
     ];

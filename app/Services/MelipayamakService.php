@@ -1431,8 +1431,8 @@ class MelipayamakService
                 'text' => $text,
             ]);
 
-            // ارسال درخواست POST
-            $response = Http::asForm()->post($baseUrl, $data);
+            // ارسال درخواست POST با timeout 30 ثانیه
+            $response = Http::timeout(30)->asForm()->post($baseUrl, $data);
 
             $responseBody = trim($response->body());
             $httpStatus = $response->status();
@@ -1529,10 +1529,26 @@ class MelipayamakService
             // استفاده از API Key ارسال شده (از شماره انتخاب شده) یا از دیتابیس/config
             if (empty($apiKey)) {
                 // اول از دیتابیس می‌خوانیم
-                $apiKey = \App\Models\ApiKey::getKeyValue('console_api_key')
-                    ?: \App\Models\ApiKey::getKeyValue('api_key')
-                    ?: config('services.melipayamak.console_api_key') 
-                    ?: config('services.melipayamak.api_key') 
+                $dbConsoleKey = \App\Models\ApiKey::getKeyValue('console_api_key');
+                $dbApiKey = \App\Models\ApiKey::getKeyValue('api_key');
+                $configConsoleKey = config('services.melipayamak.console_api_key');
+                $configApiKey = config('services.melipayamak.api_key');
+                
+                Log::info('Melipayamak Console API Key sources', [
+                    'db_console_key_exists' => !empty($dbConsoleKey),
+                    'db_console_key_length' => $dbConsoleKey ? strlen($dbConsoleKey) : 0,
+                    'db_console_key_preview' => $dbConsoleKey ? substr($dbConsoleKey, 0, 8) . '...' : 'empty',
+                    'db_api_key_exists' => !empty($dbApiKey),
+                    'db_api_key_length' => $dbApiKey ? strlen($dbApiKey) : 0,
+                    'db_api_key_preview' => $dbApiKey ? substr($dbApiKey, 0, 8) . '...' : 'empty',
+                    'config_console_key_exists' => !empty($configConsoleKey),
+                    'config_api_key_exists' => !empty($configApiKey),
+                ]);
+                
+                $apiKey = $dbConsoleKey
+                    ?: $dbApiKey
+                    ?: $configConsoleKey 
+                    ?: $configApiKey 
                     ?: $this->password;
             }
             
@@ -1547,53 +1563,110 @@ class MelipayamakService
                 return [
                     'success' => false,
                     'response_code' => 'no_api_key',
-                    'message' => 'API Key کنسول تنظیم نشده است. لطفاً MELIPAYAMAK_CONSOLE_API_KEY را در فایل .env تنظیم کنید. این API Key باید از پنل کاربری console.melipayamak.com گرفته شود.',
+                    'message' => 'API Key کنسول تنظیم نشده است. لطفاً API Key را در قسمت "مدیریت API Key" با نام "console_api_key" یا "api_key" تنظیم کنید. این API Key باید از پنل کاربری console.melipayamak.com گرفته شود.',
                 ];
             }
             
             // لاگ API Key برای دیباگ (فقط 8 کاراکتر اول)
+            $apiKeySource = 'unknown';
+            if (!empty(\App\Models\ApiKey::getKeyValue('console_api_key'))) {
+                $apiKeySource = 'db_console_api_key';
+            } elseif (!empty(\App\Models\ApiKey::getKeyValue('api_key'))) {
+                $apiKeySource = 'db_api_key';
+            } elseif (!empty(config('services.melipayamak.console_api_key'))) {
+                $apiKeySource = 'config_console_api_key';
+            } elseif (!empty(config('services.melipayamak.api_key'))) {
+                $apiKeySource = 'config_api_key';
+            } else {
+                $apiKeySource = 'password';
+            }
+            
             Log::info('Melipayamak Console API Key loaded', [
                 'api_key_preview' => substr($apiKey, 0, 8) . '...',
                 'api_key_length' => strlen($apiKey),
-                'api_key_source' => !empty(config('services.melipayamak.console_api_key')) ? 'console_api_key' : (!empty(config('services.melipayamak.api_key')) ? 'api_key' : 'password'),
+                'api_key_source' => $apiKeySource,
+                'api_key_full' => $apiKey, // برای دیباگ - در production باید حذف شود
             ]);
             
             // URL پایه برای API کنسول
             // بر اساس مستندات: https://console.melipayamak.com/api/send/shared/{api_key}
+            // توجه: API Key باید در URL قرار بگیرد (نه در header)
+            // API Key معمولاً نیازی به encoding ندارد مگر اینکه کاراکترهای خاص داشته باشد
+            // اما برای اطمینان، API Key را trim می‌کنیم
+            $apiKey = trim($apiKey);
             $baseUrl = 'https://console.melipayamak.com/api/send/shared/' . $apiKey;
+            
+            Log::info('Melipayamak Console API URL constructed', [
+                'base_url' => $baseUrl,
+                'api_key_length' => strlen($apiKey),
+                'api_key_preview' => substr($apiKey, 0, 8) . '...',
+                'api_key_full' => $apiKey, // برای دیباگ - در production باید حذف شود
+            ]);
             
             // دریافت شماره فرستنده
             // برای پیامک‌های الگویی، از pattern_from استفاده می‌کنیم
             $senderNumber = $from ?? config('services.melipayamak.pattern_from') ?? config('services.melipayamak.from');
             
-            // ساخت داده‌های JSON
-            // بر اساس مستندات: فقط bodyId, to, args نیاز است
-            // پارامتر 'from' در مستندات ذکر نشده است
+            // ساخت داده‌های JSON برای Console API
+            // بر اساس مستندات Console API: bodyId, to, args (آرایه متغیرها)
+            // Console API از args به صورت آرایه استفاده می‌کند، نه text
+            // اطمینان از اینکه variables یک آرایه است
+            if (!is_array($variables)) {
+                $variables = [];
+            }
+            
+            // اطمینان از اینکه متغیرها به صورت آرایه هستند و مقادیر خالی نیستند
+            $argsArray = [];
+            foreach ($variables as $var) {
+                // تبدیل به رشته و trim کردن
+                $varStr = trim((string)$var);
+                // اگر خالی نبود، اضافه می‌کنیم
+                if ($varStr !== '') {
+                    $argsArray[] = $varStr;
+                } else {
+                    // اگر خالی بود، یک رشته خالی اضافه می‌کنیم (برای حفظ ترتیب)
+                    $argsArray[] = '';
+                }
+            }
+            
             $data = [
                 'bodyId' => (int)$bodyId,
                 'to' => $normalizedPhone,
-                'args' => $variables, // آرایه متغیرها (نه رشته با ;)
+                'args' => $argsArray, // آرایه متغیرها به ترتیب (مثال: ['فرشید امانی 2', '1404/10/10'])
             ];
+            
+            Log::debug('Melipayamak Console API - Variables format', [
+                'variables_original' => $variables,
+                'variables_array' => $argsArray,
+                'variables_count' => count($argsArray),
+                'variables_preview' => array_slice($argsArray, 0, 5), // فقط 5 مورد اول برای لاگ
+                'bodyId' => $bodyId,
+                'to' => $normalizedPhone,
+            ]);
             
             // توجه: پارامتر 'from' در مستندات Console API ذکر نشده است
             // بنابراین آن را ارسال نمی‌کنیم
 
-            Log::debug('Melipayamak SendByBaseNumber2 Request (New API)', [
+            Log::info('Melipayamak SendByBaseNumber2 Request (Console API)', [
                 'url' => $baseUrl,
                 'api_key_length' => strlen($apiKey),
-                'api_key_preview' => substr($apiKey, 0, 8) . '...', // فقط 8 کاراکتر اول برای امنیت
+                'api_key_preview' => substr($apiKey, 0, 8) . '...',
+                'api_key_full' => $apiKey, // برای دیباگ - در production باید حذف شود
                 'to' => $normalizedPhone,
-                'from' => $senderNumber,
                 'bodyId' => $bodyId,
                 'bodyId_type' => gettype($bodyId),
-                'variables' => $variables,
-                'variables_count' => count($variables),
+                'variables_original' => $variables,
+                'variables_processed' => $argsArray,
+                'variables_count' => count($argsArray),
+                'variables_preview' => array_slice($argsArray, 0, 5), // فقط 5 مورد اول
                 'data' => $data,
+                'data_json' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), // برای بررسی فرمت JSON
             ]);
 
             // ارسال درخواست POST با JSON
             // توجه: API Key در URL قرار می‌گیرد (نه در header)
-            $response = Http::withHeaders([
+            // افزایش timeout به 30 ثانیه برای جلوگیری از خطای timeout
+            $response = Http::timeout(30)->withHeaders([
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->post($baseUrl, $data);
@@ -1629,7 +1702,8 @@ class MelipayamakService
                 ]);
                 
                 // بررسی موفقیت: اگر recId وجود داشته باشد و status خالی باشد یا null باشد، موفق است
-                if ($recId && (empty($status) || $status === null)) {
+                // همچنین اگر recId وجود داشته باشد و status یک رشته خالی باشد، موفق است
+                if ($recId && (empty($status) || $status === null || $status === '')) {
                     // ارسال موفق
                     return [
                         'success' => true,
@@ -1649,7 +1723,9 @@ class MelipayamakService
                     if (stripos($status, 'کلید کنسول') !== false || 
                         stripos($status, 'console') !== false ||
                         stripos($status, 'api key') !== false ||
-                        stripos($status, 'api_key') !== false) {
+                        stripos($status, 'api_key') !== false ||
+                        stripos($responseBody, 'کلید کنسول') !== false ||
+                        stripos($responseBody, 'console') !== false) {
                         $errorMessage = 'کلید کنسول معتبر نیست. لطفاً API Key را از پنل console.melipayamak.com بررسی کنید.';
                     }
                     
@@ -1700,6 +1776,44 @@ class MelipayamakService
             // این بخش دیگر استفاده نمی‌شود چون خطاها در بخش بالا مدیریت می‌شوند
             // اما برای سازگاری نگه داشته شده است
         } catch (\Exception $e) {
+            // بررسی اینکه آیا خطای timeout یا اتصال است
+            $isTimeoutError = stripos($e->getMessage(), 'timeout') !== false || 
+                             stripos($e->getMessage(), 'Failed to connect') !== false ||
+                             stripos($e->getMessage(), 'Connection timed out') !== false ||
+                             stripos($e->getMessage(), 'cURL error 28') !== false;
+            
+            if ($isTimeoutError) {
+                Log::error('Melipayamak SendByBaseNumber2 Connection/Timeout Exception', [
+                    'to' => $to,
+                    'bodyId' => $bodyId,
+                    'error' => $e->getMessage(),
+                    'error_type' => get_class($e),
+                ]);
+
+                // اگر خطای timeout است، به REST API قدیمی fallback می‌کنیم
+                Log::warning('Melipayamak Console API timeout, falling back to REST API', [
+                    'console_error' => $e->getMessage(),
+                ]);
+                
+                // تلاش با REST API قدیمی
+                $restResult = $this->sendByBaseNumberRest($to, $bodyId, $variables, $from);
+                if ($restResult['success']) {
+                    Log::info('Melipayamak SendByBaseNumber2 - REST API succeeded after Console timeout', [
+                        'to' => $to,
+                        'bodyId' => $bodyId,
+                    ]);
+                    return $restResult;
+                }
+                
+                // اگر REST API هم کار نکرد، خطای timeout را برمی‌گردانیم
+                return [
+                    'success' => false,
+                    'message' => 'خطا در اتصال به سرویس: ' . $e->getMessage(),
+                    'raw_response' => $e->getMessage(),
+                    'http_status_code' => null,
+                    'response_code' => 'connection_error',
+                ];
+            }
             Log::error('Melipayamak SendByBaseNumber2 Exception', [
                 'to' => $to,
                 'bodyId' => $bodyId,

@@ -7,6 +7,7 @@ use App\Models\Pattern;
 use App\Models\PatternVariable;
 use App\Models\SmsMessageResident;
 use App\Models\SenderNumber;
+use App\Models\Settings;
 use App\Services\MelipayamakService;
 use App\Services\ResidentService;
 use Livewire\Component;
@@ -54,12 +55,20 @@ class GroupSms extends Component
     
     // Sending progress
     public $isSending = false;
+    public $showProgressModal = false;
+    public $isCancelled = false;
     public $sendingProgress = [
         'total' => 0,
         'sent' => 0,
         'failed' => 0,
         'current' => null,
+        'current_index' => 0,
+        'completed' => false,
+        'result_message' => null,
     ];
+    
+    // نتایج ارسال برای نمایش در مدال
+    public $sendResults = [];
 
     public function mount()
     {
@@ -238,10 +247,13 @@ class GroupSms extends Component
 
     public function loadPatterns()
     {
-        // فقط الگوهایی که فعال، تایید شده و دارای pattern_code هستند
+        // فقط الگوهایی که تایید شده، فعال، دارای pattern_code و برایشان گزارش ست شده هستند
         $this->patterns = Pattern::where('is_active', true)
-            ->where('status', 'approved') // فقط الگوهای تایید شده
-            ->whereNotNull('pattern_code') // فقط الگوهایی که pattern_code دارند
+            ->where('status', 'approved')
+            ->whereNotNull('pattern_code')
+            ->whereHas('reports', function ($query) {
+                $query->where('report_pattern.is_active', true);
+            })
             ->orderBy('title')
             ->get();
     }
@@ -277,6 +289,35 @@ class GroupSms extends Component
         
         // هدایت به صفحه ارسال پیامک
         return redirect()->route('sms.index');
+    }
+
+    /**
+     * شروع فرآیند ارسال - فقط مدال را نمایش می‌دهد
+     */
+    public function startSending()
+    {
+        // بررسی اینکه آیا می‌توان ارسال کرد
+        if (!$this->selectedPattern || empty($this->selectedResidents)) {
+            return;
+        }
+
+        // بلافاصله نمایش مدال و قفل صفحه - قبل از هر کار دیگری
+        $this->isSending = true;
+        $this->isCancelled = false;
+        $this->showProgressModal = true;
+        $this->sendingProgress = [
+            'total' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'current' => 'در حال آماده‌سازی...',
+            'current_index' => 0,
+            'completed' => false,
+            'result_message' => null,
+        ];
+        $this->sendResults = [];
+        
+        // Dispatch event برای نمایش مدال و قفل صفحه - بلافاصله
+        $this->dispatch('show-progress-modal');
     }
 
     public function sendPatternSms()
@@ -318,6 +359,10 @@ class GroupSms extends Component
             ->get();
 
         if ($selectedResidents->isEmpty()) {
+            // اگر مدال باز است، آن را ببند
+            if ($this->showProgressModal) {
+                $this->closeProgressModal();
+            }
             $this->dispatch('showAlert', [
                 'type' => 'warning',
                 'title' => 'هشدار!',
@@ -326,7 +371,12 @@ class GroupSms extends Component
             return;
         }
 
-        // دریافت شماره فرستنده و API Key
+        // به‌روزرسانی تعداد کل در مدال (مدال باید قبلاً از startSending باز شده باشد)
+        if ($this->showProgressModal) {
+            $this->sendingProgress['total'] = $selectedResidents->count();
+        }
+
+        // دریافت شماره فرستنده و API Key از شماره انتخاب شده (مشابه ExpiredToday)
         $senderNumberObj = null;
         $apiKey = null;
         if ($this->selectedSenderNumberId) {
@@ -336,45 +386,83 @@ class GroupSms extends Component
             }
         }
         
-        // اگر API Key از شماره فرستنده تنظیم نشد یا خالی بود، از config استفاده می‌کنیم
-        if (empty($apiKey)) {
-            $apiKey = config('services.melipayamak.console_api_key');
-        }
+        // دریافت API Key از دیتابیس یا config (مشابه ExpiredToday)
+        $dbConsoleKey = \App\Models\ApiKey::getKeyValue('console_api_key');
+        $dbApiKey = \App\Models\ApiKey::getKeyValue('api_key');
+        $configConsoleKey = config('services.melipayamak.console_api_key');
+        $configApiKey = config('services.melipayamak.api_key');
         
-        // لاگ API Key برای دیباگ
-        Log::info('GroupSms - API Key configuration', [
-            'has_sender_number' => !is_null($senderNumberObj),
+        Log::info('GroupSms - API Key sources', [
+            'db_console_key_exists' => !empty($dbConsoleKey),
+            'db_console_key_length' => $dbConsoleKey ? strlen($dbConsoleKey) : 0,
+            'db_console_key_preview' => $dbConsoleKey ? substr($dbConsoleKey, 0, 8) . '...' : 'empty',
+            'db_api_key_exists' => !empty($dbApiKey),
+            'db_api_key_length' => $dbApiKey ? strlen($dbApiKey) : 0,
+            'db_api_key_preview' => $dbApiKey ? substr($dbApiKey, 0, 8) . '...' : 'empty',
+            'config_console_key_exists' => !empty($configConsoleKey),
+            'config_api_key_exists' => !empty($configApiKey),
             'sender_number_id' => $this->selectedSenderNumberId,
             'api_key_from_sender' => !empty($senderNumberObj?->api_key),
-            'api_key_from_config' => !empty(config('services.melipayamak.console_api_key')),
-            'api_key_length' => $apiKey ? strlen($apiKey) : 0,
-            'api_key_preview' => $apiKey ? substr($apiKey, 0, 8) . '...' : 'empty',
         ]);
         
+        $apiKey = $dbConsoleKey
+            ?: $dbApiKey
+            ?: $configConsoleKey
+            ?: $configApiKey;
+        
         // توجه: برای SOAP API از username/password استفاده می‌شود که در MelipayamakService تنظیم شده
-        // برای REST API (sendByBaseNumber2) از console_api_key استفاده می‌شود
+        // API Key برای SOAP API استفاده نمی‌شود اما برای سازگاری نگه داشته شده
 
         $melipayamakService = new MelipayamakService();
         $residentService = new ResidentService();
         
-        // Reset progress
-        $this->isSending = true;
-        $this->sendingProgress = [
-            'total' => $selectedResidents->count(),
-            'sent' => 0,
-            'failed' => 0,
-            'current' => null,
-        ];
+        // دریافت تنظیمات تاخیر از دیتابیس
+        $settings = Settings::getSettings();
+        $delayBeforeStart = ($settings->sms_delay_before_start ?? 2) * 1000000; // تبدیل ثانیه به میکروثانیه
+        $delayBetweenMessages = ($settings->sms_delay_between_messages ?? 200) * 1000; // تبدیل میلی‌ثانیه به میکروثانیه
+        
+        // تاخیر قبل از شروع ارسال (از تنظیمات) - با به‌روزرسانی مدال
+        if ($delayBeforeStart > 0) {
+            $steps = 10; // 10 مرحله برای به‌روزرسانی مدال
+            $stepDelay = $delayBeforeStart / $steps;
+            for ($i = 0; $i < $steps; $i++) {
+                if ($this->isCancelled) {
+                    $this->isSending = false;
+                    $this->showProgressModal = false;
+                    $this->dispatch('hide-progress-modal');
+                    return;
+                }
+                $remainingSeconds = ceil(($delayBeforeStart - ($i * $stepDelay)) / 1000000);
+                $this->sendingProgress['current'] = 'در حال آماده‌سازی... (' . $remainingSeconds . ' ثانیه باقی مانده)';
+                usleep($stepDelay);
+            }
+        }
+        
+        // به‌روزرسانی وضعیت - شروع واقعی ارسال
+        $this->sendingProgress['current'] = 'شروع ارسال...';
 
-        // ارسال به صورت تکی در حلقه
+        // ارسال به صورت تکی در حلقه با تاخیر قابل تنظیم
+        $index = 0;
+        $this->sendResults = []; // پاک کردن نتایج قبلی
         foreach ($selectedResidents as $resident) {
+            // بررسی لغو شدن
+            if ($this->isCancelled) {
+                break;
+            }
+
+            $index++;
+            $this->sendingProgress['current_index'] = $index;
+            
             if (empty($resident->resident_phone)) {
                 $this->sendingProgress['failed']++;
+                // تاخیر بین پیام‌ها (از تنظیمات)
+                if ($delayBetweenMessages > 0 && $index < count($selectedResidents)) {
+                    usleep($delayBetweenMessages);
+                }
                 continue;
             }
 
             $this->sendingProgress['current'] = $resident->resident_full_name ?? 'بدون نام';
-            $this->dispatch('$refresh');
 
             try {
                 // دریافت اطلاعات کامل resident از API
@@ -450,79 +538,36 @@ class GroupSms extends Component
                     'status' => 'pending',
                 ]);
 
-                // ارسال پیامک با الگو
-                // استراتژی: ابتدا SOAP API را امتحان می‌کنیم (اگر extension فعال باشد)
-                // اگر SOAP خطا داد یا extension فعال نبود، از REST API استفاده می‌کنیم
+                // ارسال پیامک با الگو - استفاده از sendByBaseNumber (SOAP API) مشابه ExpiredToday و PatternTest
+                // این متد از username/password استفاده می‌کند و معمولاً قابل اعتمادتر است
+                Log::info('GroupSms - Using sendByBaseNumber (SOAP API) like ExpiredToday and PatternTest', [
+                    'bodyId' => $bodyId,
+                    'variables' => $variables,
+                    'variables_count' => count($variables),
+                    'phone' => $resident->resident_phone,
+                    'sender_number' => $senderNumberObj ? $senderNumberObj->number : null,
+                    'api_key_provided' => !empty($apiKey),
+                ]);
                 
-                $result = null;
+                // استفاده از sendByBaseNumber (SOAP API) مشابه ExpiredToday و PatternTest
+                // این متد از username/password از config استفاده می‌کند
+                $result = $melipayamakService->sendByBaseNumber(
+                    $resident->resident_phone,
+                    $bodyId,
+                    $variables,
+                    $senderNumberObj ? $senderNumberObj->number : null, // شماره فرستنده
+                    $apiKey // API Key (اختیاری - برای SOAP API استفاده نمی‌شود)
+                );
                 
-                // بررسی اینکه SOAP extension فعال است
-                if (extension_loaded('soap')) {
-                    Log::info('GroupSms - Trying SOAP API first');
-                    
-                    // استفاده از SOAP API (از username/password در config استفاده می‌کند)
-                    $soapResult = $melipayamakService->sendByBaseNumber(
-                        $resident->resident_phone,
-                        $bodyId,
-                        $variables,
-                        $senderNumberObj ? $senderNumberObj->number : null,
-                        null // برای SOAP از apiKey استفاده نمی‌کنیم، از username/password استفاده می‌شود
-                    );
-                    
-                    // اگر SOAP موفق بود، از نتیجه آن استفاده می‌کنیم
-                    if ($soapResult['success']) {
-                        $result = $soapResult;
-                        Log::info('GroupSms - SOAP API succeeded');
-                    } else {
-                        Log::warning('GroupSms - SOAP API failed, trying REST API', [
-                            'soap_error' => $soapResult['message'] ?? 'Unknown error',
-                            'response_code' => $soapResult['response_code'] ?? null,
-                        ]);
-                    }
-                } else {
-                    Log::warning('GroupSms - SOAP extension not loaded, using REST API');
-                }
-                
-                // اگر SOAP استفاده نشد یا خطا داد، از REST API استفاده می‌کنیم
-                if (!$result || !$result['success']) {
-                    // برای REST API از console_api_key استفاده می‌کنیم
-                    // اگر apiKey از SenderNumber موجود باشد و معتبر باشد، استفاده می‌کنیم
-                    // در غیر این صورت مستقیماً از config استفاده می‌کنیم
-                    $restApiKey = $apiKey;
-                    if (empty($restApiKey) || strlen($restApiKey) < 20) {
-                        // اگر API Key از SenderNumber خالی یا نامعتبر است، از config استفاده می‌کنیم
-                        $restApiKey = config('services.melipayamak.console_api_key');
-                    }
-                    
-                    Log::info('GroupSms - Using REST API (console) with API key', [
-                        'api_key_source' => empty($apiKey) || strlen($apiKey) < 20 ? 'config' : 'sender_number',
-                        'api_key_length' => $restApiKey ? strlen($restApiKey) : 0,
-                        'api_key_preview' => $restApiKey ? substr($restApiKey, 0, 8) . '...' : 'empty',
-                        'config_console_api_key_exists' => !empty(config('services.melipayamak.console_api_key')),
-                    ]);
-                    
-                    // استفاده از REST API (console)
-                    $restResult = $melipayamakService->sendByBaseNumber2(
-                        $resident->resident_phone,
-                        $bodyId,
-                        $variables,
-                        $senderNumberObj ? $senderNumberObj->number : null,
-                        $restApiKey // این API Key باید از نوع console_api_key باشد
-                    );
-                    
-                    $result = $restResult;
-                    
-                    Log::info('GroupSms - REST API result', [
-                        'success' => $result['success'] ?? false,
-                        'message' => $result['message'] ?? 'No message',
-                        'response_code' => $result['response_code'] ?? null,
-                    ]);
-                }
-                
-                Log::info('GroupSms - Final API result', [
+                // لاگ نتیجه ارسال
+                Log::info('GroupSms - sendByBaseNumber result', [
                     'success' => $result['success'] ?? false,
                     'message' => $result['message'] ?? 'No message',
                     'response_code' => $result['response_code'] ?? null,
+                    'rec_id' => $result['rec_id'] ?? null,
+                    'status' => $result['status'] ?? null,
+                    'http_status_code' => $result['http_status_code'] ?? null,
+                    'raw_response' => $result['raw_response'] ?? null,
                 ]);
 
                 // لاگ نتیجه ارسال
@@ -532,7 +577,21 @@ class GroupSms extends Component
                     'success' => $result['success'] ?? false,
                     'message' => $result['message'] ?? 'Unknown error',
                     'response_code' => $result['response_code'] ?? null,
+                    'rec_id' => $result['rec_id'] ?? null,
                 ]);
+
+                // ذخیره نتیجه برای نمایش در مدال
+                $this->sendResults[] = [
+                    'resident_name' => $resident->resident_full_name ?? 'نامشخص',
+                    'phone' => $resident->resident_phone,
+                    'success' => $result['success'] ?? false,
+                    'message' => $result['message'] ?? 'بدون پیام',
+                    'response_code' => $result['response_code'] ?? null,
+                    'rec_id' => $result['rec_id'] ?? null,
+                    'api_response' => $result['api_response'] ?? null,
+                    'raw_response' => $result['raw_response'] ?? null,
+                    'full_result' => $result, // تمام اطلاعات نتیجه
+                ];
 
                 if ($result['success']) {
                     $smsMessageResident->update([
@@ -576,6 +635,25 @@ class GroupSms extends Component
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
+                
+                // ذخیره خطا برای نمایش در مدال
+                $this->sendResults[] = [
+                    'resident_name' => $resident->resident_full_name ?? 'نامشخص',
+                    'phone' => $resident->resident_phone ?? 'نامشخص',
+                    'success' => false,
+                    'message' => 'خطا: ' . $e->getMessage(),
+                    'response_code' => null,
+                    'rec_id' => null,
+                    'api_response' => null,
+                    'raw_response' => $e->getTraceAsString(),
+                    'full_result' => [
+                        'success' => false,
+                        'message' => $e->getMessage(),
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ],
+                ];
+                
                 $this->sendingProgress['failed']++;
                 
                 // نمایش خطا برای اولین خطا
@@ -588,30 +666,63 @@ class GroupSms extends Component
                 }
             }
             
-            $this->dispatch('$refresh');
+            // تاخیر بین پیام‌ها (از تنظیمات) - فقط اگر آخرین پیام نباشد
+            if (!$this->isCancelled && $index < count($selectedResidents) && $delayBetweenMessages > 0) {
+                usleep($delayBetweenMessages);
+            }
         }
 
+        // اتمام ارسال - به‌روزرسانی نهایی و نمایش نتیجه
         $this->isSending = false;
         $this->sendingProgress['current'] = null;
-
-        // لاگ نتیجه نهایی
-        Log::info('GroupSms - Final sending result', [
-            'total' => $this->sendingProgress['total'],
-            'sent' => $this->sendingProgress['sent'],
-            'failed' => $this->sendingProgress['failed'],
-        ]);
-
-        // نمایش پیام نتیجه
-        $message = "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد.";
-        if ($this->sendingProgress['failed'] > 0) {
-            $message .= " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد.";
+        $this->sendingProgress['completed'] = true;
+        
+        // ساخت پیام نتیجه
+        if (!$this->isCancelled) {
+            $message = "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد.";
+            if ($this->sendingProgress['failed'] > 0) {
+                $message .= " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد.";
+            }
+            $this->sendingProgress['result_message'] = $message;
+        } else {
+            $this->sendingProgress['result_message'] = 'ارسال لغو شد. ' . $this->sendingProgress['sent'] . ' پیامک ارسال شده بود.';
         }
+        
+        // Reset لغو شدن
+        $this->isCancelled = false;
+    }
 
-        $this->dispatch('showAlert', [
-            'type' => $this->sendingProgress['failed'] > 0 ? 'warning' : 'success',
-            'title' => $this->sendingProgress['failed'] > 0 ? 'توجه!' : 'موفقیت!',
-            'text' => $message,
-        ]);
+    /**
+     * لغو ارسال پیام‌ها
+     */
+    public function cancelSending()
+    {
+        $this->isCancelled = true;
+        $this->isSending = false;
+        $this->showProgressModal = false;
+        $this->sendingProgress['current'] = null;
+        $this->dispatch('hide-progress-modal');
+    }
+
+    /**
+     * بستن مدال پیشرفت
+     */
+    public function closeProgressModal()
+    {
+        $this->showProgressModal = false;
+        $this->isSending = false;
+        $this->isCancelled = false;
+        $this->sendingProgress = [
+            'total' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'current' => null,
+            'current_index' => 0,
+            'completed' => false,
+            'result_message' => null,
+        ];
+        $this->sendResults = [];
+        $this->dispatch('hide-progress-modal');
     }
 
     /**

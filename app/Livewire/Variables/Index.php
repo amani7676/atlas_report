@@ -4,6 +4,7 @@ namespace App\Livewire\Variables;
 
 use Livewire\Component;
 use App\Models\PatternVariable;
+use App\Models\TableName;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Http;
@@ -120,61 +121,105 @@ class Index extends Component
         $this->availableTableFields = [];
         $this->selectedTableField = '';
         
-        if ($this->variable_type === 'report') {
-            // خواندن فیلدهای جدول reports
-            if (Schema::hasTable('reports')) {
+        // دریافت تمام جدول‌های ثبت شده در "نام گذاری جدول‌ها"
+        $registeredTables = TableName::where('is_visible', true)
+            ->orderBy('name')
+            ->get();
+        
+        // اگر جدولی ثبت نشده باشد، از جدول‌های پیش‌فرض استفاده می‌کنیم
+        if ($registeredTables->isEmpty()) {
+            // استفاده از منطق قبلی برای backward compatibility
+            $this->loadDefaultTableFields();
+            return;
+        }
+        
+        // برای هر جدول ثبت شده، فیلدهای آن را می‌خوانیم
+        foreach ($registeredTables as $tableName) {
+            $tableNameStr = $tableName->table_name;
+            $tableDisplayName = $tableName->name;
+            
+            if (Schema::hasTable($tableNameStr)) {
                 try {
-                    $columns = Schema::getColumnListing('reports');
+                    $columns = Schema::getColumnListing($tableNameStr);
                     foreach ($columns as $column) {
                         // حذف فیلدهای سیستمی
                         if (!in_array($column, ['id', 'created_at', 'updated_at'])) {
+                            // برای فیلدهای مستقیم جدول
                             $this->availableTableFields[] = [
                                 'name' => $column,
-                                'label' => $this->getFieldLabel($column),
+                                'label' => $tableDisplayName . ' - ' . $this->getFieldLabel($column),
+                                'table_name' => $tableNameStr,
+                                'table_display_name' => $tableDisplayName,
                             ];
+                            
+                            // اگر جدول دارای رابطه با جدول دیگر است (مثلاً category_id)، فیلدهای آن را هم اضافه می‌کنیم
+                            // این منطق برای جدول‌های خاص مثل reports که با categories رابطه دارد
+                            if ($tableNameStr === 'reports' && $column === 'category_id' && Schema::hasTable('categories')) {
+                                try {
+                                    $categoryColumns = Schema::getColumnListing('categories');
+                                    foreach ($categoryColumns as $catColumn) {
+                                        if (!in_array($catColumn, ['id', 'created_at', 'updated_at'])) {
+                                            $this->availableTableFields[] = [
+                                                'name' => 'category.' . $catColumn,
+                                                'label' => $tableDisplayName . ' - دسته‌بندی - ' . $this->getFieldLabel($catColumn),
+                                                'table_name' => 'categories',
+                                                'table_display_name' => 'دسته‌بندی‌ها',
+                                            ];
+                                        }
+                                    }
+                                } catch (\Exception $e) {
+                                    // در صورت خطا، ادامه می‌دهیم
+                                }
+                            }
                         }
                     }
                 } catch (\Exception $e) {
-                    // در صورت خطا، فیلدهای پیش‌فرض را اضافه می‌کنیم
-                }
-            }
-            
-            // همچنین فیلدهای category را هم اضافه می‌کنیم
-            if (Schema::hasTable('categories')) {
-                try {
-                    $columns = Schema::getColumnListing('categories');
-                    foreach ($columns as $column) {
-                        if (!in_array($column, ['id', 'created_at', 'updated_at'])) {
-                            $this->availableTableFields[] = [
-                                'name' => 'category.' . $column,
-                                'label' => 'دسته‌بندی - ' . $this->getFieldLabel($column),
-                            ];
-                        }
-                    }
-                } catch (\Exception $e) {
+                    \Log::error('Error loading table fields', [
+                        'table_name' => $tableNameStr,
+                        'error' => $e->getMessage(),
+                    ]);
                     // در صورت خطا، ادامه می‌دهیم
                 }
             }
-            
-            // اگر فیلدی پیدا نشد، فیلدهای پیش‌فرض را اضافه می‌کنیم
-            if (empty($this->availableTableFields)) {
-                $defaultFields = [
-                    'title' => 'عنوان گزارش',
-                    'description' => 'توضیحات گزارش',
-                    'negative_score' => 'امتیاز منفی',
-                    'increase_coefficient' => 'ضریب افزایش',
-                    'category.name' => 'نام دسته‌بندی',
-                ];
-                
-                foreach ($defaultFields as $name => $label) {
-                    $this->availableTableFields[] = [
-                        'name' => $name,
-                        'label' => $label,
-                    ];
-                }
-            }
-            
+        }
+        
+        // اگر فیلدی پیدا نشد، از فیلدهای پیش‌فرض استفاده می‌کنیم
+        if (empty($this->availableTableFields)) {
+            $this->loadDefaultTableFields();
+        }
+        
+        // تعیین نام جدول پیش‌فرض بر اساس نوع متغیر
+        if ($this->variable_type === 'report') {
             $this->table_name = 'reports';
+        } elseif ($this->variable_type === 'user') {
+            $this->table_name = 'residents';
+        } else {
+            $this->table_name = '';
+        }
+    }
+    
+    /**
+     * بارگذاری فیلدهای پیش‌فرض (برای backward compatibility)
+     */
+    protected function loadDefaultTableFields()
+    {
+        if ($this->variable_type === 'report') {
+            $defaultFields = [
+                'title' => 'عنوان گزارش',
+                'description' => 'توضیحات گزارش',
+                'negative_score' => 'امتیاز منفی',
+                'increase_coefficient' => 'ضریب افزایش',
+                'category.name' => 'نام دسته‌بندی',
+            ];
+            
+            foreach ($defaultFields as $name => $label) {
+                $this->availableTableFields[] = [
+                    'name' => $name,
+                    'label' => $label,
+                    'table_name' => 'reports',
+                    'table_display_name' => 'گزارش‌ها',
+                ];
+            }
         } elseif ($this->variable_type === 'user') {
             // برای کاربر، فیلدهای API residents را می‌خوانیم
             try {
@@ -224,6 +269,8 @@ class Index extends Component
                         $this->availableTableFields[] = [
                             'name' => $name,
                             'label' => $label,
+                            'table_name' => 'residents',
+                            'table_display_name' => 'اقامت‌گران',
                         ];
                     }
                 }
@@ -242,7 +289,6 @@ class Index extends Component
                     'start_date' => 'تاریخ شروع قرارداد',
                     'end_date' => 'تاریخ پایان قرارداد',
                     'expiry_date' => 'تاریخ سررسید',
-                    // برای backward compatibility
                     'contract_start_date' => 'تاریخ شروع قرارداد',
                     'contract_end_date' => 'تاریخ پایان قرارداد',
                     'contract_expiry_date' => 'تاریخ سررسید',
@@ -252,17 +298,21 @@ class Index extends Component
                     $this->availableTableFields[] = [
                         'name' => $name,
                         'label' => $label,
+                        'table_name' => 'residents',
+                        'table_display_name' => 'اقامت‌گران',
                     ];
                 }
             }
-            
-            $this->table_name = 'residents';
         } else {
             // برای عمومی، فیلدهای خاصی نداریم
             $this->availableTableFields = [
-                ['name' => 'today', 'label' => 'تاریخ امروز'],
+                [
+                    'name' => 'today',
+                    'label' => 'تاریخ امروز',
+                    'table_name' => '',
+                    'table_display_name' => '',
+                ],
             ];
-            $this->table_name = '';
         }
     }
     
@@ -307,13 +357,19 @@ class Index extends Component
         $this->table_field = $fieldName;
         $this->selectedTableField = $fieldName;
         
-        // اگر title خالی است، از label استفاده می‌کنیم
-        if (empty($this->title)) {
-            foreach ($this->availableTableFields as $field) {
-                if ($field['name'] === $fieldName) {
-                    $this->title = $field['label'];
-                    break;
+        // پیدا کردن فیلد انتخاب شده و تنظیم table_name و title
+        foreach ($this->availableTableFields as $field) {
+            if ($field['name'] === $fieldName) {
+                // تنظیم table_name اگر وجود داشته باشد
+                if (isset($field['table_name']) && !empty($field['table_name'])) {
+                    $this->table_name = $field['table_name'];
                 }
+                
+                // اگر title خالی است، از label استفاده می‌کنیم
+                if (empty($this->title)) {
+                    $this->title = $field['label'];
+                }
+                break;
             }
         }
     }

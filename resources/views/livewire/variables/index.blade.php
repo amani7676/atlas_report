@@ -236,21 +236,39 @@
                         <label class="form-label">فیلد جدول <span style="color: red;">*</span></label>
                         
                         @if(!empty($availableTableFields))
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px; max-height: 200px; overflow-y: auto;">
-                                <strong style="font-size: 13px; display: block; margin-bottom: 10px;">فیلدهای موجود در جدول {{ $table_name ?: 'انتخاب شده' }}:</strong>
-                                <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                                    @foreach($availableTableFields as $field)
-                                        <button 
-                                            type="button"
-                                            wire:click="selectTableField('{{ $field['name'] }}')"
-                                            class="btn" 
-                                            style="background: {{ $selectedTableField === $field['name'] ? '#28a745' : '#4361ee' }}; color: white; padding: 5px 10px; font-size: 12px;"
-                                            title="{{ $field['name'] }}"
-                                        >
-                                            {{ $field['label'] }}
-                                        </button>
-                                    @endforeach
-                                </div>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px; max-height: 300px; overflow-y: auto;">
+                                <strong style="font-size: 13px; display: block; margin-bottom: 10px;">فیلدهای موجود در جداول ثبت شده:</strong>
+                                @php
+                                    // گروه‌بندی فیلدها بر اساس جدول
+                                    $groupedFields = [];
+                                    foreach ($availableTableFields as $field) {
+                                        $tableKey = $field['table_display_name'] ?? ($field['table_name'] ?? 'سایر');
+                                        if (!isset($groupedFields[$tableKey])) {
+                                            $groupedFields[$tableKey] = [];
+                                        }
+                                        $groupedFields[$tableKey][] = $field;
+                                    }
+                                @endphp
+                                @foreach($groupedFields as $tableDisplayName => $fields)
+                                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6;">
+                                        <strong style="font-size: 12px; color: #666; display: block; margin-bottom: 8px;">
+                                            <i class="fas fa-table"></i> {{ $tableDisplayName }}
+                                        </strong>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                            @foreach($fields as $field)
+                                                <button 
+                                                    type="button"
+                                                    wire:click="selectTableField('{{ $field['name'] }}')"
+                                                    class="btn" 
+                                                    style="background: {{ $selectedTableField === $field['name'] ? '#28a745' : '#4361ee' }}; color: white; padding: 5px 10px; font-size: 12px;"
+                                                    title="{{ $field['name'] }} ({{ $field['table_name'] ?? '' }})"
+                                                >
+                                                    {{ $field['label'] }}
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
                         @endif
                         

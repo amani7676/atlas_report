@@ -9,6 +9,7 @@ use App\Models\Pattern;
 use App\Models\PatternVariable;
 use App\Models\SmsMessageResident;
 use App\Models\ResidentReport;
+use App\Models\Settings;
 use App\Services\MelipayamakService;
 use App\Services\ResidentService;
 
@@ -32,14 +33,20 @@ class PatternGroup extends Component
     public $senderNumber = ''; // شماره فرستنده
     public $selectedSenderNumberId = null; // ID شماره فرستنده انتخاب شده
     public $availableSenderNumbers = []; // لیست شماره‌های فرستنده موجود
+    public $patternReportWarning = null; // آلارم برای عدم وجود گزارش
     
     // Sending progress
     public $isSending = false;
+    public $showProgressModal = false;
+    public $isCancelled = false;
     public $sendingProgress = [
         'total' => 0,
         'sent' => 0,
         'failed' => 0,
         'current' => null,
+        'current_index' => 0,
+        'completed' => false,
+        'result_message' => null,
     ];
     public $sendResults = []; // نتایج ارسال برای هر resident
 
@@ -117,8 +124,13 @@ class PatternGroup extends Component
 
     public function loadPatterns()
     {
+        // فقط الگوهایی که تایید شده، فعال، دارای pattern_code و برایشان گزارش ست شده نمایش داده می‌شوند
         $this->patterns = Pattern::where('is_active', true)
+            ->where('status', 'approved')
             ->whereNotNull('pattern_code')
+            ->whereHas('reports', function ($query) {
+                $query->where('report_pattern.is_active', true);
+            })
             ->orderBy('title')
             ->get();
     }
@@ -144,6 +156,11 @@ class PatternGroup extends Component
     
     public function updatedSelectedReport($value)
     {
+        // اگر گزارش انتخاب شد، آلارم را پاک کن
+        if ($value) {
+            $this->patternReportWarning = null;
+        }
+        
         $this->loadReportPatterns();
         // اگر الگوهای مرتبط وجود داشت، اولین الگو را به صورت پیش‌فرض انتخاب کن
         if ($this->reportPatterns && $this->reportPatterns->count() > 0 && !$this->selectedPattern) {
@@ -154,7 +171,42 @@ class PatternGroup extends Component
     
     public function updatedSelectedPattern($value)
     {
+        // بررسی اینکه آیا برای الگوی انتخابی گزارش ست شده یا نه
+        $this->checkPatternReport();
         $this->updatePreview();
+    }
+    
+    /**
+     * بررسی اینکه آیا برای الگوی انتخابی گزارش ست شده یا نه
+     */
+    public function checkPatternReport()
+    {
+        $this->patternReportWarning = null;
+        
+        if (!$this->selectedPattern) {
+            return;
+        }
+        
+        $pattern = Pattern::find($this->selectedPattern);
+        if (!$pattern) {
+            return;
+        }
+        
+        // اگر کاربر گزارش را انتخاب کرده باشد، نیازی به بررسی نیست
+        if ($this->selectedReport) {
+            return;
+        }
+        
+        // بررسی اینکه آیا برای این الگو گزارش ست شده یا نه
+        $reports = $pattern->reports()->wherePivot('is_active', true)->get();
+        
+        if ($reports->isEmpty()) {
+            $this->patternReportWarning = 'گزارشی برای پیام انتخابی ثبت نشده';
+        } else {
+            // اگر گزارش ست شده باشد، اولین گزارش را به صورت خودکار انتخاب می‌کنیم
+            $this->selectedReport = $reports->first()->id;
+            $this->loadReportPatterns();
+        }
     }
 
     /**
@@ -311,6 +363,20 @@ class PatternGroup extends Component
             return;
         }
 
+        // بررسی اینکه آیا برای الگوی انتخابی گزارش ست شده یا نه - باید قبل از هر کاری انجام شود
+        $pattern = Pattern::find($this->selectedPattern);
+        if ($pattern) {
+            $reports = $pattern->reports()->wherePivot('is_active', true)->get();
+            if ($reports->isEmpty() && !$this->selectedReport) {
+                // اگر گزارش ست نشده باشد و کاربر هم گزارش انتخاب نکرده باشد، فقط آلارم نمایش می‌دهیم و هیچ کاری نمی‌کنیم
+                $this->patternReportWarning = 'گزارشی برای پیام انتخابی ثبت نشده';
+                $this->isSending = false;
+                $this->showProgressModal = false;
+                $this->dispatch('hide-progress-modal');
+                return;
+            }
+        }
+
         if (empty($this->selectedResidents)) {
             $this->dispatch('showAlert', [
                 'type' => 'warning',
@@ -340,17 +406,80 @@ class PatternGroup extends Component
             }
         }
 
+        // بررسی نهایی قبل از باز شدن مدال - اگر گزارش ست نشده باشد، ارسال نمی‌کنیم
+        $pattern = Pattern::find($this->selectedPattern);
+        if ($pattern) {
+            $reports = $pattern->reports()->wherePivot('is_active', true)->get();
+            // بررسی اینکه آیا گزارش انتخاب شده معتبر است یا نه
+            $validReport = false;
+            if ($this->selectedReport) {
+                $selectedReportObj = Report::find($this->selectedReport);
+                if ($selectedReportObj) {
+                    // بررسی اینکه آیا این گزارش با الگو مرتبط است یا نه
+                    $patternReports = $pattern->reports()->wherePivot('is_active', true)->pluck('reports.id')->toArray();
+                    if (in_array($this->selectedReport, $patternReports)) {
+                        $validReport = true;
+                    }
+                }
+            }
+            
+            if ($reports->isEmpty() && !$validReport) {
+                // اگر گزارش ست نشده باشد و گزارش انتخاب شده هم معتبر نباشد، فقط آلارم نمایش می‌دهیم و هیچ کاری نمی‌کنیم
+                $this->patternReportWarning = 'گزارشی برای پیام انتخابی ثبت نشده';
+                $this->isSending = false;
+                $this->showProgressModal = false;
+                $this->dispatch('hide-progress-modal');
+                return;
+            }
+        }
+        
         $melipayamakService = new MelipayamakService();
         
-        // Reset progress
+        // دریافت تنظیمات تاخیر از دیتابیس
+        $settings = Settings::getSettings();
+        $delayBeforeStart = ($settings->sms_delay_before_start ?? 2) * 1000000; // تبدیل ثانیه به میکروثانیه
+        $delayBetweenMessages = ($settings->sms_delay_between_messages ?? 200) * 1000; // تبدیل میلی‌ثانیه به میکروثانیه
+        
+        // Reset progress و نمایش مدال - باید قبل از هر کار دیگری باشد
         $this->isSending = true;
+        $this->isCancelled = false;
+        $this->showProgressModal = true;
         $this->sendingProgress = [
             'total' => count($this->selectedResidents),
             'sent' => 0,
             'failed' => 0,
-            'current' => null,
+            'current' => 'در حال آماده‌سازی...',
+            'current_index' => 0,
+            'completed' => false,
+            'result_message' => null,
         ];
         $this->sendResults = [];
+        
+        // Dispatch event برای نمایش مدال و قفل صفحه
+        $this->dispatch('show-progress-modal');
+        
+        // اطمینان از render شدن مدال
+        $this->dispatch('$refresh');
+        
+        // تاخیر قبل از شروع ارسال (از تنظیمات) - با به‌روزرسانی مدال
+        if ($delayBeforeStart > 0) {
+            $steps = 10; // 10 مرحله برای به‌روزرسانی مدال
+            $stepDelay = $delayBeforeStart / $steps;
+            for ($i = 0; $i < $steps; $i++) {
+                if ($this->isCancelled) {
+                    $this->isSending = false;
+                    $this->showProgressModal = false;
+                    $this->dispatch('hide-progress-modal');
+                    return;
+                }
+                $remainingSeconds = ceil(($delayBeforeStart - ($i * $stepDelay)) / 1000000);
+                $this->sendingProgress['current'] = 'در حال آماده‌سازی... (' . $remainingSeconds . ' ثانیه باقی مانده)';
+                usleep($stepDelay);
+            }
+        }
+        
+        // به‌روزرسانی وضعیت - شروع واقعی ارسال
+        $this->sendingProgress['current'] = 'شروع ارسال...';
 
         // دریافت اطلاعات گزارش
         $reportData = null;
@@ -367,8 +496,17 @@ class PatternGroup extends Component
             }
         }
 
-        // ارسال به صورت تکی در حلقه
+        // ارسال به صورت تکی در حلقه با تاخیر قابل تنظیم
+        $index = 0;
         foreach ($this->selectedResidents as $key => $residentData) {
+            // بررسی لغو شدن
+            if ($this->isCancelled) {
+                break;
+            }
+
+            $index++;
+            $this->sendingProgress['current_index'] = $index;
+            
             if (empty($residentData['phone'])) {
                 $this->sendingProgress['failed']++;
                 $this->sendResults[] = [
@@ -380,13 +518,14 @@ class PatternGroup extends Component
                         'message' => 'شماره تلفن موجود نیست',
                     ],
                 ];
+                // تاخیر بین پیام‌ها (از تنظیمات)
+                if ($delayBetweenMessages > 0 && $index < count($this->selectedResidents)) {
+                    usleep($delayBetweenMessages);
+                }
                 continue;
             }
 
             $this->sendingProgress['current'] = $residentData['name'] ?? $residentData['resident_name'] ?? 'بدون نام';
-            
-            // Force Livewire to update UI
-            $this->dispatch('$refresh');
 
             try {
                 // استخراج متغیرها از متن الگو برای هر resident
@@ -505,8 +644,8 @@ class PatternGroup extends Component
                     'status' => 'pending',
                 ]);
 
-                // ارسال پیامک با الگو (استفاده از sendByBaseNumber - SOAP)
-                $result = $melipayamakService->sendByBaseNumber(
+                // ارسال پیامک با الگو (استفاده از sendByBaseNumber2 که ابتدا Console API را امتحان می‌کند)
+                $result = $melipayamakService->sendByBaseNumber2(
                     $residentData['phone'],
                     $pattern->pattern_code,
                     $variables,
@@ -577,18 +716,62 @@ class PatternGroup extends Component
                 $this->sendingProgress['failed']++;
             }
             
-            // Force Livewire to update UI
-            $this->dispatch('$refresh');
+            // تاخیر بین پیام‌ها (از تنظیمات) - فقط اگر آخرین پیام نباشد
+            if (!$this->isCancelled && $index < count($this->selectedResidents) && $delayBetweenMessages > 0) {
+                usleep($delayBetweenMessages);
+            }
         }
 
+        // اتمام ارسال - به‌روزرسانی نهایی و نمایش نتیجه
         $this->isSending = false;
         $this->sendingProgress['current'] = null;
+        $this->sendingProgress['completed'] = true;
+        
+        // ساخت پیام نتیجه
+        if (!$this->isCancelled) {
+            $message = "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد.";
+            if ($this->sendingProgress['failed'] > 0) {
+                $message .= " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد.";
+            }
+            $this->sendingProgress['result_message'] = $message;
+        } else {
+            $this->sendingProgress['result_message'] = 'ارسال لغو شد. ' . $this->sendingProgress['sent'] . ' پیامک ارسال شده بود.';
+        }
+        
+        // Reset لغو شدن
+        $this->isCancelled = false;
+    }
 
-        $this->dispatch('showAlert', [
-            'type' => $this->sendingProgress['failed'] > 0 ? 'warning' : 'success',
-            'title' => $this->sendingProgress['failed'] > 0 ? 'توجه!' : 'موفقیت!',
-            'text' => "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد." . ($this->sendingProgress['failed'] > 0 ? " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد." : ''),
-        ]);
+    /**
+     * لغو ارسال پیام‌ها
+     */
+    public function cancelSending()
+    {
+        $this->isCancelled = true;
+        $this->isSending = false;
+        $this->showProgressModal = false;
+        $this->sendingProgress['current'] = null;
+        $this->dispatch('hide-progress-modal');
+    }
+
+    /**
+     * بستن مدال پیشرفت
+     */
+    public function closeProgressModal()
+    {
+        $this->showProgressModal = false;
+        $this->isSending = false;
+        $this->isCancelled = false;
+        $this->sendingProgress = [
+            'total' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'current' => null,
+            'current_index' => 0,
+            'completed' => false,
+            'result_message' => null,
+        ];
+        $this->dispatch('hide-progress-modal');
     }
 
     public function removeResident($key)
@@ -711,8 +894,8 @@ class PatternGroup extends Component
 
             $melipayamakService = new MelipayamakService();
 
-            // ارسال مجدد
-            $newResult = $melipayamakService->sendByBaseNumber(
+            // ارسال مجدد (استفاده از sendByBaseNumber2 که ابتدا Console API را امتحان می‌کند)
+            $newResult = $melipayamakService->sendByBaseNumber2(
                 $residentData['phone'],
                 $pattern->pattern_code,
                 $variables,

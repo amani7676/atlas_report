@@ -146,10 +146,6 @@
                 font-size: 0.8rem;
             }
 
-            /* بهبود نمایش بخش جستجوی اقامت‌گر */
-            .position-absolute {
-                z-index: 1000;
-            }
         }
 
         /* استایل‌های خاص برای گوشی‌های کوچکتر */
@@ -281,252 +277,48 @@
             </div>
         </div>
 
-        <!-- بخش جستجوی اقامت‌گر و اقامت‌گران برتر -->
-        <div class="row mb-3">
-            <!-- بخش جستجوی اقامت‌گران -->
-            <div class="col-12 col-md-6">
-                <div class="card h-100">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0"><i class="fas fa-search me-2"></i>جستجوی اقامت‌گر</h6>
-                    </div>
-                    <div class="card-body">
-                        <!-- فیلد جستجو -->
-                        <div class="mb-3 position-relative">
-                            <input type="text" wire:model.live.debounce.300ms="residentSearch" class="form-control"
-                                placeholder="نام اقامت‌گر را وارد کنید...">
-                            @if (!$showResidentDetails && $residentSearch && count($residentsList) > 0)
-                                <div class="position-absolute w-100 bg-white border border-top-0 rounded-bottom shadow-lg"
-                                    style="z-index: 10; max-height: 200px; overflow-y: auto;">
-                                    @foreach ($residentsList as $resident)
-                                        <a href="#" wire:click="selectResident('{{ $resident }}')"
-                                            class="d-block p-2 text-decoration-none hover-bg-light">
-                                            {{ $resident }}
-                                        </a>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-
-                        @if ($showResidentDetails && $selectedResident)
-                            <div class="border-top pt-3">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0">{{ $selectedResident }}</h5>
-                                    <button wire:click="closeResidentDetails" class="btn btn-sm btn-outline-secondary">
-                                        <i class="fas fa-times"></i> بستن
-                                    </button>
-                                </div>
-
-                                <div class="row mb-3">
-                                    <div class="col-6">
-                                        <div class="card bg-light text-center">
-                                            <div class="card-body p-2">
-                                                <h6 class="card-title mb-1">تعداد گزارش‌ها</h6>
-                                                <h4 class="mb-0 text-primary">{{ count($residentReports) }}</h4>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="card bg-light text-center">
-                                            <div class="card-body p-2">
-                                                <h6 class="card-title mb-1">مجموع نمرات منفی</h6>
-                                                <h4 class="mb-0 text-danger">
-                                                    {{ $residentReports->sum(function ($report) {return $report->report->negative_score ?? 0;}) }}
-                                                </h4>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <h6 class="mb-2">لیست گزارش‌ها:</h6>
-                                <div style="max-height: 250px; overflow-y: auto;">
-                                    <table class="table table-sm table-hover">
-                                        <thead class="table-light sticky-top">
-                                            <tr>
-                                                <th>گزارش</th>
-                                                <th>نمره</th>
-                                                <th>توضیحات</th>
-                                                <th>تاریخ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse($residentReports as $report)
-                                                <tr>
-                                                    <td>
-                                                        <div>
-                                                            <strong>{{ $report->report->title ?? 'حذف شده' }}</strong>
-                                                            <br>
-                                                            <small
-                                                                class="text-muted">{{ $report->report->category->name ?? 'بدون دسته' }}</small>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <span class="badge bg-danger">
-                                                            {{ $report->report->negative_score ?? 0 }}
-                                                        </span>
-                                                    </td>
-                                                    <td>{{ $report->notes }}</td>
-                                                    <td>{{ jalaliDate($report->created_at, 'Y/m/d') }}</td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="3" class="text-center">گزارشی یافت نشد</td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <!-- بخش اقامت‌گران برتر -->
-            <div class="col-12 col-md-6">
-                <div class="card h-100">
-                    <div class="card-header bg-danger text-dark">
-                        <h6 class="mb-0"><i class="fas fa-user me-2"></i>اقامت‌گران برتر (بیشترین گزارش)</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
-                            <table class="table table-sm table-hover">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th width="5%">#</th>
-                                        <th>اقامت‌گر</th>
-                                        <th>تلفن</th>
-                                        <th>موقعیت</th>
-                                        <th>تعداد گزارش</th>
-                                        <th>مجموع نمرات</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php $counter = 1; ?>
-                                    @forelse ($topResidents as $resident)
-                                        <tr>
-                                            <td>
-                                                <span
-                                                    class="badge rounded-pill bg-danger">{{ $counter++ }}</span>
-                                            </td>
-                                            <td>
-                                                <strong>{{ $resident->resident_name }}</strong>
-                                            </td>
-                                            <td>
-                                                {{ $resident->phone ?? 'ثبت نشده' }}
-                                            </td>
-                                            <td>
-                                                <span
-                                                    class="badge bg-primary mb-1">{{ $resident->unit_name ?? 'واحد نامشخص' }}</span>
-                                                <br>
-                                                <small>
-                                                    اتاق: {{ $resident->room_name ?? 'نامشخص' }}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-primary">{{ $resident->report_count }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-danger">{{ $resident->total_score }}</span>
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="text-center py-4">
-                                                <p class="text-muted mb-0">اقامت‌گری یافت نشد</p>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- بخش جستجو و فیلترهای اصلی -->
+        <!-- بخش فیلترهای اصلی -->
         <div class="card mb-3">
             <div class="card-header bg-light">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                    <button class="btn btn-outline-primary btn-sm mb-2 mb-md-0" wire:click="$toggle('showFilters')">
-                        <i class="fas fa-filter me-1"></i>
-                        فیلترها {{ $showFilters ? '▼' : '▶' }}
-                    </button>
-
-                    <div class="d-flex flex-column flex-md-row gap-2 w-100 w-md-auto">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">
-                                <i class="fas fa-search"></i>
-                            </span>
-                            <input type="text" wire:model.live.debounce.300ms="search" class="form-control"
-                                placeholder="جستجو در گزارش‌ها...">
-                        </div>
-
-                        <select wire:model.live="perPage" class="form-select form-select-sm">
-                            <option value="10">10 در صفحه</option>
-                            <option value="25">25 در صفحه</option>
-                            <option value="50">50 در صفحه</option>
-                            <option value="100">100 در صفحه</option>
+                <div class="row g-2">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">نام اقامت‌گر</label>
+                        <input type="text" wire:model.live.debounce.300ms="filters.resident_name" 
+                            class="form-control form-control-sm" 
+                            placeholder="نام اقامت‌گر...">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">تلفن اقامت‌گر</label>
+                        <input type="text" wire:model.live.debounce.300ms="filters.resident_phone" 
+                            class="form-control form-control-sm" 
+                            placeholder="شماره تلفن...">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">گزارش</label>
+                        <select wire:model.live="filters.report_id" class="form-select form-select-sm">
+                            <option value="">همه گزارش‌ها</option>
+                            @foreach ($reportsList as $report)
+                                <option value="{{ $report->id }}">{{ $report->title }}</option>
+                            @endforeach
                         </select>
                     </div>
-                </div>
-
-                @if ($showFilters)
-                    <div class="row mt-3 g-2">
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small mb-1">واحد</label>
-                            <select wire:model.live="filters.unit_id" class="form-select form-select-sm">
-                                <option value="">همه واحدها</option>
-                                @foreach ($units as $unit)
-                                    <option value="{{ $unit['id'] }}">{{ $unit['name'] }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small mb-1">اتاق</label>
-                            <select wire:model.live="filters.room_id" class="form-select form-select-sm">
-                                <option value="">همه اتاق‌ها</option>
-                                @foreach ($filteredRooms as $room)
-                                    <option value="{{ $room['id'] }}">{{ $room['name'] }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small mb-1">دسته‌بندی</label>
-                            <select wire:model.live="filters.category_id" class="form-select form-select-sm">
-                                <option value="">همه دسته‌بندی‌ها</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small mb-1">گزارش</label>
-                            <select wire:model.live="filters.report_id" class="form-select form-select-sm">
-                                <option value="">همه گزارش‌ها</option>
-                                @foreach ($reportsList as $report)
-                                    <option value="{{ $report->id }}">{{ $report->title }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small mb-1">از تاریخ</label>
-                            <input type="date" wire:model.live="filters.date_from"
-                                class="form-control form-control-sm">
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small mb-1">تا تاریخ</label>
-                            <input type="date" wire:model.live="filters.date_to"
-                                class="form-control form-control-sm">
-                        </div>
-
-                        <div class="col-12 mt-2">
-                            <button wire:click="resetFilters" class="btn btn-sm btn-outline-danger">
-                                <i class="fas fa-times me-1"></i>حذف فیلترها
-                            </button>
-                        </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">از تاریخ</label>
+                        <input type="date" wire:model.live="filters.date_from"
+                            class="form-control form-control-sm">
                     </div>
-                @endif
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">تا تاریخ</label>
+                        <input type="date" wire:model.live="filters.date_to"
+                            class="form-control form-control-sm">
+                    </div>
+
+                    <div class="col-12 mt-2">
+                        <button wire:click="resetFilters" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-times me-1"></i>حذف فیلترها
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -555,6 +347,15 @@
 
         <!-- جدول اصلی گزارش‌های اطلاع‌رسانی -->
         <div class="card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">لیست گزارش‌های اطلاع‌رسانی</h6>
+                <select wire:model.live="perPage" class="form-select form-select-sm" style="width: auto;">
+                    <option value="10">10 در صفحه</option>
+                    <option value="25">25 در صفحه</option>
+                    <option value="50">50 در صفحه</option>
+                    <option value="100">100 در صفحه</option>
+                </select>
+            </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
@@ -739,7 +540,7 @@
                                     <td colspan="7" class="text-center py-4">
                                         <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
                                         <p class="text-muted">هیچ گزارشی یافت نشد</p>
-                                        @if ($search || array_filter($filters))
+                                        @if (array_filter($filters))
                                             <button wire:click="resetFilters" class="btn btn-sm btn-outline-primary">
                                                 حذف فیلترها
                                             </button>

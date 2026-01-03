@@ -6,6 +6,9 @@ use App\Models\Resident;
 use App\Models\Pattern;
 use App\Models\PatternVariable;
 use App\Models\SmsMessageResident;
+use App\Models\ResidentReport;
+use App\Models\Report;
+use App\Models\Settings;
 use App\Services\MelipayamakService;
 use App\Services\ResidentService;
 use Livewire\Component;
@@ -64,14 +67,21 @@ class ExpiredToday extends Component
     // Pattern SMS properties
     public $selectedPattern = null;
     public $patterns = [];
+    public $patternReportWarning = null; // آلارم برای عدم وجود گزارش
     
     // Sending progress
     public $isSending = false;
+    public $showProgressModal = false;
+    public $isCancelled = false;
     public $sendingProgress = [
         'total' => 0,
         'sent' => 0,
         'failed' => 0,
         'current' => null,
+        'current_index' => 0,
+        'completed' => false,
+        'result_message' => null,
+        'errors' => [], // آرایه برای ذخیره جزئیات خطاها
     ];
 
     protected $paginationTheme = 'bootstrap';
@@ -168,6 +178,8 @@ class ExpiredToday extends Component
     
     public function updatedSelectedPattern()
     {
+        // بررسی اینکه آیا برای الگوی انتخابی گزارش ست شده یا نه
+        $this->checkPatternReport();
         // ارسال event برای به‌روزرسانی دکمه
         $this->dispatch('updateSendButton');
     }
@@ -285,43 +297,144 @@ class ExpiredToday extends Component
 
     public function loadPatterns()
     {
-        // فقط الگوهایی که فعال، تایید شده و دارای pattern_code هستند
+        // فقط الگوهایی که فعال، تایید شده، دارای pattern_code و برایشان گزارش ست شده هستند
         $this->patterns = Pattern::where('is_active', true)
             ->where('status', 'approved')
             ->whereNotNull('pattern_code')
+            ->whereHas('reports', function ($query) {
+                $query->where('report_pattern.is_active', true);
+            })
             ->orderBy('title')
             ->get();
     }
 
+    /**
+     * بررسی اینکه آیا برای الگوی انتخابی گزارش ست شده یا نه
+     */
+    public function checkPatternReport()
+    {
+        $this->patternReportWarning = null;
+        
+        if (!$this->selectedPattern) {
+            return;
+        }
+        
+        $pattern = Pattern::find($this->selectedPattern);
+        if (!$pattern) {
+            return;
+        }
+        
+        // بررسی اینکه آیا برای این الگو گزارش ست شده یا نه
+        $reports = $pattern->reports()->wherePivot('is_active', true)->get();
+        
+        if ($reports->isEmpty()) {
+            $this->patternReportWarning = 'گزارشی برای پیام انتخابی ثبت نشده';
+        }
+    }
 
+    /**
+     * ثبت خودکار گزارش برای اقامت‌گر هنگام ارسال پیامک
+     */
+    protected function createReportForResident($pattern, $resident)
+    {
+        try {
+            // پیدا کردن اولین گزارش فعال مرتبط با الگو
+            $report = $pattern->reports()->wherePivot('is_active', true)->first();
+            
+            if (!$report) {
+                // اگر گزارش ست نشده باشد، چیزی ثبت نمی‌کنیم
+                return;
+            }
+            
+            // بررسی اینکه آیا قبلاً این گزارش برای این اقامت‌گر ثبت شده یا نه
+            $existingReport = ResidentReport::where('report_id', $report->id)
+                ->where('resident_id', $resident->id)
+                ->whereDate('created_at', now()->toDateString())
+                ->first();
+            
+            if ($existingReport) {
+                // اگر امروز قبلاً ثبت شده، چیزی ثبت نمی‌کنیم
+                return;
+            }
+            
+            // ثبت گزارش جدید
+            ResidentReport::create([
+                'report_id' => $report->id,
+                'resident_id' => $resident->id,
+                'notes' => 'ایجاد شده به صورت خودکار از ارسال پیامک سررسید',
+                'has_been_sent' => true,
+                'is_checked' => false,
+            ]);
+            
+            Log::info('ExpiredToday - Report created automatically', [
+                'report_id' => $report->id,
+                'resident_id' => $resident->id,
+                'pattern_id' => $pattern->id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('ExpiredToday - Error creating report', [
+                'resident_id' => $resident->id,
+                'pattern_id' => $pattern->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * شروع فرآیند ارسال - فقط مدال را نمایش می‌دهد
+     */
+    public function startSending()
+    {
+        // بررسی اینکه آیا می‌توان ارسال کرد
+        if (!$this->canSend) {
+            return;
+        }
+
+        // Reset progress و نمایش مدال - باید قبل از هر کار دیگری باشد
+        $this->isSending = true;
+        $this->isCancelled = false;
+        $this->showProgressModal = true;
+        $this->sendingProgress = [
+            'total' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'current' => 'در حال آماده‌سازی...',
+            'current_index' => 0,
+            'completed' => false,
+            'result_message' => null,
+            'errors' => [],
+        ];
+        
+        // Dispatch event برای نمایش مدال و قفل صفحه
+        $this->dispatch('show-progress-modal');
+    }
+
+    /**
+     * ارسال پیامک با الگو
+     */
     public function sendPatternSms()
     {
         // اعتبارسنجی
         if (!$this->selectedPattern) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'لطفاً یک الگو را انتخاب کنید.'
-            ]);
             return;
         }
 
         if (empty($this->selectedResidents)) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'لطفاً حداقل یک اقامت‌گر را انتخاب کنید.'
-            ]);
             return;
         }
 
         $pattern = Pattern::find($this->selectedPattern);
         if (!$pattern || !$pattern->pattern_code) {
-            $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'خطا!',
-                'text' => 'الگوی انتخاب شده معتبر نیست یا کد الگو ندارد.'
-            ]);
+            return;
+        }
+
+        // بررسی اینکه آیا برای این الگو گزارش ست شده یا نه
+        $reports = $pattern->reports()->wherePivot('is_active', true)->get();
+        if ($reports->isEmpty()) {
+            // اگر گزارش ست نشده باشد، فقط آلارم نمایش می‌دهیم و هیچ کاری نمی‌کنیم
+            $this->patternReportWarning = 'گزارشی برای پیام انتخابی ثبت نشده';
+            $this->isSending = false;
+            $this->showProgressModal = false;
             return;
         }
 
@@ -332,11 +445,6 @@ class ExpiredToday extends Component
             ->get();
 
         if ($selectedResidents->isEmpty()) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'هشدار!',
-                'text' => 'هیچ اقامت‌گری با شماره تلفن در لیست انتخاب شده یافت نشد.'
-            ]);
             return;
         }
 
@@ -354,46 +462,107 @@ class ExpiredToday extends Component
         }
 
         if (empty($activeResidents)) {
-            $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'خطا!',
-                'text' => 'هیچ اقامت‌گر فعالی برای ارسال پیامک وجود ندارد. ' . implode(', ', $disabledResidents)
-            ]);
             return;
         }
 
-        if (!empty($disabledResidents)) {
-            $this->dispatch('showAlert', [
-                'type' => 'warning',
-                'title' => 'توجه!',
-                'text' => 'تعداد ' . count($disabledResidents) . ' اقامت‌گر به دلیل عدم تطابق تاریخ سررسید با نوت، از ارسال حذف شدند.'
-            ]);
-        }
-
-        // دریافت API Key از config
-        $apiKey = config('services.melipayamak.console_api_key');
+        // دریافت شماره فرستنده و API Key از شماره انتخاب شده (مشابه PatternTest)
+        // در ExpiredToday ما شماره فرستنده انتخاب نمی‌کنیم، پس از دیتابیس یا config استفاده می‌کنیم
+        $senderNumberObj = null;
+        $apiKey = null;
+        
+        // اول سعی می‌کنیم از SenderNumber استفاده کنیم (اگر در آینده اضافه شد)
+        // در حال حاضر از دیتابیس یا config استفاده می‌کنیم
+        
+        // دریافت API Key از دیتابیس یا config
+        $dbConsoleKey = \App\Models\ApiKey::getKeyValue('console_api_key');
+        $dbApiKey = \App\Models\ApiKey::getKeyValue('api_key');
+        $configConsoleKey = config('services.melipayamak.console_api_key');
+        $configApiKey = config('services.melipayamak.api_key');
+        
+        Log::info('ExpiredToday - API Key sources', [
+            'db_console_key_exists' => !empty($dbConsoleKey),
+            'db_console_key_length' => $dbConsoleKey ? strlen($dbConsoleKey) : 0,
+            'db_console_key_preview' => $dbConsoleKey ? substr($dbConsoleKey, 0, 8) . '...' : 'empty',
+            'db_api_key_exists' => !empty($dbApiKey),
+            'db_api_key_length' => $dbApiKey ? strlen($dbApiKey) : 0,
+            'db_api_key_preview' => $dbApiKey ? substr($dbApiKey, 0, 8) . '...' : 'empty',
+            'config_console_key_exists' => !empty($configConsoleKey),
+            'config_api_key_exists' => !empty($configApiKey),
+        ]);
+        
+        $apiKey = $dbConsoleKey
+            ?: $dbApiKey
+            ?: $configConsoleKey
+            ?: $configApiKey;
 
         $melipayamakService = new MelipayamakService();
         $residentService = new ResidentService();
         
-        // Reset progress
+        // دریافت تنظیمات تاخیر از دیتابیس
+        $settings = Settings::getSettings();
+        $delayBeforeStart = ($settings->sms_delay_before_start ?? 2) * 1000000; // تبدیل ثانیه به میکروثانیه
+        $delayBetweenMessages = ($settings->sms_delay_between_messages ?? 200) * 1000; // تبدیل میلی‌ثانیه به میکروثانیه
+        
+        // Reset progress و نمایش مدال - باید قبل از هر کار دیگری باشد
         $this->isSending = true;
+        $this->isCancelled = false;
+        $this->showProgressModal = true;
         $this->sendingProgress = [
             'total' => count($activeResidents),
             'sent' => 0,
             'failed' => 0,
-            'current' => null,
+            'current' => 'در حال آماده‌سازی...',
+            'current_index' => 0,
+            'errors' => [], // آرایه برای ذخیره جزئیات خطاها
         ];
+        
+        // Dispatch event برای نمایش مدال و قفل صفحه
+        $this->dispatch('show-progress-modal');
+        
+        // اطمینان از render شدن مدال
+        $this->dispatch('$refresh');
+        
+        // تاخیر قبل از شروع ارسال (از تنظیمات) - با به‌روزرسانی مدال
+        if ($delayBeforeStart > 0) {
+            $steps = 10; // 10 مرحله برای به‌روزرسانی مدال
+            $stepDelay = $delayBeforeStart / $steps;
+            for ($i = 0; $i < $steps; $i++) {
+                if ($this->isCancelled) {
+                    $this->isSending = false;
+                    $this->showProgressModal = false;
+                    $this->dispatch('hide-progress-modal');
+                    return;
+                }
+                $remainingSeconds = ceil(($delayBeforeStart - ($i * $stepDelay)) / 1000000);
+                $this->sendingProgress['current'] = 'در حال آماده‌سازی... (' . $remainingSeconds . ' ثانیه باقی مانده)';
+                usleep($stepDelay);
+            }
+        }
+        
+        // به‌روزرسانی وضعیت - شروع واقعی ارسال
+        $this->sendingProgress['current'] = 'شروع ارسال...';
 
-        // ارسال به صورت تکی در حلقه (فقط اقامت‌گران فعال)
+        // ارسال به صورت تکی در حلقه با تاخیر قابل تنظیم (فقط اقامت‌گران فعال)
+        $index = 0;
         foreach ($activeResidents as $resident) {
+            // بررسی لغو شدن
+            if ($this->isCancelled) {
+                break;
+            }
+
+            $index++;
+            $this->sendingProgress['current_index'] = $index;
+            
             if (empty($resident->resident_phone)) {
                 $this->sendingProgress['failed']++;
+                // تاخیر بین پیام‌ها (از تنظیمات)
+                if ($delayBetweenMessages > 0 && $index < count($activeResidents)) {
+                    usleep($delayBetweenMessages);
+                }
                 continue;
             }
 
             $this->sendingProgress['current'] = $resident->resident_full_name ?? 'بدون نام';
-            $this->dispatch('$refresh');
             
             try {
                 // دریافت اطلاعات کامل resident از API
@@ -416,6 +585,7 @@ class ExpiredToday extends Component
                     'resident_id' => $resident->resident_id ?? $resident->id,
                     'resident_name' => $resident->resident_full_name,
                     'name' => $resident->resident_full_name,
+                    'full_name' => $resident->resident_full_name, // اضافه کردن full_name برای متغیر {0}
                     'phone' => $resident->resident_phone,
                     'unit_id' => $resident->unit_id ?? null,
                     'unit_name' => $resident->unit_name ?? '',
@@ -423,10 +593,31 @@ class ExpiredToday extends Component
                     'room_name' => $resident->room_name ?? '',
                     'bed_id' => $resident->bed_id ?? null,
                     'bed_name' => $resident->bed_name ?? '',
+                    'contract_payment_date_jalali' => $resident->contract_payment_date_jalali ?? '',
+                    'payment_date_jalali' => $resident->contract_payment_date_jalali ?? '',
                 ];
+                
+                // لاگ داده‌های resident برای دیباگ
+                Log::info('ExpiredToday - Resident data prepared', [
+                    'resident_id' => $resident->id,
+                    'resident_full_name' => $resident->resident_full_name,
+                    'contract_payment_date_jalali' => $resident->contract_payment_date_jalali,
+                    'resident_data' => $residentData,
+                ]);
 
                 // استخراج متغیرها از متن الگو
                 $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentApiData);
+
+                // لاگ متغیرها برای دیباگ
+                Log::info('ExpiredToday - Pattern variables extracted', [
+                    'pattern_id' => $pattern->id,
+                    'pattern_text' => $pattern->text,
+                    'pattern_code' => $pattern->pattern_code,
+                    'variables' => $variables,
+                    'variables_count' => count($variables),
+                    'resident_name' => $resident->resident_full_name,
+                    'resident_phone' => $resident->resident_phone,
+                ]);
 
                 // اطمینان از اینکه pattern_code عدد است
                 $bodyId = (int)$pattern->pattern_code;
@@ -434,6 +625,15 @@ class ExpiredToday extends Component
                 // اطمینان از اینکه variables یک آرایه است
                 if (!is_array($variables)) {
                     $variables = [];
+                }
+                
+                // بررسی اینکه آیا متغیرها خالی هستند
+                if (empty($variables) || (count($variables) > 0 && empty(array_filter($variables)))) {
+                    Log::warning('ExpiredToday - Variables are empty or all empty', [
+                        'pattern_id' => $pattern->id,
+                        'pattern_text' => $pattern->text,
+                        'variables' => $variables,
+                    ]);
                 }
 
                 // ایجاد رکورد در جدول sms_message_residents
@@ -451,56 +651,36 @@ class ExpiredToday extends Component
                     'status' => 'pending',
                 ]);
 
-                // ارسال پیامک با الگو - استفاده از استراتژی مشابه GroupSms
-                $result = null;
+                // ارسال پیامک با الگو - استفاده از sendByBaseNumber (SOAP API) مشابه PatternTest
+                // این متد از username/password استفاده می‌کند و معمولاً قابل اعتمادتر است
+                Log::info('ExpiredToday - Using sendByBaseNumber (SOAP API) like PatternTest', [
+                    'bodyId' => $bodyId,
+                    'variables' => $variables,
+                    'variables_count' => count($variables),
+                    'phone' => $resident->resident_phone,
+                    'api_key_provided' => !empty($apiKey),
+                ]);
                 
-                // بررسی اینکه SOAP extension فعال است
-                if (extension_loaded('soap')) {
-                    Log::info('ExpiredToday - Trying SOAP API first');
-                    
-                    // استفاده از SOAP API
-                    $soapResult = $melipayamakService->sendByBaseNumber(
-                        $resident->resident_phone,
-                        $bodyId,
-                        $variables,
-                        null,
-                        null
-                    );
-                    
-                    if ($soapResult['success']) {
-                        $result = $soapResult;
-                        Log::info('ExpiredToday - SOAP API succeeded');
-                    } else {
-                        Log::warning('ExpiredToday - SOAP API failed, trying REST API', [
-                            'soap_error' => $soapResult['message'] ?? 'Unknown error',
-                        ]);
-                    }
-                } else {
-                    Log::warning('ExpiredToday - SOAP extension not loaded, using REST API');
-                }
+                // استفاده از sendByBaseNumber (SOAP API) مشابه PatternTest
+                // این متد از username/password از config استفاده می‌کند
+                $result = $melipayamakService->sendByBaseNumber(
+                    $resident->resident_phone,
+                    $bodyId,
+                    $variables,
+                    null, // شماره فرستنده (null = از config استفاده می‌شود)
+                    $apiKey // API Key (اختیاری - برای SOAP API استفاده نمی‌شود)
+                );
                 
-                // اگر SOAP استفاده نشد یا خطا داد، از REST API استفاده می‌کنیم
-                if (!$result || !$result['success']) {
-                    $restApiKey = $apiKey;
-                    if (empty($restApiKey) || strlen($restApiKey) < 20) {
-                        $restApiKey = config('services.melipayamak.console_api_key');
-                    }
-                    
-                    Log::info('ExpiredToday - Using REST API (console) with API key', [
-                        'api_key_length' => $restApiKey ? strlen($restApiKey) : 0,
-                        'api_key_preview' => $restApiKey ? substr($restApiKey, 0, 8) . '...' : 'empty',
-                    ]);
-                    
-                    $restResult = $melipayamakService->sendByBaseNumber2(
-                        $resident->resident_phone,
-                        $bodyId,
-                        $variables,
-                        null,
-                        $restApiKey
-                    );
-                    
-                    $result = $restResult;
-                }
+                // لاگ نتیجه ارسال
+                Log::info('ExpiredToday - sendByBaseNumber2 result', [
+                    'success' => $result['success'] ?? false,
+                    'message' => $result['message'] ?? 'No message',
+                    'response_code' => $result['response_code'] ?? null,
+                    'rec_id' => $result['rec_id'] ?? null,
+                    'status' => $result['status'] ?? null,
+                    'http_status_code' => $result['http_status_code'] ?? null,
+                    'raw_response' => $result['raw_response'] ?? null,
+                ]);
 
                 if ($result['success']) {
                     $smsMessageResident->update([
@@ -510,23 +690,31 @@ class ExpiredToday extends Component
                         'error_message' => null,
                     ]);
                     $this->sendingProgress['sent']++;
+                    
+                    // ثبت خودکار گزارش برای اقامت‌گر (اگر برای الگو گزارش ست شده باشد)
+                    $this->createReportForResident($pattern, $resident);
                 } else {
                     $errorMessage = $result['message'] ?? 'خطای نامشخص';
+                    $responseCode = $result['response_code'] ?? 'نامشخص';
+                    $rawResponse = $result['raw_response'] ?? null;
+                    
+                    // ذخیره جزئیات خطا
+                    $this->sendingProgress['errors'][] = [
+                        'resident_name' => $resident->resident_full_name ?? 'نامشخص',
+                        'phone' => $resident->resident_phone ?? 'نامشخص',
+                        'error_message' => $errorMessage,
+                        'response_code' => $responseCode,
+                        'raw_response' => $rawResponse,
+                        'http_status_code' => $result['http_status_code'] ?? null,
+                        'status' => $result['status'] ?? null,
+                    ];
+                    
                     $smsMessageResident->update([
                         'status' => 'failed',
                         'error_message' => $errorMessage,
-                        'response_code' => $result['response_code'] ?? null,
+                        'response_code' => $responseCode,
                     ]);
                     $this->sendingProgress['failed']++;
-                    
-                    // نمایش خطا برای اولین خطا
-                    if ($this->sendingProgress['failed'] === 1) {
-                        $this->dispatch('showAlert', [
-                            'type' => 'error',
-                            'title' => 'خطا در ارسال!',
-                            'text' => 'خطا در ارسال به ' . ($resident->resident_full_name ?? 'نامشخص') . ': ' . $errorMessage,
-                        ]);
-                    }
                 }
             } catch (\Exception $e) {
                 Log::error('Error sending SMS to resident', [
@@ -535,38 +723,83 @@ class ExpiredToday extends Component
                     'trace' => $e->getTraceAsString()
                 ]);
                 
+                // ذخیره جزئیات خطای exception
+                $this->sendingProgress['errors'][] = [
+                    'resident_name' => $resident->resident_full_name ?? 'نامشخص',
+                    'phone' => $resident->resident_phone ?? 'نامشخص',
+                    'error_message' => 'خطا در ارسال: ' . $e->getMessage(),
+                    'response_code' => 'exception',
+                    'raw_response' => $e->getMessage(),
+                    'http_status_code' => null,
+                    'status' => null,
+                ];
+                
                 $this->sendingProgress['failed']++;
                 
-                if ($this->sendingProgress['failed'] === 1) {
-                    $this->dispatch('showAlert', [
-                        'type' => 'error',
-                        'title' => 'خطا در ارسال!',
-                        'text' => 'خطا در ارسال به ' . ($resident->resident_full_name ?? 'نامشخص') . ': ' . $e->getMessage(),
-                    ]);
-                }
             }
             
-            $this->dispatch('$refresh');
+            // تاخیر بین پیام‌ها (از تنظیمات) - فقط اگر آخرین پیام نباشد
+            if (!$this->isCancelled && $index < count($activeResidents) && $delayBetweenMessages > 0) {
+                usleep($delayBetweenMessages);
+            }
         }
 
+        // اتمام ارسال - به‌روزرسانی نهایی و نمایش نتیجه
         $this->isSending = false;
         $this->sendingProgress['current'] = null;
-
-        // نمایش پیام نتیجه
-        $message = "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد.";
-        if ($this->sendingProgress['failed'] > 0) {
-            $message .= " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد.";
-        }
-
-        $this->dispatch('showAlert', [
-            'type' => $this->sendingProgress['failed'] > 0 ? 'warning' : 'success',
-            'title' => $this->sendingProgress['failed'] > 0 ? 'توجه!' : 'موفقیت!',
-            'text' => $message,
-        ]);
+        $this->sendingProgress['completed'] = true;
         
-        // پاک کردن انتخاب‌ها
+        // ساخت پیام نتیجه
+        if (!$this->isCancelled) {
+            $message = "{$this->sendingProgress['sent']} پیامک با موفقیت ارسال شد.";
+            if ($this->sendingProgress['failed'] > 0) {
+                $message .= " {$this->sendingProgress['failed']} پیامک با خطا مواجه شد.";
+            }
+            $this->sendingProgress['result_message'] = $message;
+            
+            // پاک کردن انتخاب‌ها
+            $this->selectedResidents = [];
+            $this->selectAll = false;
+        } else {
+            $this->sendingProgress['result_message'] = 'ارسال لغو شد. ' . $this->sendingProgress['sent'] . ' پیامک ارسال شده بود.';
+        }
+        
+        // Reset لغو شدن
+        $this->isCancelled = false;
+    }
+
+    /**
+     * لغو ارسال پیام‌ها
+     */
+    public function cancelSending()
+    {
+        $this->isCancelled = true;
+        $this->isSending = false;
+        $this->sendingProgress['current'] = null;
+        $this->sendingProgress['completed'] = true;
+        $this->sendingProgress['result_message'] = 'ارسال لغو شد. ' . $this->sendingProgress['sent'] . ' پیامک ارسال شده بود.';
+    }
+
+    /**
+     * بستن مدال پیشرفت
+     */
+    public function closeProgressModal()
+    {
+        $this->showProgressModal = false;
+        $this->isSending = false;
+        $this->sendingProgress = [
+            'total' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'current' => null,
+            'current_index' => 0,
+            'completed' => false,
+            'result_message' => null,
+            'errors' => [],
+        ];
         $this->selectedResidents = [];
         $this->selectAll = false;
+        $this->dispatch('hide-progress-modal');
     }
 
     /**
@@ -574,22 +807,36 @@ class ExpiredToday extends Component
      */
     protected function extractPatternVariables($patternText, $residentData, $residentApiData = null)
     {
+        // پیدا کردن تمام متغیرها در الگو (مثل {0}, {1}, {2})
         preg_match_all('/\{(\d+)\}/', $patternText, $matches);
         
         if (empty($matches[1])) {
-            return [];
+            return []; // اگر متغیری وجود نداشت
         }
 
         // استفاده از داده‌های API اگر موجود باشد، در غیر این صورت از داده‌های دیتابیس
         $residentDataForVariables = $residentApiData ?? $this->getResidentDataFromDb($residentData);
 
+        // بارگذاری متغیرها از دیتابیس
         $variables = PatternVariable::where('is_active', true)
             ->get()
-            ->keyBy('code');
+            ->keyBy('code'); // کلید بر اساس کد (مثل {0}, {1})
 
         $result = [];
         $usedIndices = array_unique(array_map('intval', $matches[1]));
-        sort($usedIndices);
+        sort($usedIndices); // مرتب‌سازی بر اساس ترتیب در الگو
+
+        Log::debug('ExpiredToday - Extracting pattern variables', [
+            'pattern_text' => $patternText,
+            'used_indices' => $usedIndices,
+            'resident_id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
+        ]);
+
+        Log::info('ExpiredToday - Pattern variables from database', [
+            'total_variables' => $variables->count(),
+            'variable_codes' => $variables->keys()->toArray(),
+            'used_indices' => $usedIndices,
+        ]);
 
         foreach ($usedIndices as $index) {
             $code = '{' . $index . '}';
@@ -597,23 +844,63 @@ class ExpiredToday extends Component
 
             if ($variable) {
                 $value = $this->getVariableValue($variable, $residentDataForVariables, null);
+                
+                // اطمینان از اینکه value یک رشته است
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                
+                // اگر مقدار خالی است، لاگ می‌کنیم
+                if (empty(trim($value))) {
+                    Log::warning('ExpiredToday - Variable value is empty', [
+                        'code' => $code,
+                        'index' => $index,
+                        'table_field' => $variable->table_field,
+                        'variable_type' => $variable->variable_type,
+                    ]);
+                    $value = ''; // مقدار خالی - API باید آن را قبول کند
+                }
+                
+                Log::info('ExpiredToday - Variable extracted successfully', [
+                    'code' => $code,
+                    'index' => $index,
+                    'table_field' => $variable->table_field,
+                    'variable_type' => $variable->variable_type,
+                    'value' => $value,
+                    'value_length' => strlen($value),
+                ]);
                 $result[] = $value;
             } else {
-                $result[] = '';
+                // اگر متغیر در دیتابیس پیدا نشد، مقدار خالی
+                Log::error('ExpiredToday - Variable not found in database', [
+                    'code' => $code,
+                    'index' => $index,
+                    'pattern_text' => $patternText,
+                    'available_variables' => $variables->keys()->toArray(),
+                ]);
+                $result[] = ''; // مقدار خالی برای متغیرهای پیدا نشده
             }
         }
+
+        Log::debug('ExpiredToday - Pattern variables extracted', [
+            'variables' => $result,
+            'variables_count' => count($result),
+        ]);
 
         return $result;
     }
 
     protected function getResidentDataFromDb($residentData)
     {
-        return [
+        // ساخت ساختار داده مشابه PatternManual
+        $result = [
             'resident' => [
                 'id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
-                'full_name' => $residentData['name'] ?? $residentData['resident_name'] ?? '',
-                'name' => $residentData['name'] ?? $residentData['resident_name'] ?? '',
+                'full_name' => $residentData['full_name'] ?? $residentData['name'] ?? $residentData['resident_name'] ?? '',
+                'name' => $residentData['name'] ?? $residentData['resident_name'] ?? $residentData['full_name'] ?? '',
                 'phone' => $residentData['phone'] ?? '',
+                'contract_payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? $residentData['payment_date_jalali'] ?? '',
+                'payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? $residentData['payment_date_jalali'] ?? '',
             ],
             'unit' => [
                 'id' => $residentData['unit_id'] ?? null,
@@ -628,49 +915,145 @@ class ExpiredToday extends Component
                 'name' => $residentData['bed_name'] ?? '',
             ],
         ];
+        
+        Log::debug('ExpiredToday - Using fallback resident data from DB', [
+            'fallback_data' => $result,
+            'input_data' => $residentData,
+        ]);
+        
+        Log::info('ExpiredToday - getResidentDataFromDb result', [
+            'full_name' => $result['resident']['full_name'],
+            'contract_payment_date_jalali' => $result['resident']['contract_payment_date_jalali'],
+            'payment_date_jalali' => $result['resident']['payment_date_jalali'],
+        ]);
+        
+        return $result;
     }
 
     protected function getVariableValue($variable, $residentData, $reportData)
     {
-        $field = $variable->table_field;
-        $type = $variable->variable_type;
+        $field = $variable->table_field ?? '';
+        $type = $variable->variable_type ?? 'user';
+        
+        Log::debug('ExpiredToday - Getting variable value', [
+            'field' => $field,
+            'type' => $type,
+            'variable_id' => $variable->id ?? null,
+        ]);
 
         if ($type === 'user') {
+            // فیلدهای کاربر
             if (strpos($field, 'unit_') === 0) {
-                $key = substr($field, 5);
-                return $residentData['unit'][$key] ?? '';
+                $key = substr($field, 5); // حذف 'unit_' از ابتدا
+                $value = $residentData['unit'][$key] ?? '';
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting unit field', [
+                    'field' => $field,
+                    'key' => $key,
+                    'value' => $value,
+                ]);
+                return $value;
             } elseif (strpos($field, 'room_') === 0) {
-                $key = substr($field, 5);
-                return $residentData['room'][$key] ?? '';
+                $key = substr($field, 5); // حذف 'room_' از ابتدا
+                $value = $residentData['room'][$key] ?? '';
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting room field', [
+                    'field' => $field,
+                    'key' => $key,
+                    'value' => $value,
+                ]);
+                return $value;
             } elseif (strpos($field, 'bed_') === 0) {
-                $key = substr($field, 4);
-                return $residentData['bed'][$key] ?? '';
+                $key = substr($field, 4); // حذف 'bed_' از ابتدا
+                $value = $residentData['bed'][$key] ?? '';
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting bed field', [
+                    'field' => $field,
+                    'key' => $key,
+                    'value' => $value,
+                ]);
+                return $value;
             } else {
+                // فیلدهای مستقیم resident (مثل full_name, phone, name, contract_payment_date_jalali, etc.)
+                // بررسی چند حالت مختلف برای سازگاری
                 $value = $residentData['resident'][$field] ?? '';
                 
+                // اگر مقدار پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
                 if (empty($value)) {
                     if ($field === 'full_name' || $field === 'name') {
                         $value = $residentData['resident']['name'] ?? 
-                                 $residentData['resident']['full_name'] ?? '';
+                                 $residentData['resident']['full_name'] ?? 
+                                 ($residentData['resident']['id'] ?? '');
                     } elseif ($field === 'phone') {
                         $value = $residentData['resident']['phone'] ?? '';
+                    } elseif ($field === 'contract_payment_date_jalali' || $field === 'payment_date_jalali') {
+                        $value = $residentData['resident']['contract_payment_date_jalali'] ?? 
+                                 $residentData['resident']['payment_date_jalali'] ?? '';
+                    } elseif ($field === 'national_id' || $field === 'national_code') {
+                        $value = $residentData['resident']['national_id'] ?? 
+                                 $residentData['resident']['national_code'] ?? '';
                     }
                 }
                 
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting resident field', [
+                    'field' => $field,
+                    'value' => $value,
+                    'available_fields' => array_keys($residentData['resident'] ?? []),
+                ]);
                 return $value;
             }
         } elseif ($type === 'report' && $reportData) {
+            // فیلدهای گزارش
             if (strpos($field, 'category.') === 0) {
-                $key = substr($field, 9);
-                return $reportData['category_' . $key] ?? '';
+                $key = substr($field, 9); // حذف 'category.' از ابتدا
+                $value = $reportData['category_' . $key] ?? '';
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting category field', [
+                    'field' => $field,
+                    'key' => $key,
+                    'value' => $value,
+                ]);
+                return $value;
             } else {
-                return $reportData[$field] ?? '';
+                $value = $reportData[$field] ?? '';
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting report field', [
+                    'field' => $field,
+                    'value' => $value,
+                ]);
+                return $value;
             }
         } elseif ($type === 'general') {
             if ($field === 'today') {
-                return $this->formatJalaliDate(now()->toDateString());
+                $value = $this->formatJalaliDate(now()->toDateString());
+                if (!is_string($value)) {
+                    $value = (string)$value;
+                }
+                Log::debug('ExpiredToday - Getting general today field', [
+                    'field' => $field,
+                    'value' => $value,
+                ]);
+                return $value;
             }
         }
+
+        Log::warning('ExpiredToday - Variable value not found', [
+            'field' => $field,
+            'type' => $type,
+        ]);
 
         return '';
     }

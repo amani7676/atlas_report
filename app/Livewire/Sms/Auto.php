@@ -409,8 +409,13 @@ class Auto extends Component
 
     public function getPatternsProperty()
     {
+        // فقط الگوهایی که تایید شده، فعال، دارای pattern_code و برایشان گزارش ست شده هستند
         return Pattern::where('is_active', true)
+            ->where('status', 'approved')
             ->whereNotNull('pattern_code')
+            ->whereHas('reports', function ($query) {
+                $query->where('report_pattern.is_active', true);
+            })
             ->orderBy('title')
             ->get();
     }

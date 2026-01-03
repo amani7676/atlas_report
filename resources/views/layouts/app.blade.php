@@ -885,6 +885,11 @@
             .sidebar.open {
                 transform: translateX(0);
             }
+            
+            /* پیش‌فرض منو بسته باشد */
+            .sidebar:not(.open) {
+                transform: translateX(100%);
+            }
 
             .content {
                 margin-right: 0;
@@ -1253,11 +1258,23 @@
             z-index: 999;
             opacity: 0;
             transition: opacity 0.3s ease;
+            backdrop-filter: blur(2px);
         }
 
         .overlay.active {
             display: block;
             opacity: 1;
+        }
+        
+        /* در موبایل overlay فقط زمانی نمایش داده شود که منو باز است */
+        @media (max-width: 768px) {
+            .overlay {
+                display: none;
+            }
+            
+            .overlay.active {
+                display: block;
+            }
         }
         .rtl-popup {
             direction: rtl;
@@ -1441,7 +1458,7 @@
                         <li>
                             <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
                                 <i class="fas fa-exclamation-triangle"></i>
-                                <span>پیامک‌های تخلفی</span>
+                                <span>پیامک‌های ارسال شده</span>
                             </a>
                         </li>
                     </ul>
@@ -1646,14 +1663,27 @@
     <script>
         // Check if we're on mobile and close sidebar by default
         function checkMobileAndCloseSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            
             if (window.innerWidth <= 768) {
-                const sidebar = document.getElementById('sidebar');
+                // در موبایل منو پیش‌فرض بسته باشد
                 sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+            } else {
+                // در دسکتاپ منو باز باشد (اختیاری)
+                // sidebar.classList.add('open');
             }
         }
 
-        // Initial check when page loads
-        document.addEventListener('DOMContentLoaded', checkMobileAndCloseSidebar);
+        // Initial check when page loads - منو پیش‌فرض بسته
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            checkMobileAndCloseSidebar();
+        });
 
         // Check when window is resized
         window.addEventListener('resize', checkMobileAndCloseSidebar);
@@ -1752,35 +1782,35 @@
             );
         });
 
-        // SweetAlert2 configuration
-        window.addEventListener('showAlert', event => {
-            const detail = event.detail;
-            console.log('showAlert event received:', detail);
-            
-            const config = {
-                icon: detail.type,
-                title: detail.title,
-                confirmButtonText: 'باشه',
-                confirmButtonColor: '#4361ee',
-                width: '600px',
-                allowOutsideClick: true,
-                allowEscapeKey: true,
-            };
-            
-            // اگر HTML وجود داشت، از آن استفاده کن، در غیر این صورت از text
-            if (detail.html) {
-                console.log('Using HTML content, length:', detail.html.length);
-                config.html = detail.html;
-                // برای اطمینان از نمایش HTML، از html به جای text استفاده می‌کنیم
-                delete config.text;
-            } else if (detail.text) {
-                console.log('Using text content');
-                config.text = detail.text;
-            }
-            
-            console.log('SweetAlert2 config:', config);
-            Swal.fire(config);
-        });
+        // SweetAlert2 configuration - غیرفعال شده
+        // window.addEventListener('showAlert', event => {
+        //     const detail = event.detail;
+        //     console.log('showAlert event received:', detail);
+        //     
+        //     const config = {
+        //         icon: detail.type,
+        //         title: detail.title,
+        //         confirmButtonText: 'باشه',
+        //         confirmButtonColor: '#4361ee',
+        //         width: '600px',
+        //         allowOutsideClick: true,
+        //         allowEscapeKey: true,
+        //     };
+        //     
+        //     // اگر HTML وجود داشت، از آن استفاده کن، در غیر این صورت از text
+        //     if (detail.html) {
+        //         console.log('Using HTML content, length:', detail.html.length);
+        //         config.html = detail.html;
+        //         // برای اطمینان از نمایش HTML، از html به جای text استفاده می‌کنیم
+        //         delete config.text;
+        //     } else if (detail.text) {
+        //         console.log('Using text content');
+        //         config.text = detail.text;
+        //     }
+        //     
+        //     console.log('SweetAlert2 config:', config);
+        //     Swal.fire(config);
+        // });
 
         // Log Melipayamak API Response to Console
         window.addEventListener('logMelipayamakResponse', event => {

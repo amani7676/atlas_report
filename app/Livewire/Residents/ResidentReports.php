@@ -41,8 +41,10 @@ class ResidentReports extends Component
     // پراپرتی‌های جدید برای جستجوی اقامت‌گران
     public $residentSearch = '';
     public $selectedResident = null;
+    public $selectedResidentData = null; // داده‌های کامل اقامت‌گر انتخاب شده
     public $residentReports = [];
     public $showResidentDetails = false;
+    public $showResidentModal = false; // برای نمایش مدال اقامت‌گر
     public $filterByResidentName = null; // برای فیلتر کردن بر اساس نام اقامت‌گر
 
     // پراپرتی‌های مربوط به بخشودگی
@@ -51,6 +53,7 @@ class ResidentReports extends Component
     public $grantDescription = '';
     public $grantDate = '';
     public $selectedResidentGrants = [];
+    public $grantCheckError = null; // پیام خطا برای چک نشدن همه گزارش‌ها
 
     // Propertyهای computed
     public function getTotalScoreProperty()
@@ -162,7 +165,10 @@ class ResidentReports extends Component
             MAX(residents.resident_phone) as phone,
             COUNT(*) as report_count,
             SUM(reports.negative_score) as total_score,
-            resident_reports.resident_id
+            resident_reports.resident_id,
+            (SELECT COUNT(*) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id AND resident_grants.is_active = 1) as grants_count,
+            (SELECT COALESCE(SUM(amount), 0) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id AND resident_grants.is_active = 1) as grants_total,
+            (SELECT COUNT(*) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id) as grants_total_count
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
@@ -221,7 +227,10 @@ class ResidentReports extends Component
             MAX(residents.resident_phone) as phone,
             COUNT(*) as repeat_count,
             SUM(reports.negative_score) as total_score,
-            resident_reports.resident_id
+            resident_reports.resident_id,
+            (SELECT COUNT(*) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id AND resident_grants.is_active = 1) as grants_count,
+            (SELECT COALESCE(SUM(amount), 0) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id AND resident_grants.is_active = 1) as grants_total,
+            (SELECT COUNT(*) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id) as grants_total_count
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
@@ -277,7 +286,10 @@ class ResidentReports extends Component
             MAX(residents.resident_phone) as phone,
             COUNT(*) as report_count,
             SUM(reports.negative_score) as total_score,
-            resident_reports.resident_id
+            resident_reports.resident_id,
+            (SELECT COUNT(*) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id AND resident_grants.is_active = 1) as grants_count,
+            (SELECT COALESCE(SUM(amount), 0) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id AND resident_grants.is_active = 1) as grants_total,
+            (SELECT COUNT(*) FROM resident_grants WHERE resident_grants.resident_id = residents.resident_id) as grants_total_count
         ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
@@ -484,13 +496,15 @@ class ResidentReports extends Component
     public function selectResident($residentName)
     {
         $this->selectedResident = $residentName;
-        $this->showResidentDetails = true;
         $this->residentSearch = $residentName; // برای نمایش نام در اینپوت
 
         // پیدا کردن resident از جدول residents
         $resident = Resident::where('resident_full_name', $residentName)->first();
 
         if ($resident) {
+            // ذخیره داده‌های کامل اقامت‌گر
+            $this->selectedResidentData = $resident;
+            
             // استفاده از resident_id از جدول residents
             $this->residentReports = ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
@@ -499,12 +513,36 @@ class ResidentReports extends Component
             ->with(['report', 'report.category', 'resident'])
             ->orderBy('created_at', 'desc')
             ->get();
+            
+            // بارگذاری بخشودگی‌های این اقامت‌گر
+            $this->loadResidentGrants($residentName);
+            
+            // باز کردن مدال
+            $this->showResidentModal = true;
         } else {
+            $this->selectedResidentData = null;
             $this->residentReports = collect([]);
+            $this->selectedResidentGrants = [];
+            
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'اقامت‌گر یافت نشد'
+            ]);
         }
-
-        // بارگذاری بخشودگی‌های این اقامت‌گر
-        $this->loadResidentGrants($residentName);
+    }
+    
+    /**
+     * بستن مدال اقامت‌گر
+     */
+    public function closeResidentModal()
+    {
+        $this->showResidentModal = false;
+        $this->selectedResident = null;
+        $this->selectedResidentData = null;
+        $this->residentReports = [];
+        $this->selectedResidentGrants = [];
+        $this->showGrantForm = false;
     }
 
     /**
@@ -525,11 +563,7 @@ class ResidentReports extends Component
 
     public function closeResidentDetails()
     {
-        $this->selectedResident = null;
-        $this->residentReports = [];
-        $this->showResidentDetails = false;
-        $this->residentSearch = '';
-        $this->selectedResidentGrants = [];
+        $this->closeResidentModal();
     }
 
     /**
@@ -537,6 +571,61 @@ class ResidentReports extends Component
      */
     public function openGrantForm()
     {
+        if (!$this->selectedResident) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'لطفاً ابتدا یک اقامت‌گر انتخاب کنید'
+            ]);
+            return;
+        }
+
+        // پیدا کردن resident از جدول residents
+        $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
+        if (!$resident) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'اقامت‌گر یافت نشد'
+            ]);
+            return;
+        }
+
+        // بارگذاری مجدد گزارش‌های اقامت‌گر برای بررسی دقیق
+        $reports = ResidentReport::whereHas('report', function($q) {
+            $q->where('category_id', 1); // دسته‌بندی تخلف
+        })
+        ->where('resident_id', $resident->id)
+        ->with(['report', 'report.category', 'resident'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        // بررسی اینکه آیا گزارش‌ای وجود دارد یا نه
+        if ($reports->isEmpty()) {
+            // اگر گزارش‌ای وجود ندارد، اجازه ثبت بخشودگی را بده
+            $this->grantAmount = '';
+            $this->grantDescription = '';
+            $this->grantDate = date('Y-m-d');
+            $this->showGrantForm = true;
+            return;
+        }
+
+        // بررسی اینکه آیا همه گزارش‌ها چک شده‌اند یا نه
+        $totalReports = $reports->count();
+        $uncheckedReports = $reports->filter(function($report) {
+            return !$report->is_checked || $report->is_checked === false || $report->is_checked === 0;
+        });
+
+        if ($uncheckedReports->count() > 0) {
+            // نمایش پیام خطا زیر دکمه
+            $this->grantCheckError = 'لطفا همه رو چک کنید';
+            return;
+        }
+        
+        // اگر همه چک شده‌اند، پیام خطا را پاک کن
+        $this->grantCheckError = null;
+
+        // اگر همه گزارش‌ها چک شده‌اند، فرم را باز کن
         $this->grantAmount = '';
         $this->grantDescription = '';
         $this->grantDate = date('Y-m-d');
@@ -550,6 +639,7 @@ class ResidentReports extends Component
     {
         $this->showGrantForm = false;
         $this->resetGrantForm();
+        $this->grantCheckError = null;
     }
 
     /**
@@ -595,7 +685,7 @@ class ResidentReports extends Component
             $grant->amount = $this->grantAmount;
             $grant->description = $this->grantDescription;
             $grant->grant_date = $this->grantDate ?: now()->toDateString();
-            // $grant->is_active = true; // حتماً 1 (true) باشد
+            $grant->is_active = true; // حتماً 1 (true) باشد
             $grant->save();
 
             $message = 'بخشودگی با موفقیت ثبت شد';
@@ -889,6 +979,21 @@ class ResidentReports extends Component
                     'type' => 'error',
                     'title' => 'خطا!',
                     'text' => 'اقامت‌گر یافت نشد'
+                ]);
+                return;
+            }
+
+            // بررسی وجود بخشودگی‌های فعال
+            $activeGrants = \App\Models\ResidentGrant::where('resident_id', $resident->resident_id)
+                ->where('is_active', true)
+                ->get();
+
+            if ($activeGrants->count() > 0) {
+                $totalGrants = $activeGrants->sum('amount');
+                $this->dispatch('showAlert', [
+                    'type' => 'warning',
+                    'title' => 'هشدار!',
+                    'text' => "برای لغو چک کردن همه گزارش‌ها، ابتدا باید بخشودگی‌های فعال ({$activeGrants->count()} مورد، مجموع: {$totalGrants}) را حذف کنید."
                 ]);
                 return;
             }

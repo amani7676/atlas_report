@@ -60,6 +60,7 @@
                             @endif
                         </th>
                         <th>لیست سیاه</th>
+                        <th>تعداد گزارش‌ها</th>
                         <th wire:click="sortBy('status')" style="cursor: pointer;">
                             وضعیت
                             @if($sortBy === 'status')
@@ -109,6 +110,11 @@
                                 @else
                                     <span style="color: #999;">-</span>
                                 @endif
+                            </td>
+                            <td>
+                                <span style="background: {{ $pattern->reports_count > 0 ? '#17a2b8' : '#6c757d' }}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                    {{ $pattern->reports_count ?? 0 }}
+                                </span>
                             </td>
                             <td>
                                 @if($pattern->status === 'approved')
@@ -180,7 +186,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 40px; color: #999;">
+                            <td colspan="9" style="text-align: center; padding: 40px; color: #999;">
                                 <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
                                 الگویی یافت نشد
                             </td>

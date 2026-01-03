@@ -6,6 +6,8 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Http;
 use App\Models\Report;
 use App\Models\Category;
+use App\Models\Resident;
+use App\Models\ResidentReport;
 use App\Services\ResidentService;
 
 class Units extends Component
@@ -29,6 +31,7 @@ class Units extends Component
     public $lastSubmittedReports = []; // آخرین گزارش‌های ثبت شده
     public $showSubmissionResult = false; // نمایش نتیجه ثبت
     public $databaseResponse = null; // پاسخ دیتابیس برای نمایش در مودال
+    public $reportCheckError = null; // پیام خطا برای چک نشدن همه گزارش‌ها
 
     public function mount()
     {
@@ -223,6 +226,17 @@ class Units extends Component
             return;
         }
 
+        // بررسی اینکه آیا همه گزارش‌های قبلی چک شده‌اند یا نه - غیرفعال شده است
+        // $uncheckedReports = $this->checkAllReportsAreChecked();
+        // if ($uncheckedReports['has_unchecked']) {
+        //     $this->reportModalLoading = false;
+        //     $this->reportCheckError = 'لطفا همه رو چک کنید';
+        //     return;
+        // }
+        
+        // اگر همه چک شده‌اند، پیام خطا را پاک کن
+        $this->reportCheckError = null;
+
         $this->reportModalLoading = true;
         $errors = [];
         $successCount = 0;
@@ -359,16 +373,51 @@ class Units extends Component
                     'notes' => $this->notes,
                 ]);
 
-                // تاخیر کوتاه برای اطمینان از اجرای Event و Listener
-                usleep(200000); // 0.2 ثانیه برای هر گزارش
+                // تاخیر برای اطمینان از اجرای Event و Listener
+                // چند بار تلاش می‌کنیم تا SMS result را پیدا کنیم
+                $smsResult = null;
+                $maxAttempts = 5;
+                $attemptDelay = 300000; // 0.3 ثانیه
+                
+                for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+                    if ($attempt > 0) {
+                        usleep($attemptDelay);
+                    }
+                    
+                    // دریافت پاسخ واقعی از ملی پیامک از جدول sms_message_residents
+                    $smsResult = \App\Models\SmsMessageResident::where('report_id', $reportId)
+                        ->where(function($query) use ($residentReport, $residentDbId) {
+                            // جستجو بر اساس resident_id از جدول residents (id واقعی)
+                            if ($residentDbId) {
+                                $query->where('resident_id', $residentDbId);
+                            }
+                            // همچنین بر اساس resident_id از API (resident_id از resident_reports)
+                            if ($residentReport->resident_id) {
+                                $query->orWhere(function($q) use ($residentReport) {
+                                    // اگر resident_id در sms_message_residents همان resident_id از API است
+                                    $q->where('resident_id', $residentReport->resident_id);
+                                });
+                            }
+                        })
+                        ->where('created_at', '>=', now()->subMinutes(5)) // 5 دقیقه گذشته
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                    
+                    if ($smsResult) {
+                        break; // پیدا شد، از حلقه خارج می‌شویم
+                    }
+                }
 
                 // لاگ برای بررسی ذخیره‌سازی
                 \Log::info('گزارش در دیتابیس ذخیره شد', [
                     'resident_report_id' => $residentReport->id,
                     'report_id' => $reportId,
                     'resident_id' => $residentReport->resident_id,
+                    'resident_db_id' => $residentDbId,
                     'resident_name' => $residentReport->resident_name,
                     'created_at' => $residentReport->created_at,
+                    'sms_result_found' => $smsResult ? 'yes' : 'no',
+                    'sms_result_id' => $smsResult ? $smsResult->id : null,
                 ]);
 
                 // بررسی اینکه آیا رکورد واقعاً در دیتابیس ذخیره شده است
@@ -398,6 +447,17 @@ class Units extends Component
                     'notes' => $submittedReport->notes,
                     'created_at' => $submittedReport->created_at ? $submittedReport->created_at->toDateTimeString() : null,
                     'all_data' => $this->prepareArrayForJson($submittedReport), // تمام داده‌های رکورد
+                    'sms_result' => $smsResult ? [
+                        'status' => $smsResult->status,
+                        'success' => $smsResult->status === 'sent',
+                        'message' => $smsResult->status === 'sent' ? 'پیامک با موفقیت ارسال شد' : ($smsResult->error_message ?? 'خطا در ارسال'),
+                        'response_code' => $smsResult->response_code,
+                        'rec_id' => $smsResult->rec_id ?? null,
+                        'error_message' => $smsResult->error_message,
+                        'api_response' => $smsResult->api_response,
+                        'raw_response' => $smsResult->raw_response,
+                        'sent_at' => $smsResult->sent_at ? $smsResult->sent_at->toDateTimeString() : null,
+                    ] : null,
                 ];
 
                 $successCount++;
@@ -461,16 +521,77 @@ class Units extends Component
                         'notes' => $this->notes,
                     ]);
 
-                    // تاخیر کوتاه برای اطمینان از اجرای Event و Listener
-                    usleep(200000); // 0.2 ثانیه برای هر گزارش
+                    // تاخیر برای اطمینان از اجرای Event و Listener
+                    // چند بار تلاش می‌کنیم تا SMS result را پیدا کنیم
+                    $smsResult = null;
+                    $maxAttempts = 5;
+                    $attemptDelay = 300000; // 0.3 ثانیه
+                    
+                    for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+                        if ($attempt > 0) {
+                            usleep($attemptDelay);
+                        }
+                        
+                        // دریافت پاسخ واقعی از ملی پیامک از جدول sms_message_residents
+                        // در SendViolationSms listener، resident_id همان id از جدول residents است
+                        $query = \App\Models\SmsMessageResident::where('report_id', $reportId)
+                            ->where('created_at', '>=', now()->subMinutes(5)); // 5 دقیقه گذشته
+                        
+                        // جستجو بر اساس resident_id (id از جدول residents)
+                        if ($residentDbId) {
+                            $query->where('resident_id', $residentDbId);
+                        }
+                        
+                        $smsResult = $query->orderBy('created_at', 'desc')->first();
+                        
+                        // اگر پیدا نشد، با phone هم جستجو کنیم
+                        if (!$smsResult && $residentReport->phone) {
+                            \Log::info('Units - Trying to find SMS result by phone', [
+                                'report_id' => $reportId,
+                                'phone' => $residentReport->phone,
+                            ]);
+                            
+                            $smsResult = \App\Models\SmsMessageResident::where('report_id', $reportId)
+                                ->where('phone', $residentReport->phone)
+                                ->where('created_at', '>=', now()->subMinutes(5))
+                                ->orderBy('created_at', 'desc')
+                                ->first();
+                        }
+                        
+                        // لاگ برای دیباگ
+                        if ($smsResult) {
+                            \Log::info('Units - SMS result found', [
+                                'sms_id' => $smsResult->id,
+                                'status' => $smsResult->status,
+                                'response_code' => $smsResult->response_code,
+                                'has_api_response' => !empty($smsResult->api_response),
+                                'has_raw_response' => !empty($smsResult->raw_response),
+                            ]);
+                        } else {
+                            \Log::warning('Units - SMS result not found', [
+                                'report_id' => $reportId,
+                                'resident_db_id' => $residentDbId,
+                                'resident_report_id' => $residentReport->id,
+                                'phone' => $residentReport->phone,
+                                'attempt' => $attempt + 1,
+                            ]);
+                        }
+                        
+                        if ($smsResult) {
+                            break; // پیدا شد، از حلقه خارج می‌شویم
+                        }
+                    }
 
                     // لاگ برای بررسی ذخیره‌سازی
                     \Log::info('گزارش گروهی در دیتابیس ذخیره شد', [
                         'resident_report_id' => $residentReport->id,
                         'report_id' => $reportId,
                         'resident_id' => $residentReport->resident_id,
+                        'resident_db_id' => $residentDbId,
                         'resident_name' => $residentReport->resident_name,
                         'created_at' => $residentReport->created_at,
+                        'sms_result_found' => $smsResult ? 'yes' : 'no',
+                        'sms_result_id' => $smsResult ? $smsResult->id : null,
                     ]);
 
                     // بررسی اینکه آیا رکورد واقعاً در دیتابیس ذخیره شده است
@@ -500,6 +621,16 @@ class Units extends Component
                         'notes' => $submittedReport->notes,
                         'created_at' => $submittedReport->created_at ? $submittedReport->created_at->toDateTimeString() : null,
                         'all_data' => $this->prepareArrayForJson($submittedReport), // تمام داده‌های رکورد
+                        'sms_result' => $smsResult ? [
+                            'status' => $smsResult->status,
+                            'success' => $smsResult->status === 'sent',
+                            'message' => $smsResult->status === 'sent' ? 'پیامک با موفقیت ارسال شد' : ($smsResult->error_message ?? 'خطا در ارسال'),
+                            'response_code' => $smsResult->response_code,
+                            'error_message' => $smsResult->error_message,
+                            'api_response' => $smsResult->api_response,
+                            'raw_response' => $smsResult->raw_response,
+                            'sent_at' => $smsResult->sent_at ? $smsResult->sent_at->toDateTimeString() : null,
+                        ] : null,
                     ];
 
                     $successCount++;
@@ -545,6 +676,7 @@ class Units extends Component
         $this->currentRoom = null;
         $this->reportModalLoading = false;
         $this->databaseResponse = null; // پاک کردن پاسخ دیتابیس
+        $this->reportCheckError = null; // پاک کردن پیام خطا
     }
 
     public function closeSubmissionResult()
@@ -707,6 +839,86 @@ class Units extends Component
         }
 
         return array_values($filteredUnits);
+    }
+
+    /**
+     * بررسی اینکه آیا همه گزارش‌های قبلی اقامت‌گر(های) انتخاب شده چک شده‌اند یا نه
+     */
+    private function checkAllReportsAreChecked()
+    {
+        if ($this->reportType === 'individual') {
+            // برای گزارش فردی
+            if (empty($this->currentResident) || empty($this->currentResident['id'])) {
+                return ['has_unchecked' => false, 'message' => ''];
+            }
+
+            // پیدا کردن resident از جدول residents
+            $resident = \App\Models\Resident::where('resident_id', $this->currentResident['id'])->first();
+            if (!$resident) {
+                return ['has_unchecked' => false, 'message' => ''];
+            }
+
+            // بررسی گزارش‌های چک نشده
+            $uncheckedCount = \App\Models\ResidentReport::whereHas('report', function($q) {
+                $q->where('category_id', 1); // دسته‌بندی تخلف
+            })
+            ->where('resident_id', $resident->id)
+            ->where('is_checked', false)
+            ->count();
+
+            if ($uncheckedCount > 0) {
+                return [
+                    'has_unchecked' => true,
+                    'message' => "برای اقامت‌گر {$this->currentResident['name']}، {$uncheckedCount} گزارش چک نشده وجود دارد."
+                ];
+            }
+        } else {
+            // برای گزارش گروهی
+            if (empty($this->selectedResidents)) {
+                return ['has_unchecked' => false, 'message' => ''];
+            }
+
+            $uncheckedResidents = [];
+            foreach ($this->selectedResidents as $residentData) {
+                if (empty($residentData['resident_id'])) {
+                    continue;
+                }
+
+                // پیدا کردن resident از جدول residents
+                $resident = \App\Models\Resident::where('resident_id', $residentData['resident_id'])->first();
+                if (!$resident) {
+                    continue;
+                }
+
+                // بررسی گزارش‌های چک نشده
+                $uncheckedCount = \App\Models\ResidentReport::whereHas('report', function($q) {
+                    $q->where('category_id', 1); // دسته‌بندی تخلف
+                })
+                ->where('resident_id', $resident->id)
+                ->where('is_checked', false)
+                ->count();
+
+                if ($uncheckedCount > 0) {
+                    $uncheckedResidents[] = [
+                        'name' => $residentData['resident_name'] ?? 'نامشخص',
+                        'count' => $uncheckedCount
+                    ];
+                }
+            }
+
+            if (!empty($uncheckedResidents)) {
+                $messages = [];
+                foreach ($uncheckedResidents as $item) {
+                    $messages[] = "{$item['name']}: {$item['count']} گزارش چک نشده";
+                }
+                return [
+                    'has_unchecked' => true,
+                    'message' => implode(' | ', $messages)
+                ];
+            }
+        }
+
+        return ['has_unchecked' => false, 'message' => ''];
     }
 
     public function render()
