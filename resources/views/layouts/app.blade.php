@@ -1478,6 +1478,12 @@
                                 <span>پیامک‌های ارسال شده</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="/residents/welcome" class="{{ request()->is('residents/welcome') ? 'active' : '' }}">
+                                <i class="fas fa-hand-sparkles"></i>
+                                <span>پیام‌های خوش‌آمدگویی</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
@@ -1688,29 +1694,21 @@
             }
         }
 
-        // Initial check when page loads - منو پیش‌فرض بسته
-        document.addEventListener('DOMContentLoaded', function() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            sidebar.classList.remove('open');
-            overlay.classList.remove('active');
-            checkMobileAndCloseSidebar();
-        });
-
-        // Check when window is resized
-        window.addEventListener('resize', checkMobileAndCloseSidebar);
-
         // Sidebar functionality
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('overlay');
-
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
+            if (sidebar) sidebar.classList.toggle('open');
+            if (overlay) overlay.classList.toggle('active');
         }
 
         // Close sidebar when clicking on overlay
-        document.getElementById('overlay').addEventListener('click', toggleSidebar);
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlayElement = document.getElementById('overlay');
+            if (overlayElement) {
+                overlayElement.addEventListener('click', toggleSidebar);
+            }
+        });
 
         // Submenu toggle functionality
         function toggleSubmenu(element) {
@@ -1719,9 +1717,22 @@
                 menuItem.classList.toggle('open');
             }
         }
+        
+        // Make functions globally available
+        window.toggleSubmenu = toggleSubmenu;
+        window.toggleSidebar = toggleSidebar;
 
-        // Auto-open submenus based on current route
+        // Initial check when page loads - منو پیش‌فرض بسته
+        // ترکیب همه DOMContentLoaded listeners در یک listener
         document.addEventListener('DOMContentLoaded', function() {
+            // Sidebar initialization
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if (sidebar) sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('active');
+            checkMobileAndCloseSidebar();
+            
+            // Auto-open submenus based on current route
             const currentPath = window.location.pathname;
             
             // Open submenu if current route matches
@@ -2045,7 +2056,17 @@
 
 
         // تایمر شمارش معکوس و همگام‌سازی خودکار داده‌ها
+        let isInitializing = false; // Flag برای جلوگیری از initialize تکراری
+        
         function initializeTimer() {
+            // جلوگیری از initialize تکراری
+            if (isInitializing) {
+                console.log('⚠️ تایمر در حال initialize است، جلوگیری از initialize تکراری');
+                return;
+            }
+            
+            isInitializing = true;
+            
             // جلوگیری از ایجاد interval تکراری
             if (window.timerInterval) {
                 clearInterval(window.timerInterval);
@@ -2069,12 +2090,24 @@
             const timerElement = document.getElementById('timer-text');
             const timerContainer = document.getElementById('refresh-timer');
             
-            // اگر تایمر پیدا نشد، دوباره تلاش کن
+            // اگر تایمر پیدا نشد، دوباره تلاش کن (حداکثر 3 بار)
             if (!timerContainer) {
-                console.warn('⚠️ تایمر پیدا نشد، دوباره تلاش می‌کنم...');
-                setTimeout(initializeTimer, 500);
+                if (!window.timerInitAttempts) {
+                    window.timerInitAttempts = 0;
+                }
+                window.timerInitAttempts++;
+                
+                if (window.timerInitAttempts < 3) {
+                    console.warn(`⚠️ تایمر پیدا نشد، تلاش ${window.timerInitAttempts}/3...`);
+                    setTimeout(initializeTimer, 500);
+                } else {
+                    console.error('❌ تایمر پیدا نشد بعد از 3 تلاش. ممکن است element در DOM وجود نداشته باشد.');
+                }
                 return;
             }
+            
+            // Reset attempts counter اگر تایمر پیدا شد
+            window.timerInitAttempts = 0;
             
             // مطمئن شو که تایمر نمایش داده می‌شود
             timerContainer.style.display = 'flex';
@@ -2369,20 +2402,26 @@
                 }
                 window.timerInterval = setInterval(updateTimer, 1000);
                 
-                // بررسی تغییرات refresh_interval از سرور هر 60 ثانیه
-                setInterval(function() {
-                    getRefreshIntervalFromServer().then(newInterval => {
-                        if (newInterval !== refreshInterval) {
-                            console.log(`⚙️ مقدار refresh_interval در سرور تغییر کرده: ${refreshInterval} -> ${newInterval}`);
-                            refreshInterval = newInterval;
-                            localStorage.setItem('refreshInterval', refreshInterval);
-                            // اگر تایمر در حال اجرا نیست یا sync در حال انجام نیست، تایمر را ریست کن
-                            if (!window.syncInProgress) {
-                                startTimer(refreshInterval);
+                // بررسی تغییرات refresh_interval از سرور هر 5 دقیقه (کاهش بار سرور)
+                // فقط یک interval برای این کار
+                if (!window.refreshIntervalChecker) {
+                    window.refreshIntervalChecker = setInterval(function() {
+                        getRefreshIntervalFromServer().then(newInterval => {
+                            if (newInterval !== refreshInterval) {
+                                console.log(`⚙️ مقدار refresh_interval در سرور تغییر کرده: ${refreshInterval} -> ${newInterval}`);
+                                refreshInterval = newInterval;
+                                localStorage.setItem('refreshInterval', refreshInterval);
+                                // اگر تایمر در حال اجرا نیست یا sync در حال انجام نیست، تایمر را ریست کن
+                                if (!window.syncInProgress) {
+                                    startTimer(refreshInterval);
+                                }
                             }
-                        }
-                    });
-                }, 60000); // هر 60 ثانیه چک کن
+                        }).catch(() => {
+                            // در صورت خطا، فقط لاگ کن و ادامه بده
+                            console.warn('خطا در بررسی refresh_interval از سرور');
+                        });
+                    }, 300000); // هر 5 دقیقه چک کن (به جای 60 ثانیه)
+                }
             } else {
                 // اگر رفرش غیرفعال است، تایمر را نمایش بده اما با پیام غیرفعال
                 if (timerElement) {
@@ -2402,20 +2441,55 @@
                 }
                 console.log('⏰ تایمر شمارش معکوس غیرفعال است (مقدار تنظیمات: ' + refreshInterval + ' دقیقه)');
             }
+            
+            // Reset flag بعد از اتمام initialize
+            isInitializing = false;
         }
         
-        // اجرای تایمر بعد از لود شدن DOM
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeTimer);
-        } else {
-            // DOM قبلاً لود شده است
-            initializeTimer();
+        // اجرای تایمر بعد از لود شدن DOM - با تاخیر برای کاهش بار اولیه
+        function initTimerDelayed() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    // استفاده از requestIdleCallback برای کاهش بار اولیه
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        requestIdleCallback(initializeTimer, { timeout: 1000 });
+                    } else {
+                        setTimeout(initializeTimer, 300);
+                    }
+                });
+            } else {
+                // DOM قبلاً لود شده است - با تاخیر اجرا کن
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(initializeTimer, { timeout: 1000 });
+                } else {
+                    setTimeout(initializeTimer, 300);
+                }
+            }
         }
         
-        // همچنین برای Livewire navigation
-        document.addEventListener('livewire:navigated', function() {
-            setTimeout(initializeTimer, 100);
-        });
+        initTimerDelayed();
+        
+        // همچنین برای Livewire navigation - فقط یک بار و با flag
+        if (!window.livewireNavigatedListener) {
+            window.livewireNavigatedListener = true;
+            let isNavigating = false;
+            
+            document.addEventListener('livewire:navigated', function() {
+                // جلوگیری از initialize تکراری
+                if (isNavigating) {
+                    console.log('⚠️ جلوگیری از initialize تکراری تایمر');
+                    return;
+                }
+                
+                isNavigating = true;
+                console.log('🔄 Livewire navigated، راه‌اندازی مجدد تایمر...');
+                
+                setTimeout(() => {
+                    initializeTimer();
+                    isNavigating = false;
+                }, 500);
+            });
+        }
     </script>
     @livewireScripts
 </body>

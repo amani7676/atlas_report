@@ -142,15 +142,17 @@
             setTimeout(initializeAutoSync, 1000);
         });
 
-        // گوش دادن به تغییرات تنظیمات
+        // گوش دادن به تغییرات تنظیمات - بدون reload
+        // این کامپوننت دیگر استفاده نمی‌شود، تایمر در app.blade.php مدیریت می‌شود
+        // برای جلوگیری از reload مداوم، این listener را غیرفعال می‌کنیم
+        /*
         document.addEventListener('livewire:init', () => {
             Livewire.on('settings-updated', () => {
                 console.log('⚙️ تنظیمات به‌روزرسانی شد، راه‌اندازی مجدد سینک خودکار...');
-                // Reload page to get new refresh_interval
-                setTimeout(() => {
-                    location.reload();
-                }, 500);
+                // فقط interval را ریست کن، بدون reload
+                initializeAutoSync();
             });
         });
+        */
     })();
 </script>

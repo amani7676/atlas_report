@@ -23,6 +23,7 @@ Route::get('/categories/create', CategoriesCreate::class)->name('categories.crea
 Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edit');
 
 Route::get('/residents', Units::class)->name('residents.units');
+Route::get('/residents/welcome', \App\Livewire\Residents\Welcome::class)->name('residents.welcome');
 Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
 Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports');
 Route::get('/residents/expired-today', ExpiredToday::class)->name('residents.expired-today');
@@ -67,6 +68,25 @@ Route::post('/api/residents/sync', function () {
             ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s') 
             : 'نامشخص';
         
+        // بعد از sync موفق، بررسی و ارسال پیام‌های خوش‌آمدگویی
+        $welcomeMessagesSent = 0;
+        $welcomeMessagesSkipped = 0;
+        $welcomeMessagesError = 0;
+        
+        try {
+            $welcomeJob = new \App\Jobs\SendWelcomeMessages();
+            $welcomeJob->handle();
+            
+            // دریافت آمار از لاگ (اگر در Job ذخیره شده باشد)
+            \Illuminate\Support\Facades\Log::info('Welcome messages job executed after sync');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error sending welcome messages after sync', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // خطا را لاگ می‌کنیم اما sync را موفق می‌دانیم
+        }
+        
         return response()->json([
             'success' => true,
             'message' => 'Success',
@@ -76,6 +96,7 @@ Route::post('/api/residents/sync', function () {
                 'updated_count' => $lastSync['updated_count'] ?? 0,
                 'total_in_db' => $totalInDb,
                 'last_sync_time' => $lastSyncTime,
+                'welcome_messages_checked' => true,
             ]
         ]);
     } catch (\Exception $e) {
@@ -87,6 +108,30 @@ Route::post('/api/residents/sync', function () {
         return response()->json([
             'success' => false,
             'message' => 'خطا در همگام‌سازی داده‌ها: ' . $e->getMessage(),
+        ], 500);
+    }
+})->middleware('web');
+
+// API endpoint for sending welcome messages
+Route::post('/api/residents/send-welcome-messages', function () {
+    try {
+        // اجرای Job همگام‌سازی پیام‌های خوش‌آمدگویی
+        $job = new \App\Jobs\SendWelcomeMessages();
+        $job->handle();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'پیام‌های خوش‌آمدگویی با موفقیت بررسی و ارسال شدند.',
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error sending welcome messages from API route', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در ارسال پیام‌های خوش‌آمدگویی: ' . $e->getMessage(),
         ], 500);
     }
 })->middleware('web');

@@ -11,13 +11,25 @@ class Settings extends Model
         'api_url',
         'sms_delay_before_start',
         'sms_delay_between_messages',
+        'welcome_pattern_id',
+        'welcome_start_datetime',
     ];
 
     protected $casts = [
         'refresh_interval' => 'integer',
         'sms_delay_before_start' => 'integer',
         'sms_delay_between_messages' => 'integer',
+        'welcome_pattern_id' => 'integer',
+        'welcome_start_datetime' => 'datetime',
     ];
+
+    /**
+     * رابطه با Pattern برای پیام خوش‌آمدگویی
+     */
+    public function welcomePattern()
+    {
+        return $this->belongsTo(Pattern::class, 'welcome_pattern_id');
+    }
 
     /**
      * دریافت تنظیمات (تنها یک رکورد در جدول وجود دارد)
