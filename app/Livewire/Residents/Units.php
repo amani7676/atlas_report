@@ -249,11 +249,20 @@ class Units extends Component
 
     public function submitReport()
     {
+        // لاگ برای دیباگ
+        \Log::info('submitReport called', [
+            'selected_reports_count' => count($this->selectedReports ?? []),
+            'selected_reports' => $this->selectedReports ?? [],
+            'report_type' => $this->reportType ?? 'unknown',
+        ]);
+        
         if (empty($this->selectedReports)) {
+            \Log::warning('submitReport: selectedReports is empty');
             $this->databaseResponse = [
                 'success' => false,
                 'message' => 'لطفاً حداقل یک گزارش را انتخاب کنید.'
             ];
+            $this->reportModalLoading = false;
             return;
         }
 
@@ -329,12 +338,26 @@ class Units extends Component
                     'errors' => $errors
                 ];
             } else {
+                // اگر successCount صفر است، بررسی کن که آیا واقعاً گزارش‌هایی انتخاب شده بودند
+                if ($successCount === 0 && !empty($this->selectedReports)) {
+                    \Log::warning('submitReport: successCount is 0 but selectedReports is not empty', [
+                        'selected_reports' => $this->selectedReports,
+                        'result' => $result,
+                    ]);
+                }
+                
                 // ذخیره پاسخ دیتابیس برای نمایش در مودال
                 $this->databaseResponse = [
                     'success' => true,
                     'message' => "{$successCount} گزارش با موفقیت در دیتابیس ثبت شد.",
                     'reports' => $result['submitted_reports'] ?? []
                 ];
+                
+                \Log::info('submitReport completed', [
+                    'success_count' => $successCount,
+                    'failed_count' => $failedCount,
+                    'submitted_reports_count' => count($result['submitted_reports'] ?? []),
+                ]);
                 
                 // باز کردن modal پاسخ SMS اگر پیامکی ارسال شده باشد
                 \Log::info('Checking SMS Responses before opening modal', [
@@ -401,17 +424,70 @@ class Units extends Component
         $failedCount = 0;
         $submittedReports = [];
 
+        // لاگ برای دیباگ
+        \Log::info('submitIndividualReport started', [
+            'selected_reports_count' => count($this->selectedReports ?? []),
+            'selected_reports' => $this->selectedReports ?? [],
+            'selected_reports_type' => gettype($this->selectedReports),
+            'current_resident_id' => $this->currentResident['id'] ?? null,
+        ]);
+        
+        // اگر selectedReports خالی است، بررسی کن که آیا مشکل از wire:model است
+        if (empty($this->selectedReports)) {
+            \Log::warning('selectedReports is empty in submitIndividualReport');
+            return [
+                'success' => 0,
+                'failed' => 0,
+                'errors' => [['error' => 'هیچ گزارشی انتخاب نشده است']],
+                'submitted_reports' => []
+            ];
+        }
+
         foreach ($this->selectedReports as $reportId) {
             try {
+                Log::info('Processing report', [
+                    'report_id' => $reportId,
+                    'current_resident_id' => $this->currentResident['id'] ?? null,
+                ]);
+
                 // پیدا کردن ID واقعی resident در جدول residents
                 $residentDbId = null;
                 if (!empty($this->currentResident['id'])) {
                     // resident_id از API است، باید id واقعی را از جدول residents پیدا کنیم
                     $resident = \App\Models\Resident::where('resident_id', $this->currentResident['id'])->first();
                     $residentDbId = $resident ? $resident->id : null;
+                    
+                    Log::info('Resident lookup', [
+                        'resident_id_from_api' => $this->currentResident['id'],
+                        'resident_db_id' => $residentDbId,
+                        'resident_found' => $resident ? 'yes' : 'no',
+                    ]);
                 }
 
-                // ایجاد رکورد در دیتابیس
+                // بررسی اینکه آیا این گزارش قبلاً برای این اقامت‌گر ارسال شده است
+                // فقط بررسی می‌کنیم که آیا قبلاً ارسال شده (has_been_sent = true) یا نه
+                if ($residentDbId) {
+                    $existingSentReport = \App\Models\ResidentReport::where('report_id', $reportId)
+                        ->where('resident_id', $residentDbId)
+                        ->where('has_been_sent', true)
+                        ->first();
+                    
+                    if ($existingSentReport) {
+                        Log::info('Report already sent for this resident - skipping', [
+                            'report_id' => $reportId,
+                            'resident_id' => $residentDbId,
+                            'existing_report_id' => $existingSentReport->id,
+                        ]);
+                        continue; // این گزارش قبلاً ارسال شده است
+                    }
+                } else {
+                    Log::warning('residentDbId is null - will create report with null resident_id', [
+                        'report_id' => $reportId,
+                        'current_resident_id' => $this->currentResident['id'] ?? null,
+                    ]);
+                }
+                
+                // ایجاد رکورد در دیتابیس با has_been_sent = true برای جلوگیری از ارسال دوبار توسط Event Listener
                 $residentReport = \App\Models\ResidentReport::create([
                     'report_id' => $reportId,
                     'resident_id' => $residentDbId, // استفاده از id واقعی از جدول residents
@@ -424,6 +500,7 @@ class Units extends Component
                     'bed_id' => $this->currentResident['bed_id'] ?? null,
                     'bed_name' => $this->currentResident['bed_name'] ?? null,
                     'notes' => $this->notes,
+                    'has_been_sent' => true, // از همان ابتدا true می‌کنیم تا Event Listener اجرا نشود
                 ]);
 
                 // ارسال مستقیم پیامک الگویی (مشابه GroupSms)
@@ -458,7 +535,8 @@ class Units extends Component
                             if ($residentDbId) {
                                 $residentDb = Resident::find($residentDbId);
                                 if ($residentDb) {
-                                    $residentDataForVariables = $residentDb->toArray(); // استفاده از تمام فیلدهای دیتابیس
+                                    // استفاده مستقیم از تمام فیلدهای دیتابیس (نه nested structure)
+                                    $residentDataForVariables = $residentDb->toArray();
                                 }
                             }
                             
@@ -736,7 +814,25 @@ class Units extends Component
                         $residentDbId = $resident ? $resident->id : null;
                     }
 
-                    // ایجاد رکورد در دیتابیس
+                    // بررسی اینکه آیا این گزارش قبلاً برای این اقامت‌گر ارسال شده است
+                    // فقط بررسی می‌کنیم که آیا قبلاً ارسال شده (has_been_sent = true) یا نه
+                    if ($residentDbId) {
+                        $existingSentReport = \App\Models\ResidentReport::where('report_id', $reportId)
+                            ->where('resident_id', $residentDbId)
+                            ->where('has_been_sent', true)
+                            ->first();
+                        
+                        if ($existingSentReport) {
+                            Log::info('Report already sent for this resident (Group)', [
+                                'report_id' => $reportId,
+                                'resident_id' => $residentDbId,
+                                'existing_report_id' => $existingSentReport->id,
+                            ]);
+                            continue; // این گزارش قبلاً ارسال شده است
+                        }
+                    }
+                    
+                    // ایجاد رکورد در دیتابیس با has_been_sent = true برای جلوگیری از ارسال دوبار توسط Event Listener
                     $residentReport = \App\Models\ResidentReport::create([
                         'report_id' => $reportId,
                         'resident_id' => $residentDbId, // استفاده از id واقعی از جدول residents
@@ -749,6 +845,7 @@ class Units extends Component
                         'bed_id' => $residentData['bed_id'] ?? null,
                         'bed_name' => $residentData['bed_name'] ?? null,
                         'notes' => $this->notes,
+                        'has_been_sent' => true, // از همان ابتدا true می‌کنیم تا Event Listener اجرا نشود
                     ]);
 
                     // ارسال مستقیم پیامک الگویی (مشابه GroupSms)
@@ -806,9 +903,7 @@ class Units extends Component
                                 // استخراج متغیرها از متن الگو (با اولویت دیتابیس)
                                 $variables = $this->extractPatternVariables($pattern->text, $residentDataForSms, $residentApiData, $report, $residentDataForVariables);
                                 
-                                // علامت‌گذاری که پیامک در حال ارسال است (برای جلوگیری از ارسال دوبار توسط Event Listener)
-                                $residentReport->update(['has_been_sent' => true]);
-                                
+                                // has_been_sent قبلاً در create() true شده است
                                 // دریافت شماره فرستنده
                                 $senderNumber = SenderNumber::getActivePatternNumbers()->first();
                                 $senderNumberValue = $senderNumber ? $senderNumber->number : null;
@@ -1293,8 +1388,15 @@ class Units extends Component
             return [];
         }
 
-        // اولویت: دیتابیس > API > داده‌های پاس داده شده
-        $residentDataForVariables = $residentDataFromDb ?? $residentApiData ?? $this->getResidentDataFromDb($residentData);
+        // اولویت: دیتابیس > API
+        // residentDataFromDb باید یک array flat از فیلدهای دیتابیس باشد (مثل resident_full_name, unit_name, etc.)
+        if ($residentDataFromDb && is_array($residentDataFromDb)) {
+            $residentDataForVariables = $residentDataFromDb;
+        } elseif ($residentApiData && is_array($residentApiData)) {
+            $residentDataForVariables = $this->convertApiDataToFlat($residentApiData);
+        } else {
+            $residentDataForVariables = $this->getResidentDataFromDb($residentData);
+        }
 
         $variables = PatternVariable::where('is_active', true)
             ->get()
@@ -1337,50 +1439,67 @@ class Units extends Component
         return $result;
     }
 
+    /**
+     * تبدیل داده‌های API به ساختار flat برای استفاده در getVariableValue
+     */
+    protected function convertApiDataToFlat($apiData)
+    {
+        // تبدیل ساختار nested API به flat structure
+        $flat = [];
+        
+        // فیلدهای resident
+        if (isset($apiData['resident'])) {
+            foreach ($apiData['resident'] as $key => $value) {
+                $flat['resident_' . $key] = $value;
+            }
+        }
+        
+        // فیلدهای unit
+        if (isset($apiData['unit'])) {
+            foreach ($apiData['unit'] as $key => $value) {
+                $flat['unit_' . $key] = $value;
+            }
+        }
+        
+        // فیلدهای room
+        if (isset($apiData['room'])) {
+            foreach ($apiData['room'] as $key => $value) {
+                $flat['room_' . $key] = $value;
+            }
+        }
+        
+        // فیلدهای bed
+        if (isset($apiData['bed'])) {
+            foreach ($apiData['bed'] as $key => $value) {
+                $flat['bed_' . $key] = $value;
+            }
+        }
+        
+        return $flat;
+    }
+
     protected function getResidentDataFromDb($residentData)
     {
         // اگر residentData یک Model Resident است، آن را به array تبدیل می‌کنیم
         if ($residentData instanceof \App\Models\Resident) {
-            $residentData = $residentData->toArray();
+            return $residentData->toArray(); // بازگشت مستقیم array flat از فیلدهای دیتابیس
         }
         
-        // ساخت ساختار داده با استفاده از فیلدهای واقعی دیتابیس
-        // مهم: باید تمام فیلدهای دیتابیس را نگه داریم تا getVariableValue بتواند از table_field استفاده کند
+        // اگر residentData یک array flat است (مثل result از toArray())
+        if (is_array($residentData)) {
+            // اگر شامل کلیدهای مستقیم دیتابیس است (مثل resident_full_name, unit_name)
+            if (isset($residentData['resident_full_name']) || isset($residentData['unit_name'])) {
+                return $residentData; // بازگشت مستقیم
+            }
+        }
+        
+        // fallback: ساختار قدیمی (nested) - تبدیل به flat
         return [
-            'resident' => [
-                'id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
-                'resident_id' => $residentData['resident_id'] ?? null,
-                // نگه داشتن نام فیلدهای واقعی دیتابیس
-                'resident_full_name' => $residentData['resident_full_name'] ?? '',
-                'resident_phone' => $residentData['resident_phone'] ?? '',
-                'resident_age' => $residentData['resident_age'] ?? '',
-                'resident_job' => $residentData['resident_job'] ?? '',
-                'contract_payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? '',
-                'contract_start_date_jalali' => $residentData['contract_start_date_jalali'] ?? '',
-                'contract_end_date_jalali' => $residentData['contract_end_date_jalali'] ?? '',
-                // همچنین نام‌های جایگزین برای سازگاری
-                'full_name' => $residentData['resident_full_name'] ?? $residentData['full_name'] ?? $residentData['name'] ?? '',
-                'name' => $residentData['resident_full_name'] ?? $residentData['full_name'] ?? $residentData['name'] ?? '',
-                'phone' => $residentData['resident_phone'] ?? $residentData['phone'] ?? '',
-                'national_id' => $residentData['national_id'] ?? $residentData['national_code'] ?? '',
-                'national_code' => $residentData['national_id'] ?? $residentData['national_code'] ?? '',
-                'payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? '',
-            ],
-            'unit' => [
-                'id' => $residentData['unit_id'] ?? null,
-                'name' => $residentData['unit_name'] ?? '',
-                'code' => $residentData['unit_code'] ?? '',
-            ],
-            'room' => [
-                'id' => $residentData['room_id'] ?? null,
-                'name' => $residentData['room_name'] ?? '',
-                'code' => $residentData['room_code'] ?? '',
-            ],
-            'bed' => [
-                'id' => $residentData['bed_id'] ?? null,
-                'name' => $residentData['bed_name'] ?? '',
-                'code' => $residentData['bed_code'] ?? '',
-            ],
+            'resident_full_name' => $residentData['name'] ?? $residentData['resident_name'] ?? '',
+            'resident_phone' => $residentData['phone'] ?? '',
+            'unit_name' => $residentData['unit_name'] ?? '',
+            'room_name' => $residentData['room_name'] ?? '',
+            'bed_name' => $residentData['bed_name'] ?? '',
         ];
     }
 
@@ -1390,70 +1509,31 @@ class Units extends Component
         $type = $variable->variable_type;
 
         if ($type === 'user') {
+            // استفاده مستقیم از فیلدهای دیتابیس (residentData یک array flat از فیلدهای دیتابیس است)
+            // table_field مستقیماً نام فیلد در جدول residents است (مثل resident_full_name, unit_name, room_name, bed_name)
+            
             if (strpos($field, 'unit_') === 0) {
-                $key = substr($field, 5);
-                return $residentData['unit'][$key] ?? '';
+                // فیلدهای unit (مثل unit_name, unit_code)
+                $value = $residentData[$field] ?? '';
             } elseif (strpos($field, 'room_') === 0) {
-                $key = substr($field, 5);
-                return $residentData['room'][$key] ?? '';
+                // فیلدهای room (مثل room_name, room_code)
+                $value = $residentData[$field] ?? '';
             } elseif (strpos($field, 'bed_') === 0) {
-                $key = substr($field, 4);
-                return $residentData['bed'][$key] ?? '';
+                // فیلدهای bed (مثل bed_name, bed_code)
+                $value = $residentData[$field] ?? '';
             } else {
-                // فیلدهای مستقیم resident
-                // table_field می‌تواند به صورت مستقیم (مثل full_name) یا با prefix (مثل resident_full_name) باشد
-                
-                // اول سعی می‌کنیم با همان نام table_field از resident بخوانیم
-                $value = $residentData['resident'][$field] ?? '';
-                
-                // اگر پیدا نشد و table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
-                if (empty($value) && strpos($field, 'resident_') === 0) {
-                    $keyWithoutPrefix = substr($field, 9); // حذف 'resident_' از ابتدا
-                    $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
-                }
-                
-                // اگر هنوز پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
-                if (empty($value)) {
-                    // برای full_name
-                    if ($field === 'full_name' || $field === 'name' || $field === 'resident_full_name') {
-                        $value = $residentData['resident']['full_name'] ?? 
-                                 $residentData['resident']['name'] ?? 
-                                 $residentData['resident']['resident_full_name'] ?? '';
-                    }
-                    // برای phone
-                    elseif ($field === 'phone' || $field === 'resident_phone') {
-                        $value = $residentData['resident']['phone'] ?? 
-                                 $residentData['resident']['resident_phone'] ?? '';
-                    }
-                    // برای national_id
-                    elseif ($field === 'national_id' || $field === 'national_code') {
-                        $value = $residentData['resident']['national_id'] ?? 
-                                 $residentData['resident']['national_code'] ?? '';
-                    }
-                    // برای contract_payment_date_jalali
-                    elseif ($field === 'contract_payment_date_jalali' || $field === 'payment_date_jalali') {
-                        $value = $residentData['resident']['contract_payment_date_jalali'] ?? 
-                                 $residentData['resident']['payment_date_jalali'] ?? '';
-                    }
-                    // برای سایر فیلدها، سعی می‌کنیم مستقیماً از resident بخوانیم
-                    else {
-                        // اگر table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
-                        if (strpos($field, 'resident_') === 0) {
-                            $keyWithoutPrefix = substr($field, 9);
-                            $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
-                        } else {
-                            $value = $residentData['resident'][$field] ?? '';
-                        }
-                    }
-                }
-                
-                if (!is_string($value)) {
-                    $value = (string)$value;
-                }
-                
-                return $value;
+                // فیلدهای resident (مثل resident_full_name, resident_phone, resident_age, etc.)
+                $value = $residentData[$field] ?? '';
             }
+            
+            // تبدیل به string
+            if (!is_string($value)) {
+                $value = (string)$value;
+            }
+            
+            return $value;
         } elseif ($type === 'report' && $reportData) {
+            // فیلدهای گزارش
             if (strpos($field, 'category.') === 0) {
                 $key = substr($field, 9);
                 return $reportData['category_' . $key] ?? '';
@@ -1461,6 +1541,7 @@ class Units extends Component
                 return $reportData[$field] ?? '';
             }
         } elseif ($type === 'general') {
+            // فیلدهای عمومی
             if ($field === 'today') {
                 return $this->formatJalaliDate(now()->toDateString());
             }
