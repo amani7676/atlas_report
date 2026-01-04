@@ -228,12 +228,20 @@
                                         </div>
                                     @endif
 
+                                    <!-- HTTP Status Code -->
+                                    @if(isset($result['http_status_code']))
+                                        <div>
+                                            <span class="font-medium text-gray-700">کد وضعیت HTTP:</span>
+                                            <p class="mt-1 text-gray-800 font-mono">{{ $result['http_status_code'] }}</p>
+                                        </div>
+                                    @endif
+
                                     <!-- پاسخ خام -->
                                     @if(isset($result['raw_response']))
                                         <div>
                                             <span class="font-medium text-gray-700">پاسخ خام API:</span>
-                                            <div class="mt-2 p-3 bg-white rounded border border-gray-300">
-                                                <pre class="text-sm text-gray-800 whitespace-pre-wrap break-words">{{ $result['raw_response'] }}</pre>
+                                            <div class="mt-2 p-3 bg-white rounded border border-gray-300 max-h-64 overflow-y-auto">
+                                                <pre class="text-sm text-gray-800 whitespace-pre-wrap break-words font-mono">{{ $result['raw_response'] }}</pre>
                                             </div>
                                         </div>
                                     @endif
@@ -242,8 +250,18 @@
                                     @if(isset($result['api_response']))
                                         <div>
                                             <span class="font-medium text-gray-700">پاسخ API (JSON):</span>
-                                            <div class="mt-2 p-3 bg-white rounded border border-gray-300">
-                                                <pre class="text-sm text-gray-800 whitespace-pre-wrap break-words">{{ is_array($result['api_response']) ? json_encode($result['api_response'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : $result['api_response'] }}</pre>
+                                            <div class="mt-2 p-3 bg-white rounded border border-gray-300 max-h-64 overflow-y-auto">
+                                                <pre class="text-sm text-gray-800 whitespace-pre-wrap break-words font-mono">{{ is_array($result['api_response']) ? json_encode($result['api_response'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : $result['api_response'] }}</pre>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <!-- تمام اطلاعات نتیجه (برای دیباگ) -->
+                                    @if(isset($result) && is_array($result))
+                                        <div>
+                                            <span class="font-medium text-gray-700">تمام اطلاعات پاسخ:</span>
+                                            <div class="mt-2 p-3 bg-white rounded border border-gray-300 max-h-96 overflow-y-auto">
+                                                <pre class="text-sm text-gray-800 whitespace-pre-wrap break-words font-mono">{{ json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) }}</pre>
                                             </div>
                                         </div>
                                     @endif

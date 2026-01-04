@@ -16,11 +16,13 @@ class Index extends Component
 {
     use WithPagination;
 
+    protected $paginationTheme = 'bootstrap';
+
     public $search = '';
-    public $perPage = 10;
+    public $perPage = 20;
     public $sortBy = 'created_at';
     public $sortDirection = 'desc';
-    public $statusFilter = '';
+    public $statusFilter = 'approved'; // پیش‌فرض: فقط الگوهای تایید شده
     
     // Modal states
     public $showModal = false;
@@ -46,6 +48,10 @@ class Index extends Component
     // View Raw API Response
     public $showRawApiResponseModal = false;
     public $rawApiResponseData = null;
+    
+    // نمایش پاسخ API بعد از همگام‌سازی
+    public $showSyncResponseModal = false;
+    public $syncResponseData = null;
     
     // Variable selection for pattern text
     public $selectedVariables = [];
@@ -547,11 +553,39 @@ class Index extends Component
 
     public function syncFromApi()
     {
-        $this->syncing = true;
-        
         try {
+            \Log::info('syncFromApi method called');
+            $this->syncing = true;
+            
             $melipayamakService = new MelipayamakService();
             $result = $melipayamakService->getSharedServiceBody();
+
+            \Log::info('syncFromApi API result', [
+                'success' => $result['success'] ?? false,
+                'patterns_count' => count($result['patterns'] ?? []),
+            ]);
+            
+            // ذخیره پاسخ API برای نمایش
+            // دریافت اطلاعات username و password (API Key) برای نمایش
+            $reflection = new \ReflectionClass($melipayamakService);
+            $usernameProperty = $reflection->getProperty('username');
+            $passwordProperty = $reflection->getProperty('password');
+            $usernameProperty->setAccessible(true);
+            $passwordProperty->setAccessible(true);
+            $username = $usernameProperty->getValue($melipayamakService);
+            $password = $passwordProperty->getValue($melipayamakService);
+            
+            $this->syncResponseData = [
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? '',
+                'patterns_count' => count($result['patterns'] ?? []),
+                'patterns' => $result['patterns'] ?? [],
+                'raw_response' => $result['raw_response'] ?? $result['api_response'] ?? '',
+                'http_status_code' => $result['http_status_code'] ?? null,
+                'username' => $username,
+                'password' => $password, // این در واقع API Key است
+            ];
+            $this->showSyncResponseModal = true;
 
             if ($result['success']) {
                 if (empty($result['patterns'])) {
@@ -565,8 +599,17 @@ class Index extends Component
                     $updatedCount = 0;
                     $errorCount = 0;
                     
-                    foreach ($result['patterns'] as $apiPattern) {
+                    \Log::info('Starting to sync patterns to database', [
+                        'patterns_count' => count($result['patterns']),
+                    ]);
+                    
+                    foreach ($result['patterns'] as $index => $apiPattern) {
                         try {
+                            \Log::debug('Processing pattern', [
+                                'index' => $index,
+                                'pattern_data' => $apiPattern,
+                            ]);
+                            
                             // بررسی اینکه آیا الگو با این pattern_code وجود دارد
                             $patternCode = $apiPattern['pattern_code'] ?? null;
                             
@@ -589,51 +632,72 @@ class Index extends Component
                                 'Description' => $apiPattern['description'] ?? '',
                             ], JSON_UNESCAPED_UNICODE);
                             
+                            // آماده‌سازی داده‌ها برای ذخیره در جدول patterns
+                            $patternData = [
+                                'title' => $apiPattern['title'] ?? 'بدون عنوان',
+                                'text' => $apiPattern['text'] ?? '',
+                                'pattern_code' => $patternCode,
+                                'blacklist_id' => $apiPattern['blacklist_id'] ?? '1',
+                                'status' => $apiPattern['status'] ?? 'approved',
+                                'api_response' => $patternApiResponse,
+                                'http_status_code' => $result['http_status_code'],
+                            ];
+                            
                             if ($existingPattern) {
-                                // به‌روزرسانی الگوی موجود
-                                $existingPattern->update([
-                                    'title' => $apiPattern['title'] ?? $existingPattern->title,
-                                    'text' => $apiPattern['text'] ?? $existingPattern->text,
-                                    'pattern_code' => $patternCode ?? $existingPattern->pattern_code,
-                                    'blacklist_id' => $apiPattern['blacklist_id'] ?? $existingPattern->blacklist_id ?? '1',
-                                    'status' => $apiPattern['status'] ?? $existingPattern->status ?? 'approved',
-                                    'api_response' => $patternApiResponse, // پاسخ جداگانه برای هر الگو
-                                    'http_status_code' => $result['http_status_code'],
+                                // به‌روزرسانی الگوی موجود در جدول patterns
+                                $existingPattern->update($patternData);
+                                \Log::info('Pattern updated in database', [
+                                    'pattern_id' => $existingPattern->id,
+                                    'pattern_code' => $patternCode,
+                                    'title' => $patternData['title'],
                                 ]);
                                 $updatedCount++;
                             } else {
-                                // ایجاد الگوی جدید
-                                Pattern::create([
-                                    'title' => $apiPattern['title'] ?? 'بدون عنوان',
-                                    'text' => $apiPattern['text'] ?? '',
+                                // ایجاد الگوی جدید در جدول patterns
+                                $patternData['is_active'] = true;
+                                $newPattern = Pattern::create($patternData);
+                                \Log::info('Pattern created in database', [
+                                    'pattern_id' => $newPattern->id,
                                     'pattern_code' => $patternCode,
-                                    'blacklist_id' => $apiPattern['blacklist_id'] ?? '1',
-                                    'status' => $apiPattern['status'] ?? 'approved',
-                                    'is_active' => true,
-                                    'api_response' => $patternApiResponse, // پاسخ جداگانه برای هر الگو
-                                    'http_status_code' => $result['http_status_code'],
+                                    'title' => $patternData['title'],
+                                    'text_preview' => substr($patternData['text'], 0, 50),
                                 ]);
                                 $syncedCount++;
                             }
                         } catch (\Exception $e) {
                             $errorCount++;
-                            \Log::error('Error syncing pattern', [
+                            \Log::error('Error syncing pattern to database', [
+                                'index' => $index,
                                 'pattern' => $apiPattern,
                                 'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString(),
                             ]);
                         }
                     }
+                    
+                    \Log::info('Patterns sync completed', [
+                        'synced' => $syncedCount,
+                        'updated' => $updatedCount,
+                        'errors' => $errorCount,
+                    ]);
 
                     $message = "همگام‌سازی با موفقیت انجام شد. {$syncedCount} الگوی جدید اضافه شد و {$updatedCount} الگو به‌روزرسانی شد.";
                     if ($errorCount > 0) {
                         $message .= " ({$errorCount} خطا در پردازش)";
                     }
 
+                    // Reset pagination and filters to show all patterns from database
+                    $this->resetPage();
+                    $this->reset(['search', 'statusFilter']);
+                    
+                    // نمایش پیام موفقیت
                     $this->dispatch('showAlert', [
                         'type' => 'success',
                         'title' => 'موفقیت!',
                         'text' => $message
                     ]);
+                    
+                    // Livewire به صورت خودکار کامپوننت را رندر می‌کند و لیست الگوها از جدول patterns نمایش داده می‌شود
                 }
             } else {
                 $this->dispatch('showAlert', [
@@ -643,6 +707,11 @@ class Index extends Component
                 ]);
             }
         } catch (\Exception $e) {
+            \Log::error('syncFromApi Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'title' => 'خطا!',
@@ -682,6 +751,12 @@ class Index extends Component
     {
         $this->showRawApiResponseModal = false;
         $this->rawApiResponseData = null;
+    }
+    
+    public function closeSyncResponseModal()
+    {
+        $this->showSyncResponseModal = false;
+        $this->syncResponseData = null;
     }
 
     public function sortBy($field)

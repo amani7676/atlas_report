@@ -141,8 +141,18 @@ class PatternManual extends Component
         }
         
         try {
-            // استخراج متغیرها
-            $variables = $this->extractPatternVariables($pattern->text, $this->selectedResident);
+            // پیدا کردن resident در جدول residents بر اساس resident_id از API
+            $residentApiId = $this->selectedResident['id']; // این resident_id از API است
+            $residentDb = Resident::where('resident_id', $residentApiId)->first();
+            
+            // ساخت داده‌های resident از دیتابیس برای استخراج متغیرها
+            $residentDataForVariables = null;
+            if ($residentDb) {
+                $residentDataForVariables = $residentDb->toArray(); // استفاده از تمام فیلدهای دیتابیس
+            }
+            
+            // استخراج متغیرها (با اولویت دیتابیس)
+            $variables = $this->extractPatternVariables($pattern->text, $this->selectedResident, $residentDataForVariables);
             $this->previewVariables = $variables;
             
             // ساخت پیش‌نمایش پیام با جایگزینی متغیرها
@@ -156,10 +166,11 @@ class PatternManual extends Component
                 
                 foreach ($usedIndices as $varIndex) {
                     $match = '{' . $varIndex . '}';
-                    $arrayIndex = array_search($varIndex, $usedIndices);
                     
-                    if (isset($variables[$arrayIndex]) && !empty($variables[$arrayIndex])) {
-                        $value = htmlspecialchars($variables[$arrayIndex]);
+                    // استفاده مستقیم از $varIndex به عنوان index در آرایه $variables
+                    // چون extractPatternVariables آرایه را به صورت [value0, value1, value2, ...] می‌سازد
+                    if (isset($variables[$varIndex]) && !empty($variables[$varIndex])) {
+                        $value = htmlspecialchars($variables[$varIndex]);
                         $previewText = str_replace($match, '<strong style="color: #4361ee; background: #e0e7ff; padding: 2px 6px; border-radius: 3px;">{' . $varIndex . '}: ' . $value . '</strong>', $previewText);
                     } else {
                         $previewText = str_replace($match, '<span style="color: #dc3545; background: #ffe0e0; padding: 2px 6px; border-radius: 3px;">{' . $varIndex . '}: [مقدار یافت نشد]</span>', $previewText);
@@ -426,6 +437,35 @@ class PatternManual extends Component
                 return;
             }
 
+            // پیدا کردن resident در جدول residents بر اساس resident_id از API
+            $residentApiId = $this->selectedResident['id']; // این resident_id از API است
+            $residentDb = Resident::where('resident_id', $residentApiId)->first();
+            
+            // ساخت داده‌های resident از دیتابیس برای استخراج متغیرها
+            $residentDataForVariables = null;
+            if ($residentDb) {
+                $residentDataForVariables = [
+                    'id' => $residentDb->id,
+                    'resident_id' => $residentDb->resident_id,
+                    'resident_full_name' => $residentDb->resident_full_name,
+                    'resident_phone' => $residentDb->resident_phone,
+                    'unit_id' => $residentDb->unit_id,
+                    'unit_name' => $residentDb->unit_name,
+                    'unit_code' => $residentDb->unit_code,
+                    'room_id' => $residentDb->room_id,
+                    'room_name' => $residentDb->room_name,
+                    'room_code' => $residentDb->room_code,
+                    'bed_id' => $residentDb->bed_id,
+                    'bed_name' => $residentDb->bed_name,
+                    'bed_code' => $residentDb->bed_code,
+                    'contract_payment_date_jalali' => $residentDb->contract_payment_date_jalali,
+                    'contract_start_date_jalali' => $residentDb->contract_start_date_jalali,
+                    'contract_end_date_jalali' => $residentDb->contract_end_date_jalali,
+                    'resident_age' => $residentDb->resident_age,
+                    'resident_job' => $residentDb->resident_job,
+                ];
+            }
+            
             // استخراج متغیرها از متن الگو
             \Log::info('Before extracting pattern variables', [
                 'pattern_id' => $pattern->id,
@@ -433,9 +473,10 @@ class PatternManual extends Component
                 'pattern_code' => $pattern->pattern_code,
                 'selected_resident' => $this->selectedResident,
                 'selected_report' => $this->selectedReport,
+                'resident_db_found' => $residentDb ? 'yes' : 'no',
             ]);
             
-            $variables = $this->extractPatternVariables($pattern->text, $this->selectedResident);
+            $variables = $this->extractPatternVariables($pattern->text, $this->selectedResident, $residentDataForVariables);
             
             \Log::info('Pattern variables extracted for SMS', [
                 'pattern_id' => $pattern->id,
@@ -588,9 +629,22 @@ class PatternManual extends Component
             $apiKey = null;
             if ($this->selectedSenderNumberId) {
                 $senderNumberObj = \App\Models\SenderNumber::find($this->selectedSenderNumberId);
-                if ($senderNumberObj) {
+                if ($senderNumberObj && !empty($senderNumberObj->api_key)) {
                     $apiKey = $senderNumberObj->api_key;
                 }
+            }
+            
+            // اگر API Key از sender number دریافت نشد، از جدول api_keys استفاده می‌کنیم
+            if (empty($apiKey)) {
+                $dbConsoleKey = \App\Models\ApiKey::getKeyValue('console_api_key');
+                $dbApiKey = \App\Models\ApiKey::getKeyValue('api_key');
+                $configConsoleKey = config('services.melipayamak.console_api_key');
+                $configApiKey = config('services.melipayamak.api_key');
+                
+                $apiKey = $dbConsoleKey
+                    ?: $dbApiKey
+                    ?: $configConsoleKey
+                    ?: $configApiKey;
             }
 
             // استفاده از sendByBaseNumber2 که ابتدا Console API را امتحان می‌کند
@@ -754,7 +808,7 @@ class PatternManual extends Component
      * متغیرها به ترتیب {0}, {1}, {2} و ... استخراج می‌شوند
      * و مقادیر آنها از دیتابیس (pattern_variables) و داده‌های کاربر/گزارش استخراج می‌شود
      */
-    protected function extractPatternVariables($patternText, $resident)
+    protected function extractPatternVariables($patternText, $resident, $residentDataFromDb = null)
     {
         // پیدا کردن تمام متغیرها در الگو (مثل {0}, {1}, {2})
         preg_match_all('/\{(\d+)\}/', $patternText, $matches);
@@ -763,8 +817,49 @@ class PatternManual extends Component
             return []; // اگر متغیری وجود نداشت
         }
 
-        // دریافت اطلاعات کامل resident از دیتابیس
-        $residentData = $this->getResidentData($resident);
+        // استفاده از داده‌های دیتابیس اگر موجود باشد، در غیر این صورت از API
+        if ($residentDataFromDb) {
+            // تبدیل داده‌های دیتابیس به ساختار مورد نیاز
+            $residentData = [
+                'resident' => [
+                    'id' => $residentDataFromDb['id'] ?? $residentDataFromDb['resident_id'] ?? null,
+                    'resident_id' => $residentDataFromDb['resident_id'] ?? null,
+                    // نگه داشتن نام فیلدهای واقعی دیتابیس
+                    'resident_full_name' => $residentDataFromDb['resident_full_name'] ?? '',
+                    'resident_phone' => $residentDataFromDb['resident_phone'] ?? '',
+                    'resident_age' => $residentDataFromDb['resident_age'] ?? '',
+                    'resident_job' => $residentDataFromDb['resident_job'] ?? '',
+                    'contract_payment_date_jalali' => $residentDataFromDb['contract_payment_date_jalali'] ?? '',
+                    'contract_start_date_jalali' => $residentDataFromDb['contract_start_date_jalali'] ?? '',
+                    'contract_end_date_jalali' => $residentDataFromDb['contract_end_date_jalali'] ?? '',
+                    // همچنین نام‌های جایگزین برای سازگاری
+                    'full_name' => $residentDataFromDb['resident_full_name'] ?? '',
+                    'name' => $residentDataFromDb['resident_full_name'] ?? '',
+                    'phone' => $residentDataFromDb['resident_phone'] ?? '',
+                    'national_id' => $residentDataFromDb['national_id'] ?? $residentDataFromDb['national_code'] ?? '',
+                    'national_code' => $residentDataFromDb['national_id'] ?? $residentDataFromDb['national_code'] ?? '',
+                    'payment_date_jalali' => $residentDataFromDb['contract_payment_date_jalali'] ?? '',
+                ],
+                'unit' => [
+                    'id' => $residentDataFromDb['unit_id'] ?? null,
+                    'name' => $residentDataFromDb['unit_name'] ?? '',
+                    'code' => $residentDataFromDb['unit_code'] ?? '',
+                ],
+                'room' => [
+                    'id' => $residentDataFromDb['room_id'] ?? null,
+                    'name' => $residentDataFromDb['room_name'] ?? '',
+                    'code' => $residentDataFromDb['room_code'] ?? '',
+                ],
+                'bed' => [
+                    'id' => $residentDataFromDb['bed_id'] ?? null,
+                    'name' => $residentDataFromDb['bed_name'] ?? '',
+                    'code' => $residentDataFromDb['bed_code'] ?? '',
+                ],
+            ];
+        } else {
+            // دریافت اطلاعات کامل resident از API
+            $residentData = $this->getResidentData($resident);
+        }
         
         // دریافت اطلاعات گزارش
         $reportData = null;
@@ -803,10 +898,16 @@ class PatternManual extends Component
             'used_indices' => $usedIndices,
         ]);
 
-        foreach ($usedIndices as $index) {
-            $code = '{' . $index . '}';
+        // پیدا کردن بزرگترین index برای ساخت آرایه کامل
+        $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
+        
+        // ساخت آرایه کامل از 0 تا maxIndex
+        // API ملی پیامک انتظار دارد که متغیرها به ترتیب {0}, {1}, {2}, ... باشند
+        // حتی اگر در الگو {0}, {2}, {3} باشد، باید آرایه [value0, '', value2, value3] باشد
+        for ($i = 0; $i <= $maxIndex; $i++) {
+            $code = '{' . $i . '}';
             $variable = $variables->get($code);
-
+            
             if ($variable) {
                 $value = $this->getVariableValue($variable, $residentData, $reportData);
                 
@@ -815,35 +916,27 @@ class PatternManual extends Component
                     $value = (string)$value;
                 }
                 
-                // اگر مقدار خالی است، حداقل یک فاصله بگذار تا API خطا ندهد
-                if (empty(trim($value))) {
-                    \Log::warning('Variable value is empty', [
-                        'code' => $code,
-                        'index' => $index,
-                        'table_field' => $variable->table_field,
-                        'variable_type' => $variable->variable_type,
-                    ]);
-                    $value = ''; // مقدار خالی - API باید آن را قبول کند
-                }
-                
                 \Log::info('Variable extracted successfully', [
                     'code' => $code,
-                    'index' => $index,
+                    'index' => $i,
                     'table_field' => $variable->table_field,
                     'variable_type' => $variable->variable_type,
                     'value' => $value,
                     'value_length' => strlen($value),
                 ]);
+                
                 $result[] = $value;
             } else {
-                // اگر متغیر در دیتابیس پیدا نشد، مقدار خالی
-                \Log::error('Variable not found in database', [
+                // اگر متغیر در دیتابیس تعریف نشده یا در الگو استفاده نشده، مقدار خالی می‌گذاریم
+                // این برای متغیرهای جا افتاده (مثل {1} در الگوی {0}, {2}, {3}) ضروری است
+                \Log::debug('Variable not found or not used in pattern', [
                     'code' => $code,
-                    'index' => $index,
+                    'index' => $i,
+                    'is_used_in_pattern' => in_array($i, $usedIndices),
                     'pattern_text' => $patternText,
-                    'available_variables' => $variables->keys()->toArray(),
                 ]);
-                $result[] = ''; // مقدار خالی برای متغیرهای پیدا نشده
+                
+                $result[] = ''; // مقدار خالی برای متغیرهای جا افتاده
             }
         }
 
@@ -964,32 +1057,64 @@ class PatternManual extends Component
                 ]);
                 return $value;
             } else {
-                // فیلدهای مستقیم resident (مثل full_name, phone, name, national_id, etc.)
-                // بررسی چند حالت مختلف برای سازگاری
+                // فیلدهای مستقیم resident
+                // table_field می‌تواند به صورت مستقیم (مثل full_name) یا با prefix (مثل resident_full_name) باشد
+                
+                // اول سعی می‌کنیم با همان نام table_field از resident بخوانیم
                 $value = $residentData['resident'][$field] ?? '';
                 
-                // اگر مقدار پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
+                // اگر پیدا نشد و table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
+                if (empty($value) && strpos($field, 'resident_') === 0) {
+                    $keyWithoutPrefix = substr($field, 9); // حذف 'resident_' از ابتدا
+                    $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
+                }
+                
+                // اگر هنوز پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
                 if (empty($value)) {
-                    if ($field === 'full_name' || $field === 'name') {
-                        $value = $residentData['resident']['name'] ?? 
-                                 $residentData['resident']['full_name'] ?? 
-                                 ($residentData['resident']['id'] ?? '');
-                    } elseif ($field === 'phone') {
-                        $value = $residentData['resident']['phone'] ?? '';
-                    } elseif ($field === 'national_id' || $field === 'national_code') {
+                    // برای full_name
+                    if ($field === 'full_name' || $field === 'name' || $field === 'resident_full_name') {
+                        $value = $residentData['resident']['full_name'] ?? 
+                                 $residentData['resident']['name'] ?? 
+                                 $residentData['resident']['resident_full_name'] ?? '';
+                    }
+                    // برای phone
+                    elseif ($field === 'phone' || $field === 'resident_phone') {
+                        $value = $residentData['resident']['phone'] ?? 
+                                 $residentData['resident']['resident_phone'] ?? '';
+                    }
+                    // برای national_id
+                    elseif ($field === 'national_id' || $field === 'national_code') {
                         $value = $residentData['resident']['national_id'] ?? 
                                  $residentData['resident']['national_code'] ?? '';
+                    }
+                    // برای contract_payment_date_jalali
+                    elseif ($field === 'contract_payment_date_jalali' || $field === 'payment_date_jalali') {
+                        $value = $residentData['resident']['contract_payment_date_jalali'] ?? 
+                                 $residentData['resident']['payment_date_jalali'] ?? '';
+                    }
+                    // برای سایر فیلدها، سعی می‌کنیم مستقیماً از resident بخوانیم
+                    else {
+                        // اگر table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
+                        if (strpos($field, 'resident_') === 0) {
+                            $keyWithoutPrefix = substr($field, 9);
+                            $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
+                        } else {
+                            $value = $residentData['resident'][$field] ?? '';
+                        }
                     }
                 }
                 
                 if (!is_string($value)) {
                     $value = (string)$value;
                 }
+                
                 \Log::debug('Getting resident field', [
                     'field' => $field,
                     'value' => $value,
+                    'value_length' => strlen($value),
                     'available_fields' => array_keys($residentData['resident'] ?? []),
                 ]);
+                
                 return $value;
             }
         } elseif ($type === 'report' && $reportData) {

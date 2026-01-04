@@ -634,181 +634,286 @@ class MelipayamakService
     public function getSharedServiceBody()
     {
         try {
-            Log::debug('Melipayamak GetSharedServiceBody Request', [
+            Log::debug('Melipayamak GetSharedServiceBody Request (SOAP)', [
                 'username' => $this->username,
+                'has_password' => !empty($this->password),
+                'password_length' => strlen($this->password ?? ''),
             ]);
 
-            // استفاده از GET با query parameters برای متد GetSharedServiceBody
-            // بر اساس مستندات: https://api.payamak-panel.com/post/SharedService.asmx/GetSharedServiceBody?username=&password=
-            $baseUrl = 'https://api.payamak-panel.com/post/SharedService.asmx/GetSharedServiceBody';
+            // استفاده از SOAP API بر اساس مستندات
+            // WSDL: https://api.payamak-panel.com/post/SharedService.asmx?wsdl
+            $wsdlUrl = 'https://api.payamak-panel.com/post/SharedService.asmx?wsdl';
             
-            // ارسال درخواست GET با query parameters
-            $response = Http::get($baseUrl, [
-                'username' => $this->username,
-                'password' => $this->password,
-            ]);
-
-            $responseBody = trim($response->body());
-            $httpStatus = $response->status();
-            
-            Log::debug('Melipayamak GetSharedServiceBody Response', [
-                'response_body' => substr($responseBody, 0, 500), // فقط 500 کاراکتر اول برای لاگ
-                'http_status' => $httpStatus,
-            ]);
-
-            if (!$response->successful()) {
+            // بررسی اینکه SOAP extension فعال است
+            if (!extension_loaded('soap')) {
+                Log::error('SOAP extension is not loaded');
                 return [
                     'success' => false,
-                    'message' => 'خطا در دریافت الگوها: ' . $responseBody,
+                    'message' => 'افزونه SOAP در PHP فعال نیست. لطفاً آن را در php.ini فعال کنید.',
                     'patterns' => [],
-                    'api_response' => $responseBody,
-                    'http_status_code' => $httpStatus,
-                    'raw_response' => $responseBody,
+                    'api_response' => null,
+                    'http_status_code' => null,
+                    'raw_response' => 'SOAP extension not available',
                 ];
             }
 
-            // تلاش برای پارس XML پاسخ
+            // بررسی اینکه username و password (API Key) تنظیم شده‌اند
+            if (empty($this->username) || empty($this->password)) {
+                Log::error('Melipayamak credentials not set', [
+                    'has_username' => !empty($this->username),
+                    'has_password' => !empty($this->password),
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'نام کاربری یا API Key تنظیم نشده است. لطفاً تنظیمات را بررسی کنید.',
+                    'patterns' => [],
+                    'api_response' => null,
+                    'http_status_code' => null,
+                    'raw_response' => 'Credentials not set',
+                ];
+            }
+
+            // ساخت داده‌های SOAP
+            // توجه: $this->password در واقع API Key است (نه password واقعی)
+            $soapData = [
+                'username' => $this->username,
+                'password' => $this->password, // این در واقع API Key است
+            ];
+
+            // ایجاد SOAP Client
+            ini_set("soap.wsdl_cache_enabled", "0");
+            $soapClient = new \SoapClient($wsdlUrl, [
+                'encoding' => 'UTF-8',
+                'cache_wsdl' => WSDL_CACHE_NONE,
+                'exceptions' => true,
+            ]);
+
+            // فراخوانی متد GetSharedServiceBody
+            $soapResult = $soapClient->GetSharedServiceBody($soapData);
+            
+            Log::debug('SOAP Raw Result', [
+                'type' => gettype($soapResult),
+                'is_object' => is_object($soapResult),
+                'object_properties' => is_object($soapResult) ? get_object_vars($soapResult) : null,
+            ]);
+            
+            // استخراج نتیجه
+            // پاسخ SOAP می‌تواند به صورت GetSharedServiceBodyResult یا ShareServiceBody باشد
+            $result = null;
+            if (is_object($soapResult)) {
+                // اگر نتیجه یک object است، GetSharedServiceBodyResult را استخراج می‌کنیم
+                if (isset($soapResult->GetSharedServiceBodyResult)) {
+                    $result = $soapResult->GetSharedServiceBodyResult;
+                } elseif (isset($soapResult->ShareServiceBody)) {
+                    // ساختار جدید: ShareServiceBody مستقیم
+                    $result = $soapResult->ShareServiceBody;
+                } else {
+                    // اگر هیچکدام نیست، کل object را استفاده می‌کنیم
+                    $result = $soapResult;
+                }
+            } else {
+                $result = $soapResult;
+            }
+            
+            // تبدیل به آرایه برای پردازش
+            $json = json_encode($result, JSON_UNESCAPED_UNICODE);
+            $data = json_decode($json, true);
+            
+            Log::debug('After JSON conversion', [
+                'data_type' => gettype($data),
+                'data_keys' => is_array($data) ? array_keys($data) : 'not_array',
+                'is_numeric_array' => is_array($data) && !empty($data) && is_numeric(key($data)),
+                'first_item_has_BodyID' => is_array($data) && !empty($data) && isset($data[0]) && isset($data[0]['BodyID']),
+            ]);
+            
+            // اگر data خودش یک آرایه از الگوها است (مستقیم ShareServiceBody)
+            // این برای زمانی است که SOAP مستقیماً آرایه برمی‌گرداند
+            if (is_array($data) && !empty($data) && is_numeric(key($data)) && isset($data[0]) && (isset($data[0]['BodyID']) || isset($data[0]['BodyId']))) {
+                // data مستقیماً آرایه الگوها است، آن را در ShareServiceBody قرار می‌دهیم
+                $data = ['ShareServiceBody' => $data];
+                Log::debug('Converted direct array to ShareServiceBody structure', [
+                    'count' => count($data['ShareServiceBody']),
+                ]);
+            }
+            
+            Log::debug('Melipayamak GetSharedServiceBody Response (SOAP)', [
+                'result_type' => gettype($result),
+                'data_keys' => is_array($data) ? array_keys($data) : 'not_array',
+                'data_preview' => substr($json, 0, 500),
+                'has_ShareServiceBody' => isset($data['ShareServiceBody']),
+                'ShareServiceBody_count' => isset($data['ShareServiceBody']) && is_array($data['ShareServiceBody']) ? count($data['ShareServiceBody']) : 0,
+            ]);
+            
+            // اگر نتیجه خالی است
+            if (empty($result) && empty($data)) {
+                return [
+                    'success' => true,
+                    'message' => 'هیچ الگویی در پنل ملی پیامک یافت نشد',
+                    'patterns' => [],
+                    'api_response' => $json,
+                    'http_status_code' => 200,
+                    'raw_response' => $json,
+                ];
+            }
+
+            // پردازش نتیجه SOAP
             $patterns = [];
             
-            // اگر پاسخ XML است، باید آن را پارس کنیم
-            if (strpos($responseBody, '<?xml') !== false || strpos($responseBody, '<') !== false) {
-                // استفاده از SimpleXML برای پارس XML
-                libxml_use_internal_errors(true);
-                $xml = simplexml_load_string($responseBody);
-                
-                if ($xml !== false) {
-                    // تبدیل XML به آرایه با حفظ ساختار
-                    $json = json_encode($xml, JSON_UNESCAPED_UNICODE);
-                    $data = json_decode($json, true);
-                    
-                    Log::debug('Melipayamak GetSharedServiceBody Parsed XML', [
-                        'data_structure' => array_keys($data ?? []),
+            // استخراج MessagesBL از GetSharedServiceBodyResult
+            $messages = [];
+            
+            Log::debug('Checking data structure', [
+                'top_level_keys' => is_array($data) ? array_keys($data) : 'not_array',
+                'data_type' => gettype($data),
+            ]);
+            
+            // بررسی ساختارهای مختلف ممکن
+            // ساختار 1: ShareServiceBody مستقیم (ساختار واقعی API که کاربر نشان داد)
+            if (isset($data['ShareServiceBody'])) {
+                $messages = $data['ShareServiceBody'];
+                Log::debug('Found structure: ShareServiceBody direct', [
+                    'count' => is_array($messages) ? count($messages) : 1,
+                    'is_array' => is_array($messages),
+                    'first_item_keys' => is_array($messages) && !empty($messages) ? array_keys($messages[0] ?? reset($messages)) : [],
+                ]);
+                // اگر فقط یک پیام است (نه آرایه)، آن را به آرایه تبدیل می‌کنیم
+                if (!is_numeric(key($messages)) && (isset($messages['BodyID']) || isset($messages['BodyId']))) {
+                    $messages = [$messages];
+                    Log::debug('Converted single ShareServiceBody to array');
+                }
+            }
+            // ساختار 2: GetSharedServiceBodyResult -> MessagesBL -> MessagesBL (آرایه)
+            elseif (isset($data['GetSharedServiceBodyResult']['MessagesBL']['MessagesBL'])) {
+                $messages = $data['GetSharedServiceBodyResult']['MessagesBL']['MessagesBL'];
+                Log::debug('Found structure: GetSharedServiceBodyResult -> MessagesBL -> MessagesBL', [
+                    'count' => is_array($messages) ? count($messages) : 1,
+                ]);
+            }
+            // ساختار 3: GetSharedServiceBodyResult -> MessagesBL (آرایه مستقیم)
+            elseif (isset($data['GetSharedServiceBodyResult']['MessagesBL'])) {
+                $messages = $data['GetSharedServiceBodyResult']['MessagesBL'];
+                Log::debug('Found structure: GetSharedServiceBodyResult -> MessagesBL', [
+                    'count' => is_array($messages) ? count($messages) : 1,
+                ]);
+            }
+            // ساختار 4: MessagesBL مستقیم در نتیجه
+            elseif (isset($data['MessagesBL'])) {
+                $messages = $data['MessagesBL'];
+                Log::debug('Found structure: MessagesBL direct', [
+                    'count' => is_array($messages) ? count($messages) : 1,
+                ]);
+            }
+            // ساختار 5: اگر نتیجه مستقیماً یک آرایه است
+            elseif (is_array($data) && !empty($data)) {
+                // بررسی اینکه آیا کل داده یک آرایه از MessagesBL است
+                $firstKey = array_key_first($data);
+                if (is_numeric($firstKey) || (isset($data[$firstKey]['BodyID']) || isset($data[$firstKey]['BodyId']))) {
+                    $messages = $data;
+                    Log::debug('Found structure: Direct array', [
+                        'count' => count($messages),
                     ]);
-                    
-                    // استخراج الگوها از ساختار XML
-                    // بررسی ساختارهای مختلف ممکن
-                    $messages = [];
-                    
-                    // ساختار واقعی API: ArrayOfShareServiceBody -> ShareServiceBody (آرایه)
-                    if (isset($data['ShareServiceBody'])) {
-                        $messages = $data['ShareServiceBody'];
-                        // اگر فقط یک پیام است (نه آرایه)، آن را به آرایه تبدیل می‌کنیم
-                        if (isset($messages['BodyID']) || isset($messages['BodyId'])) {
-                            $messages = [$messages];
-                        }
-                    }
-                    // ساختار قدیمی 1: GetSharedServiceBodyResult -> MessagesBL -> MessagesBL (آرایه)
-                    elseif (isset($data['GetSharedServiceBodyResult']['MessagesBL']['MessagesBL'])) {
-                        $messages = $data['GetSharedServiceBodyResult']['MessagesBL']['MessagesBL'];
-                    }
-                    // ساختار قدیمی 2: GetSharedServiceBodyResult -> MessagesBL (آرایه مستقیم)
-                    elseif (isset($data['GetSharedServiceBodyResult']['MessagesBL'])) {
-                        $messages = $data['GetSharedServiceBodyResult']['MessagesBL'];
-                    }
-                    // ساختار قدیمی 3: GetSharedServiceBodyResult -> MessageBL
-                    elseif (isset($data['GetSharedServiceBodyResult']['MessageBL'])) {
-                        $messages = $data['GetSharedServiceBodyResult']['MessageBL'];
-                    }
-                    // ساختار قدیمی 4: MessagesBL مستقیم
-                    elseif (isset($data['MessagesBL'])) {
-                        $messages = $data['MessagesBL'];
-                    }
-                    
-                    // اگر فقط یک پیام است (نه آرایه)، آن را به آرایه تبدیل می‌کنیم
-                    if (!empty($messages) && !is_numeric(key($messages)) && (isset($messages['BodyID']) || isset($messages['BodyId']))) {
-                        $messages = [$messages];
-                    }
-                    
-                    // پردازش هر پیام
-                    if (is_array($messages) && !empty($messages)) {
-                        foreach ($messages as $message) {
-                            if (is_array($message)) {
-                                // استخراج فیلدها - ساختار واقعی: BodyID, Title, Body, BodyStatus, InsertDate, Description
-                                $patternCode = $message['BodyID'] ?? $message['BodyId'] ?? $message['bodyId'] ?? $message['bodyID'] ?? $message['PatternCode'] ?? $message['patternCode'] ?? null;
-                                $title = $message['Title'] ?? $message['title'] ?? '';
-                                $text = $message['Body'] ?? $message['body'] ?? $message['Text'] ?? $message['text'] ?? '';
-                                $bodyStatus = $message['BodyStatus'] ?? $message['bodyStatus'] ?? $message['Status'] ?? $message['status'] ?? '1';
-                                $insertDate = $message['InsertDate'] ?? $message['insertDate'] ?? null;
-                                $description = $message['Description'] ?? $message['description'] ?? '';
-                                
-                                // تبدیل به رشته برای pattern_code
-                                if ($patternCode !== null) {
-                                    $patternCode = (string)$patternCode;
-                                }
-                                
-                                // تبدیل BodyStatus به وضعیت ما
-                                // BodyStatus: 1 = تایید شده، 5 = رد شده یا در انتظار
-                                $status = 'approved';
-                                if ($bodyStatus == '5' || $bodyStatus == 5) {
-                                    $status = 'rejected';
-                                } elseif ($bodyStatus == '0' || $bodyStatus == 0) {
-                                    $status = 'pending';
-                                }
-                                
-                                $patterns[] = [
-                                    'pattern_code' => $patternCode,
-                                    'title' => $title,
-                                    'text' => $text,
-                                    'blacklist_id' => '1', // طبق مستندات، blackListId باید 1 باشد
-                                    'status' => $status,
-                                ];
-                            }
-                        }
-                    }
-                } else {
-                    // اگر XML پارس نشد، خطاها را لاگ می‌کنیم
-                    $errors = libxml_get_errors();
-                    Log::warning('Melipayamak GetSharedServiceBody XML Parse Errors', [
-                        'errors' => array_map(function($error) {
-                            return $error->message;
-                        }, $errors),
-                    ]);
-                    libxml_clear_errors();
                 }
             }
             
-            // اگر نتوانستیم XML را پارس کنیم، سعی می‌کنیم JSON را بررسی کنیم
-            if (empty($patterns)) {
-                $jsonData = json_decode($responseBody, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($jsonData)) {
-                    if (isset($jsonData['GetSharedServiceBodyResult'])) {
-                        $result = $jsonData['GetSharedServiceBodyResult'];
-                        if (isset($result['MessagesBL']) || isset($result['MessageBL'])) {
-                            $messages = $result['MessagesBL'] ?? $result['MessageBL'] ?? [];
-                            if (isset($messages['BodyId']) || isset($messages['PatternCode'])) {
-                                $messages = [$messages];
-                            }
-                            foreach ($messages as $message) {
-                                $patternCode = $message['BodyId'] ?? $message['PatternCode'] ?? null;
-                                $patterns[] = [
-                                    'pattern_code' => $patternCode ? (string)$patternCode : null,
-                                    'title' => $message['Title'] ?? '',
-                                    'text' => $message['Body'] ?? $message['Text'] ?? '',
-                                    'blacklist_id' => isset($message['BlackListId']) ? (string)$message['BlackListId'] : '1',
-                                    'status' => 'approved',
-                                ];
-                            }
+            // اگر فقط یک پیام است (نه آرایه)، آن را به آرایه تبدیل می‌کنیم
+            if (!empty($messages) && !is_numeric(key($messages)) && (isset($messages['BodyID']) || isset($messages['BodyId']))) {
+                $messages = [$messages];
+                Log::debug('Converted single message to array');
+            }
+            
+            // پردازش هر پیام
+            if (is_array($messages) && !empty($messages)) {
+                Log::debug('Processing messages', [
+                    'messages_count' => count($messages),
+                    'first_message_keys' => !empty($messages) && is_array($messages[0] ?? reset($messages)) ? array_keys($messages[0] ?? reset($messages)) : [],
+                ]);
+                
+                foreach ($messages as $index => $message) {
+                    if (is_array($message)) {
+                        // استخراج فیلدها - ساختار واقعی: BodyID, Title, Body, BodyStatus, InsertDate, Description
+                        $patternCode = $message['BodyID'] ?? $message['BodyId'] ?? $message['bodyId'] ?? $message['bodyID'] ?? $message['PatternCode'] ?? $message['patternCode'] ?? null;
+                        $title = $message['Title'] ?? $message['title'] ?? '';
+                        $text = $message['Body'] ?? $message['body'] ?? $message['Text'] ?? $message['text'] ?? '';
+                        $bodyStatus = $message['BodyStatus'] ?? $message['bodyStatus'] ?? $message['Status'] ?? $message['status'] ?? '1';
+                        $insertDate = $message['InsertDate'] ?? $message['insertDate'] ?? null;
+                        $description = $message['Description'] ?? $message['description'] ?? '';
+                        $blackListId = $message['BlackListId'] ?? $message['blackListId'] ?? $message['BlacklistId'] ?? '1';
+                        
+                        // تبدیل به رشته برای pattern_code
+                        if ($patternCode !== null) {
+                            $patternCode = (string)$patternCode;
                         }
+                        
+                        // تبدیل BodyStatus به وضعیت ما
+                        // BodyStatus: 1 = تایید شده، 5 = رد شده یا در انتظار
+                        $status = 'approved';
+                        if ($bodyStatus == '5' || $bodyStatus == 5) {
+                            $status = 'rejected';
+                        } elseif ($bodyStatus == '0' || $bodyStatus == 0) {
+                            $status = 'pending';
+                        }
+                        
+                        $patterns[] = [
+                            'pattern_code' => $patternCode,
+                            'title' => $title,
+                            'text' => $text,
+                            'blacklist_id' => (string)$blackListId,
+                            'status' => $status,
+                            'body_status' => $bodyStatus,
+                            'insert_date' => $insertDate,
+                            'description' => $description,
+                        ];
+                        
+                        Log::debug('Pattern extracted', [
+                            'index' => $index,
+                            'pattern_code' => $patternCode,
+                            'title' => substr($title, 0, 50),
+                        ]);
                     }
                 }
+            } else {
+                Log::warning('No messages found in SOAP result', [
+                    'data_keys' => is_array($data) ? array_keys($data) : 'not_array',
+                    'result_type' => gettype($result),
+                ]);
             }
             
             // اگر هنوز الگویی پیدا نکردیم، لاگ می‌کنیم
             if (empty($patterns)) {
                 Log::warning('Melipayamak GetSharedServiceBody No Patterns Found', [
-                    'response_preview' => substr($responseBody, 0, 1000),
+                    'response_preview' => substr($json, 0, 1000),
+                    'data_structure' => is_array($data) ? array_keys($data) : 'not_array',
                 ]);
             }
+
+            Log::info('Melipayamak GetSharedServiceBody Success', [
+                'patterns_count' => count($patterns),
+            ]);
 
             return [
                 'success' => true,
                 'patterns' => $patterns,
                 'message' => count($patterns) . ' الگو دریافت شد',
-                'api_response' => $responseBody,
-                'http_status_code' => $httpStatus,
-                'raw_response' => $responseBody,
+                'api_response' => $json,
+                'http_status_code' => 200,
+                'raw_response' => $json,
             ];
             
+        } catch (\SoapFault $e) {
+            Log::error('Melipayamak GetSharedServiceBody SOAP Exception', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در اتصال به سرویس SOAP: ' . $e->getMessage(),
+                'patterns' => [],
+                'api_response' => null,
+                'http_status_code' => null,
+                'raw_response' => $e->getMessage(),
+            ];
         } catch (\Exception $e) {
             Log::error('Melipayamak GetSharedServiceBody Exception', [
                 'error' => $e->getMessage(),

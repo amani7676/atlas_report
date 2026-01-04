@@ -478,21 +478,8 @@ class GroupSms extends Component
                     }
                 }
 
-                // ساخت داده‌های resident برای استخراج متغیرها
-                $residentData = [
-                    'id' => $resident->resident_id ?? $resident->id,
-                    'db_id' => $resident->id,
-                    'resident_id' => $resident->resident_id ?? $resident->id,
-                    'resident_name' => $resident->resident_full_name,
-                    'name' => $resident->resident_full_name,
-                    'phone' => $resident->resident_phone,
-                    'unit_id' => $resident->unit_id,
-                    'unit_name' => $resident->unit_name,
-                    'room_id' => $resident->room_id,
-                    'room_name' => $resident->room_name,
-                    'bed_id' => $resident->bed_id,
-                    'bed_name' => $resident->bed_name,
-                ];
+                // ساخت داده‌های resident برای استخراج متغیرها از تمام فیلدهای دیتابیس
+                $residentData = $resident->toArray(); // استفاده از تمام فیلدهای دیتابیس
 
                 // استخراج متغیرها از متن الگو
                 $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentApiData);
@@ -747,8 +734,14 @@ class GroupSms extends Component
         $usedIndices = array_unique(array_map('intval', $matches[1]));
         sort($usedIndices);
 
-        foreach ($usedIndices as $index) {
-            $code = '{' . $index . '}';
+        // پیدا کردن بزرگترین index برای ساخت آرایه کامل
+        $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
+        
+        // ساخت آرایه کامل از 0 تا maxIndex
+        // API ملی پیامک انتظار دارد که متغیرها به ترتیب {0}, {1}, {2}, ... باشند
+        // حتی اگر در الگو {0}, {2}, {3} باشد، باید آرایه [value0, '', value2, value3] باشد
+        for ($i = 0; $i <= $maxIndex; $i++) {
+            $code = '{' . $i . '}';
             $variable = $variables->get($code);
 
             if ($variable) {
@@ -764,24 +757,47 @@ class GroupSms extends Component
 
     protected function getResidentDataFromDb($residentData)
     {
+        // اگر residentData یک Model Resident است، آن را به array تبدیل می‌کنیم
+        if ($residentData instanceof \App\Models\Resident) {
+            $residentData = $residentData->toArray();
+        }
+        
+        // ساخت ساختار داده با استفاده از فیلدهای واقعی دیتابیس
+        // مهم: باید تمام فیلدهای دیتابیس را نگه داریم تا getVariableValue بتواند از table_field استفاده کند
         return [
             'resident' => [
                 'id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
-                'full_name' => $residentData['name'] ?? $residentData['resident_name'] ?? '',
-                'name' => $residentData['name'] ?? $residentData['resident_name'] ?? '',
-                'phone' => $residentData['phone'] ?? '',
+                'resident_id' => $residentData['resident_id'] ?? null,
+                // نگه داشتن نام فیلدهای واقعی دیتابیس
+                'resident_full_name' => $residentData['resident_full_name'] ?? '',
+                'resident_phone' => $residentData['resident_phone'] ?? '',
+                'resident_age' => $residentData['resident_age'] ?? '',
+                'resident_job' => $residentData['resident_job'] ?? '',
+                'contract_payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? '',
+                'contract_start_date_jalali' => $residentData['contract_start_date_jalali'] ?? '',
+                'contract_end_date_jalali' => $residentData['contract_end_date_jalali'] ?? '',
+                // همچنین نام‌های جایگزین برای سازگاری
+                'full_name' => $residentData['resident_full_name'] ?? $residentData['full_name'] ?? $residentData['name'] ?? '',
+                'name' => $residentData['resident_full_name'] ?? $residentData['full_name'] ?? $residentData['name'] ?? '',
+                'phone' => $residentData['resident_phone'] ?? $residentData['phone'] ?? '',
+                'national_id' => $residentData['national_id'] ?? $residentData['national_code'] ?? '',
+                'national_code' => $residentData['national_id'] ?? $residentData['national_code'] ?? '',
+                'payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? '',
             ],
             'unit' => [
                 'id' => $residentData['unit_id'] ?? null,
                 'name' => $residentData['unit_name'] ?? '',
+                'code' => $residentData['unit_code'] ?? '',
             ],
             'room' => [
                 'id' => $residentData['room_id'] ?? null,
                 'name' => $residentData['room_name'] ?? '',
+                'code' => $residentData['room_code'] ?? '',
             ],
             'bed' => [
                 'id' => $residentData['bed_id'] ?? null,
                 'name' => $residentData['bed_name'] ?? '',
+                'code' => $residentData['bed_code'] ?? '',
             ],
         ];
     }
@@ -802,15 +818,55 @@ class GroupSms extends Component
                 $key = substr($field, 4);
                 return $residentData['bed'][$key] ?? '';
             } else {
+                // فیلدهای مستقیم resident
+                // table_field می‌تواند به صورت مستقیم (مثل full_name) یا با prefix (مثل resident_full_name) باشد
+                
+                // اول سعی می‌کنیم با همان نام table_field از resident بخوانیم
                 $value = $residentData['resident'][$field] ?? '';
                 
+                // اگر پیدا نشد و table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
+                if (empty($value) && strpos($field, 'resident_') === 0) {
+                    $keyWithoutPrefix = substr($field, 9); // حذف 'resident_' از ابتدا
+                    $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
+                }
+                
+                // اگر هنوز پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
                 if (empty($value)) {
-                    if ($field === 'full_name' || $field === 'name') {
-                        $value = $residentData['resident']['name'] ?? 
-                                 $residentData['resident']['full_name'] ?? '';
-                    } elseif ($field === 'phone') {
-                        $value = $residentData['resident']['phone'] ?? '';
+                    // برای full_name
+                    if ($field === 'full_name' || $field === 'name' || $field === 'resident_full_name') {
+                        $value = $residentData['resident']['full_name'] ?? 
+                                 $residentData['resident']['name'] ?? 
+                                 $residentData['resident']['resident_full_name'] ?? '';
                     }
+                    // برای phone
+                    elseif ($field === 'phone' || $field === 'resident_phone') {
+                        $value = $residentData['resident']['phone'] ?? 
+                                 $residentData['resident']['resident_phone'] ?? '';
+                    }
+                    // برای national_id
+                    elseif ($field === 'national_id' || $field === 'national_code') {
+                        $value = $residentData['resident']['national_id'] ?? 
+                                 $residentData['resident']['national_code'] ?? '';
+                    }
+                    // برای contract_payment_date_jalali
+                    elseif ($field === 'contract_payment_date_jalali' || $field === 'payment_date_jalali') {
+                        $value = $residentData['resident']['contract_payment_date_jalali'] ?? 
+                                 $residentData['resident']['payment_date_jalali'] ?? '';
+                    }
+                    // برای سایر فیلدها، سعی می‌کنیم مستقیماً از resident بخوانیم
+                    else {
+                        // اگر table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
+                        if (strpos($field, 'resident_') === 0) {
+                            $keyWithoutPrefix = substr($field, 9);
+                            $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
+                        } else {
+                            $value = $residentData['resident'][$field] ?? '';
+                        }
+                    }
+                }
+                
+                if (!is_string($value)) {
+                    $value = (string)$value;
                 }
                 
                 return $value;

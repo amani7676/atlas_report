@@ -7,9 +7,17 @@
                     <i class="fas fa-eye"></i>
                     مشاهده پاسخ API
                 </button>
-                <button wire:click="syncFromApi" class="btn" style="background: #17a2b8; color: white;" wire:loading.attr="disabled">
-                    <i class="fas fa-sync" wire:loading.class="fa-spin"></i>
-                    {{ $syncing ? 'در حال همگام‌سازی...' : 'همگام‌سازی از API' }}
+                <button 
+                    type="button"
+                    wire:click="syncFromApi" 
+                    class="btn" 
+                    style="background: #17a2b8; color: white;" 
+                    wire:loading.attr="disabled"
+                    wire:target="syncFromApi"
+                >
+                    <i class="fas fa-sync" wire:loading.class="fa-spin" wire:target="syncFromApi"></i>
+                    <span wire:loading.remove wire:target="syncFromApi">همگام‌سازی الگوها</span>
+                    <span wire:loading wire:target="syncFromApi">در حال همگام‌سازی...</span>
                 </button>
                 <button wire:click="openCreateModal" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
@@ -196,10 +204,54 @@
             </table>
         </div>
 
-        <!-- Pagination -->
+        <!-- Pagination (مشابه ارسال گروهی) -->
         @if($patterns->hasPages())
-            <div style="margin-top: 20px; display: flex; justify-content: center;">
-                {{ $patterns->links('pagination::bootstrap-4') }}
+            <div class="card mt-3">
+                <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="text-muted" style="font-size: 14px;">
+                        نمایش
+                        {{ $patterns->firstItem() ?? 0 }}
+                        تا
+                        {{ $patterns->lastItem() ?? 0 }}
+                        از
+                        {{ $patterns->total() }}
+                        نتیجه
+                    </div>
+                    {{-- صفحه‌بندی سفارشی --}}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination custom-pagination mb-0">
+                            {{-- دکمه "قبلی" --}}
+                            <li class="page-item {{ $patterns->onFirstPage() ? 'disabled' : '' }}">
+                                <a class="page-link" href="#" wire:click="previousPage()" tabindex="-1"
+                                    aria-disabled="{{ $patterns->onFirstPage() ? 'true' : 'false' }}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+
+                            {{-- شماره صفحات --}}
+                            @foreach ($patterns->getUrlRange(1, $patterns->lastPage()) as $page => $url)
+                                @if ($page == $patterns->currentPage())
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ $page }}</span>
+                                    </li>
+                                @else
+                                    <li class="page-item">
+                                        <a class="page-link" href="#"
+                                            wire:click="gotoPage({{ $page }})">{{ $page }}</a>
+                                    </li>
+                                @endif
+                            @endforeach
+
+                            {{-- دکمه "بعدی" --}}
+                            <li class="page-item {{ !$patterns->hasMorePages() ? 'disabled' : '' }}">
+                                <a class="page-link" href="#" wire:click="nextPage()"
+                                    aria-disabled="{{ !$patterns->hasMorePages() ? 'true' : 'false' }}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
             </div>
         @endif
     </div>
@@ -593,11 +645,86 @@
                         بستن
                     </button>
                     @if($rawApiResponseData['success'] && !empty($rawApiResponseData['patterns']))
-                        <button wire:click="syncFromApi" class="btn btn-primary">
-                            <i class="fas fa-sync"></i>
-                            همگام‌سازی با دیتابیس
+                        <button 
+                            type="button"
+                            wire:click="syncFromApi" 
+                            class="btn btn-primary"
+                            wire:loading.attr="disabled"
+                            wire:target="syncFromApi"
+                        >
+                            <i class="fas fa-sync" wire:loading.class="fa-spin" wire:target="syncFromApi"></i>
+                            <span wire:loading.remove wire:target="syncFromApi">همگام‌سازی الگوها</span>
+                            <span wire:loading wire:target="syncFromApi">در حال همگام‌سازی...</span>
                         </button>
                     @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Sync Response Modal - نمایش پاسخ API بعد از همگام‌سازی -->
+    @if($showSyncResponseModal && $syncResponseData)
+        <div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
+            <div style="background: white; border-radius: 10px; width: 100%; max-width: 1000px; max-height: 90vh; overflow-y: auto; padding: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3>پاسخ API ملی پیامک - همگام‌سازی الگوها</h3>
+                    <button wire:click="closeSyncResponseModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 15px;">
+                    <div style="margin-bottom: 10px;">
+                        <strong>وضعیت:</strong> 
+                        @if($syncResponseData['success'])
+                            <span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                ✅ موفق
+                            </span>
+                        @else
+                            <span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                ❌ خطا
+                            </span>
+                        @endif
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Username:</strong> 
+                        <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-family: monospace;">{{ $syncResponseData['username'] ?? '-' }}</code>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Password (API Key):</strong> 
+                        <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-family: monospace;">{{ $syncResponseData['password'] ?? '-' }}</code>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>پیام:</strong> {{ $syncResponseData['message'] ?? '-' }}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>تعداد الگوهای دریافت شده:</strong> {{ $syncResponseData['patterns_count'] ?? 0 }}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>کد وضعیت HTTP:</strong> {{ $syncResponseData['http_status_code'] ?? '-' }}
+                    </div>
+                </div>
+
+                @if(!empty($syncResponseData['patterns']))
+                    <div style="margin-bottom: 15px;">
+                        <strong>الگوهای دریافت شده از API:</strong>
+                        <div style="background: #fff; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 10px; max-height: 400px; overflow-y: auto;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px; direction: ltr; text-align: left;">{{ json_encode($syncResponseData['patterns'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                        </div>
+                    </div>
+                @endif
+
+                <div style="margin-bottom: 15px;">
+                    <strong>پاسخ خام کامل API:</strong>
+                    <div style="background: #fff; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 10px; max-height: 500px; overflow-y: auto;">
+                        <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 11px; direction: ltr; text-align: left;">{{ $syncResponseData['raw_response'] }}</pre>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button wire:click="closeSyncResponseModal" class="btn btn-primary">
+                        بستن
+                    </button>
                 </div>
             </div>
         </div>

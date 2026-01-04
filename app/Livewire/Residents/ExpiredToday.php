@@ -578,24 +578,8 @@ class ExpiredToday extends Component
                     }
                 }
 
-                // ساخت داده‌های resident برای استخراج متغیرها
-                $residentData = [
-                    'id' => $resident->resident_id ?? $resident->id,
-                    'db_id' => $resident->id,
-                    'resident_id' => $resident->resident_id ?? $resident->id,
-                    'resident_name' => $resident->resident_full_name,
-                    'name' => $resident->resident_full_name,
-                    'full_name' => $resident->resident_full_name, // اضافه کردن full_name برای متغیر {0}
-                    'phone' => $resident->resident_phone,
-                    'unit_id' => $resident->unit_id ?? null,
-                    'unit_name' => $resident->unit_name ?? '',
-                    'room_id' => $resident->room_id ?? null,
-                    'room_name' => $resident->room_name ?? '',
-                    'bed_id' => $resident->bed_id ?? null,
-                    'bed_name' => $resident->bed_name ?? '',
-                    'contract_payment_date_jalali' => $resident->contract_payment_date_jalali ?? '',
-                    'payment_date_jalali' => $resident->contract_payment_date_jalali ?? '',
-                ];
+                // ساخت داده‌های resident برای استخراج متغیرها از تمام فیلدهای دیتابیس
+                $residentData = $resident->toArray(); // استفاده از تمام فیلدهای دیتابیس
                 
                 // لاگ داده‌های resident برای دیباگ
                 Log::info('ExpiredToday - Resident data prepared', [
@@ -838,8 +822,14 @@ class ExpiredToday extends Component
             'used_indices' => $usedIndices,
         ]);
 
-        foreach ($usedIndices as $index) {
-            $code = '{' . $index . '}';
+        // پیدا کردن بزرگترین index برای ساخت آرایه کامل
+        $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
+        
+        // ساخت آرایه کامل از 0 تا maxIndex
+        // API ملی پیامک انتظار دارد که متغیرها به ترتیب {0}, {1}, {2}, ... باشند
+        // حتی اگر در الگو {0}, {2}, {3} باشد، باید آرایه [value0, '', value2, value3] باشد
+        for ($i = 0; $i <= $maxIndex; $i++) {
+            $code = '{' . $i . '}';
             $variable = $variables->get($code);
 
             if ($variable) {
@@ -850,35 +840,27 @@ class ExpiredToday extends Component
                     $value = (string)$value;
                 }
                 
-                // اگر مقدار خالی است، لاگ می‌کنیم
-                if (empty(trim($value))) {
-                    Log::warning('ExpiredToday - Variable value is empty', [
-                        'code' => $code,
-                        'index' => $index,
-                        'table_field' => $variable->table_field,
-                        'variable_type' => $variable->variable_type,
-                    ]);
-                    $value = ''; // مقدار خالی - API باید آن را قبول کند
-                }
-                
                 Log::info('ExpiredToday - Variable extracted successfully', [
                     'code' => $code,
-                    'index' => $index,
+                    'index' => $i,
                     'table_field' => $variable->table_field,
                     'variable_type' => $variable->variable_type,
                     'value' => $value,
                     'value_length' => strlen($value),
                 ]);
+                
                 $result[] = $value;
             } else {
-                // اگر متغیر در دیتابیس پیدا نشد، مقدار خالی
-                Log::error('ExpiredToday - Variable not found in database', [
+                // اگر متغیر در دیتابیس تعریف نشده یا در الگو استفاده نشده، مقدار خالی می‌گذاریم
+                // این برای متغیرهای جا افتاده (مثل {1} در الگوی {0}, {2}, {3}) ضروری است
+                Log::debug('ExpiredToday - Variable not found or not used in pattern', [
                     'code' => $code,
-                    'index' => $index,
+                    'index' => $i,
+                    'is_used_in_pattern' => in_array($i, $usedIndices),
                     'pattern_text' => $patternText,
-                    'available_variables' => $variables->keys()->toArray(),
                 ]);
-                $result[] = ''; // مقدار خالی برای متغیرهای پیدا نشده
+                
+                $result[] = ''; // مقدار خالی برای متغیرهای جا افتاده
             }
         }
 
@@ -892,39 +874,57 @@ class ExpiredToday extends Component
 
     protected function getResidentDataFromDb($residentData)
     {
-        // ساخت ساختار داده مشابه PatternManual
+        // اگر residentData یک Model Resident است، آن را به array تبدیل می‌کنیم
+        if ($residentData instanceof \App\Models\Resident) {
+            $residentData = $residentData->toArray();
+        }
+        
+        // ساخت ساختار داده با استفاده از فیلدهای واقعی دیتابیس
+        // مهم: باید تمام فیلدهای دیتابیس را نگه داریم تا getVariableValue بتواند از table_field استفاده کند
         $result = [
             'resident' => [
                 'id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
-                'full_name' => $residentData['full_name'] ?? $residentData['name'] ?? $residentData['resident_name'] ?? '',
-                'name' => $residentData['name'] ?? $residentData['resident_name'] ?? $residentData['full_name'] ?? '',
-                'phone' => $residentData['phone'] ?? '',
-                'contract_payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? $residentData['payment_date_jalali'] ?? '',
-                'payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? $residentData['payment_date_jalali'] ?? '',
+                'resident_id' => $residentData['resident_id'] ?? null,
+                // نگه داشتن نام فیلدهای واقعی دیتابیس
+                'resident_full_name' => $residentData['resident_full_name'] ?? '',
+                'resident_phone' => $residentData['resident_phone'] ?? '',
+                'resident_age' => $residentData['resident_age'] ?? '',
+                'resident_job' => $residentData['resident_job'] ?? '',
+                'contract_payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? '',
+                'contract_start_date_jalali' => $residentData['contract_start_date_jalali'] ?? '',
+                'contract_end_date_jalali' => $residentData['contract_end_date_jalali'] ?? '',
+                // همچنین نام‌های جایگزین برای سازگاری
+                'full_name' => $residentData['resident_full_name'] ?? $residentData['full_name'] ?? $residentData['name'] ?? '',
+                'name' => $residentData['resident_full_name'] ?? $residentData['full_name'] ?? $residentData['name'] ?? '',
+                'phone' => $residentData['resident_phone'] ?? $residentData['phone'] ?? '',
+                'national_id' => $residentData['national_id'] ?? $residentData['national_code'] ?? '',
+                'national_code' => $residentData['national_id'] ?? $residentData['national_code'] ?? '',
+                'payment_date_jalali' => $residentData['contract_payment_date_jalali'] ?? '',
             ],
             'unit' => [
                 'id' => $residentData['unit_id'] ?? null,
                 'name' => $residentData['unit_name'] ?? '',
+                'code' => $residentData['unit_code'] ?? '',
             ],
             'room' => [
                 'id' => $residentData['room_id'] ?? null,
                 'name' => $residentData['room_name'] ?? '',
+                'code' => $residentData['room_code'] ?? '',
             ],
             'bed' => [
                 'id' => $residentData['bed_id'] ?? null,
                 'name' => $residentData['bed_name'] ?? '',
+                'code' => $residentData['bed_code'] ?? '',
             ],
         ];
         
-        Log::debug('ExpiredToday - Using fallback resident data from DB', [
-            'fallback_data' => $result,
-            'input_data' => $residentData,
-        ]);
-        
-        Log::info('ExpiredToday - getResidentDataFromDb result', [
+        Log::debug('ExpiredToday - Using resident data from DB', [
+            'resident_id' => $result['resident']['resident_id'],
             'full_name' => $result['resident']['full_name'],
-            'contract_payment_date_jalali' => $result['resident']['contract_payment_date_jalali'],
-            'payment_date_jalali' => $result['resident']['payment_date_jalali'],
+            'phone' => $result['resident']['phone'],
+            'unit_name' => $result['unit']['name'],
+            'room_name' => $result['room']['name'],
+            'bed_name' => $result['bed']['name'],
         ]);
         
         return $result;
@@ -980,35 +980,64 @@ class ExpiredToday extends Component
                 ]);
                 return $value;
             } else {
-                // فیلدهای مستقیم resident (مثل full_name, phone, name, contract_payment_date_jalali, etc.)
-                // بررسی چند حالت مختلف برای سازگاری
+                // فیلدهای مستقیم resident
+                // table_field می‌تواند به صورت مستقیم (مثل full_name) یا با prefix (مثل resident_full_name) باشد
+                
+                // اول سعی می‌کنیم با همان نام table_field از resident بخوانیم
                 $value = $residentData['resident'][$field] ?? '';
                 
-                // اگر مقدار پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
+                // اگر پیدا نشد و table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
+                if (empty($value) && strpos($field, 'resident_') === 0) {
+                    $keyWithoutPrefix = substr($field, 9); // حذف 'resident_' از ابتدا
+                    $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
+                }
+                
+                // اگر هنوز پیدا نشد، سعی می‌کنیم نام‌های جایگزین را بررسی کنیم
                 if (empty($value)) {
-                    if ($field === 'full_name' || $field === 'name') {
-                        $value = $residentData['resident']['name'] ?? 
-                                 $residentData['resident']['full_name'] ?? 
-                                 ($residentData['resident']['id'] ?? '');
-                    } elseif ($field === 'phone') {
-                        $value = $residentData['resident']['phone'] ?? '';
-                    } elseif ($field === 'contract_payment_date_jalali' || $field === 'payment_date_jalali') {
-                        $value = $residentData['resident']['contract_payment_date_jalali'] ?? 
-                                 $residentData['resident']['payment_date_jalali'] ?? '';
-                    } elseif ($field === 'national_id' || $field === 'national_code') {
+                    // برای full_name
+                    if ($field === 'full_name' || $field === 'name' || $field === 'resident_full_name') {
+                        $value = $residentData['resident']['full_name'] ?? 
+                                 $residentData['resident']['name'] ?? 
+                                 $residentData['resident']['resident_full_name'] ?? '';
+                    }
+                    // برای phone
+                    elseif ($field === 'phone' || $field === 'resident_phone') {
+                        $value = $residentData['resident']['phone'] ?? 
+                                 $residentData['resident']['resident_phone'] ?? '';
+                    }
+                    // برای national_id
+                    elseif ($field === 'national_id' || $field === 'national_code') {
                         $value = $residentData['resident']['national_id'] ?? 
                                  $residentData['resident']['national_code'] ?? '';
+                    }
+                    // برای contract_payment_date_jalali
+                    elseif ($field === 'contract_payment_date_jalali' || $field === 'payment_date_jalali') {
+                        $value = $residentData['resident']['contract_payment_date_jalali'] ?? 
+                                 $residentData['resident']['payment_date_jalali'] ?? '';
+                    }
+                    // برای سایر فیلدها، سعی می‌کنیم مستقیماً از resident بخوانیم
+                    else {
+                        // اگر table_field با resident_ شروع می‌شود، prefix را حذف می‌کنیم
+                        if (strpos($field, 'resident_') === 0) {
+                            $keyWithoutPrefix = substr($field, 9);
+                            $value = $residentData['resident'][$keyWithoutPrefix] ?? '';
+                        } else {
+                            $value = $residentData['resident'][$field] ?? '';
+                        }
                     }
                 }
                 
                 if (!is_string($value)) {
                     $value = (string)$value;
                 }
+                
                 Log::debug('ExpiredToday - Getting resident field', [
                     'field' => $field,
                     'value' => $value,
+                    'value_length' => strlen($value),
                     'available_fields' => array_keys($residentData['resident'] ?? []),
                 ]);
+                
                 return $value;
             }
         } elseif ($type === 'report' && $reportData) {
