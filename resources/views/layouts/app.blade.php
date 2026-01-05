@@ -922,18 +922,12 @@
             }
 
             #refresh-timer {
-                font-size: 11px;
-                padding: 6px 10px;
-                margin-top: 10px !important;
+                font-size: 12px;
+                padding: 4px 10px;
             }
 
             #refresh-timer span {
-                font-size: 11px;
-            }
-            
-            .sidebar-header #refresh-timer {
-                width: 100%;
-                max-width: 100%;
+                font-size: 12px;
             }
 
             .main-content {
@@ -1117,18 +1111,12 @@
             }
 
             #refresh-timer {
-                font-size: 10px;
-                padding: 5px 8px;
-                margin-top: 8px !important;
+                font-size: 11px;
+                padding: 3px 8px;
             }
 
             #refresh-timer span {
-                font-size: 10px;
-            }
-            
-            .sidebar-header #refresh-timer {
-                width: 100%;
-                max-width: 100%;
+                font-size: 11px;
             }
 
             .navbar a {
@@ -1378,11 +1366,6 @@
             <div class="sidebar-header">
                 <h2>🏨 سیستم گزارش</h2>
                 <p>اقامت‌گران</p>
-                <!-- تایمر رفرش خودکار -->
-                <div id="refresh-timer" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; margin-top: 15px; background: rgba(255, 255, 255, 0.1); border-radius: 20px; font-size: 13px; color: white; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
-                    <i class="fas fa-clock"></i>
-                    <span id="timer-text">--:--</span>
-                </div>
             </div>
 
             <ul class="sidebar-menu">
@@ -1476,12 +1459,6 @@
                             <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
                                 <i class="fas fa-exclamation-triangle"></i>
                                 <span>پیامک‌های ارسال شده</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/residents/welcome" class="{{ request()->is('residents/welcome') ? 'active' : '' }}">
-                                <i class="fas fa-hand-sparkles"></i>
-                                <span>پیام‌های خوش‌آمدگویی</span>
                             </a>
                         </li>
                     </ul>
@@ -1639,6 +1616,11 @@
                 </button>
                 <div style="margin-right: auto;"></div>
                 <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <!-- تایمر رفرش خودکار -->
+                    <div id="refresh-timer" style="display: none; align-items: center; gap: 8px; padding: 5px 12px; background: rgba(67, 97, 238, 0.1); border-radius: 20px; font-size: 14px; color: var(--primary-color); font-weight: 500;">
+                        <i class="fas fa-clock"></i>
+                        <span id="timer-text">--:--</span>
+                    </div>
                     @livewire('layout.sync-button')
                     <a href="/residents/expired-today" style="color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; transition: all 0.3s;" 
                        class="{{ request()->is('residents/expired-today') ? 'active' : '' }}"
@@ -1694,21 +1676,29 @@
             }
         }
 
+        // Initial check when page loads - منو پیش‌فرض بسته
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            checkMobileAndCloseSidebar();
+        });
+
+        // Check when window is resized
+        window.addEventListener('resize', checkMobileAndCloseSidebar);
+
         // Sidebar functionality
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('overlay');
-            if (sidebar) sidebar.classList.toggle('open');
-            if (overlay) overlay.classList.toggle('active');
+
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
         }
 
         // Close sidebar when clicking on overlay
-        document.addEventListener('DOMContentLoaded', function() {
-            const overlayElement = document.getElementById('overlay');
-            if (overlayElement) {
-                overlayElement.addEventListener('click', toggleSidebar);
-            }
-        });
+        document.getElementById('overlay').addEventListener('click', toggleSidebar);
 
         // Submenu toggle functionality
         function toggleSubmenu(element) {
@@ -1717,22 +1707,9 @@
                 menuItem.classList.toggle('open');
             }
         }
-        
-        // Make functions globally available
-        window.toggleSubmenu = toggleSubmenu;
-        window.toggleSidebar = toggleSidebar;
 
-        // Initial check when page loads - منو پیش‌فرض بسته
-        // ترکیب همه DOMContentLoaded listeners در یک listener
+        // Auto-open submenus based on current route
         document.addEventListener('DOMContentLoaded', function() {
-            // Sidebar initialization
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            if (sidebar) sidebar.classList.remove('open');
-            if (overlay) overlay.classList.remove('active');
-            checkMobileAndCloseSidebar();
-            
-            // Auto-open submenus based on current route
             const currentPath = window.location.pathname;
             
             // Open submenu if current route matches
@@ -1795,36 +1772,14 @@
             // اگر duration = 0 باشد، toast بسته نمی‌شود و فقط با کلیک روی ضربدر بسته می‌شود
         }
 
-        // Listen for toast events (from Livewire) - بعد از لود شدن Livewire
-        function setupLivewireToastListener() {
-            if (typeof Livewire !== 'undefined' && Livewire.on) {
-                try {
-                    Livewire.on('showToast', (data) => {
-                        showToast(
-                            data.type || 'info',
-                            data.title || 'اعلان',
-                            data.message || '',
-                            data.duration !== undefined ? data.duration : 5000
-                        );
-                    });
-                } catch (e) {
-                    console.warn('خطا در تنظیم Livewire toast listener:', e);
-                }
-            }
-        }
-        
-        // اجرا بعد از لود شدن Livewire
-        document.addEventListener('livewire:init', setupLivewireToastListener);
-        document.addEventListener('livewire:load', setupLivewireToastListener);
-        
-        // همچنین اگر Livewire قبلاً لود شده باشد
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            setTimeout(setupLivewireToastListener, 500);
-        }
-        
-        // همچنین بعد از لود شدن کامل صفحه
-        window.addEventListener('load', function() {
-            setTimeout(setupLivewireToastListener, 100);
+        // Listen for toast events (from Livewire)
+        Livewire.on('showToast', (data) => {
+            showToast(
+                data.type || 'info',
+                data.title || 'اعلان',
+                data.message || '',
+                data.duration !== undefined ? data.duration : 5000
+            );
         });
         
         // Listen for toast events (from window events)
@@ -2055,18 +2010,8 @@
         });
 
 
-        // تایمر شمارش معکوس و همگام‌سازی خودکار داده‌ها
-        let isInitializing = false; // Flag برای جلوگیری از initialize تکراری
-        
-        function initializeTimer() {
-            // جلوگیری از initialize تکراری
-            if (isInitializing) {
-                console.log('⚠️ تایمر در حال initialize است، جلوگیری از initialize تکراری');
-                return;
-            }
-            
-            isInitializing = true;
-            
+        // رفرش خودکار صفحه بر اساس تنظیمات
+        (function() {
             // جلوگیری از ایجاد interval تکراری
             if (window.timerInterval) {
                 clearInterval(window.timerInterval);
@@ -2086,45 +2031,9 @@
                 }
             @endphp
             
-            let refreshInterval = {{ $refreshInterval }};
+            const refreshInterval = {{ $refreshInterval }};
             const timerElement = document.getElementById('timer-text');
             const timerContainer = document.getElementById('refresh-timer');
-            
-            // اگر تایمر پیدا نشد، دوباره تلاش کن (حداکثر 3 بار)
-            if (!timerContainer) {
-                if (!window.timerInitAttempts) {
-                    window.timerInitAttempts = 0;
-                }
-                window.timerInitAttempts++;
-                
-                if (window.timerInitAttempts < 3) {
-                    console.warn(`⚠️ تایمر پیدا نشد، تلاش ${window.timerInitAttempts}/3...`);
-                    setTimeout(initializeTimer, 500);
-                } else {
-                    console.error('❌ تایمر پیدا نشد بعد از 3 تلاش. ممکن است element در DOM وجود نداشته باشد.');
-                }
-                return;
-            }
-            
-            // Reset attempts counter اگر تایمر پیدا شد
-            window.timerInitAttempts = 0;
-            
-            // مطمئن شو که تایمر نمایش داده می‌شود
-            timerContainer.style.display = 'flex';
-            console.log('✅ تایمر پیدا شد و نمایش داده می‌شود');
-            
-            // تابع برای دریافت مقدار refresh_interval از سرور (برای به‌روزرسانی پویا)
-            function getRefreshIntervalFromServer() {
-                return fetch('/api/residents/sync-status')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.refresh_interval !== undefined) {
-                            return parseInt(data.refresh_interval);
-                        }
-                        return refreshInterval;
-                    })
-                    .catch(() => refreshInterval);
-            }
             
             // تابع برای راه‌اندازی مجدد تایمر (برای استفاده در event listener)
             window.restartTimer = function() {
@@ -2149,38 +2058,16 @@
             let timerStartTime = null;
             
             // تابع برای شروع تایمر از مقدار تنظیمات
-            function startTimer(newInterval = null) {
-                // اگر مقدار جدید refresh_interval داده شده، از آن استفاده کن
-                if (newInterval !== null && newInterval > 0) {
-                    refreshInterval = newInterval;
-                    localStorage.setItem('refreshInterval', refreshInterval);
-                }
-                
+            function startTimer() {
                 timerStartTime = Date.now();
                 localStorage.setItem('timerStartTime', timerStartTime);
                 localStorage.setItem('lastRefreshTime', timerStartTime);
-                
-                // نمایش تایمر با مقدار جدید
-                const totalSeconds = refreshInterval * 60;
-                if (timerElement) {
-                    timerElement.textContent = formatTime(totalSeconds);
-                }
-                
-                console.log(`🔄 تایمر شروع شد: ${refreshInterval} دقیقه (${totalSeconds} ثانیه)`);
+                updateTimer();
             }
             
             // تابع برای به‌روزرسانی تایمر
             function updateTimer() {
                 if (!timerElement || !timerContainer) {
-                    return;
-                }
-
-                // بررسی اینکه آیا refresh_interval تغییر کرده است
-                const storedInterval = parseInt(localStorage.getItem('refreshInterval'));
-                if (storedInterval && storedInterval !== refreshInterval) {
-                    console.log(`⚙️ مقدار refresh_interval تغییر کرده است: ${refreshInterval} -> ${storedInterval}`);
-                    refreshInterval = storedInterval;
-                    startTimer(refreshInterval);
                     return;
                 }
 
@@ -2205,52 +2092,17 @@
                     
                     // تغییر رنگ وقتی کمتر از 1 دقیقه باقی مانده
                     const remainingMinutes = Math.floor(remainingSeconds / 60);
-                    // بررسی اینکه آیا تایمر در sidebar است یا navbar
-                    const isInSidebar = timerContainer.closest('.sidebar') !== null;
-                    
-                    if (remainingMinutes < 1 && remainingSeconds <= 30) {
-                        // کمتر از 30 ثانیه - قرمز
-                        if (isInSidebar) {
-                            timerContainer.style.background = 'rgba(247, 37, 133, 0.3)';
-                            timerContainer.style.color = '#ff6b9d';
-                            timerContainer.style.borderColor = 'rgba(247, 37, 133, 0.5)';
-                        } else {
-                            timerContainer.style.background = 'rgba(247, 37, 133, 0.15)';
-                            timerContainer.style.color = 'var(--danger-color)';
-                        }
-                    } else if (remainingMinutes < 1) {
-                        // کمتر از 1 دقیقه - نارنجی
-                        if (isInSidebar) {
-                            timerContainer.style.background = 'rgba(255, 158, 0, 0.3)';
-                            timerContainer.style.color = '#ffb84d';
-                            timerContainer.style.borderColor = 'rgba(255, 158, 0, 0.5)';
-                        } else {
-                            timerContainer.style.background = 'rgba(255, 158, 0, 0.1)';
-                            timerContainer.style.color = 'var(--warning-color)';
-                        }
+                    if (remainingMinutes < 1) {
+                        timerContainer.style.background = 'rgba(255, 158, 0, 0.1)';
+                        timerContainer.style.color = 'var(--warning-color)';
                     } else {
-                        // عادی - آبی
-                        if (isInSidebar) {
-                            timerContainer.style.background = 'rgba(255, 255, 255, 0.1)';
-                            timerContainer.style.color = 'white';
-                            timerContainer.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                        } else {
-                            timerContainer.style.background = 'rgba(67, 97, 238, 0.1)';
-                            timerContainer.style.color = 'var(--primary-color)';
-                        }
+                        timerContainer.style.background = 'rgba(67, 97, 238, 0.1)';
+                        timerContainer.style.color = 'var(--primary-color)';
                     }
                 } else {
-                    // زمان به صفر رسیده است
                     timerElement.textContent = '00:00';
-                    const isInSidebar = timerContainer.closest('.sidebar') !== null;
-                    if (isInSidebar) {
-                        timerContainer.style.background = 'rgba(247, 37, 133, 0.3)';
-                        timerContainer.style.color = '#ff6b9d';
-                        timerContainer.style.borderColor = 'rgba(247, 37, 133, 0.5)';
-                    } else {
-                        timerContainer.style.background = 'rgba(247, 37, 133, 0.15)';
-                        timerContainer.style.color = 'var(--danger-color)';
-                    }
+                    timerContainer.style.background = 'rgba(247, 37, 133, 0.1)';
+                    timerContainer.style.color = 'var(--danger-color)';
                     
                     // اگر زمان تمام شد، sync کن و دوباره شروع کن
                     if (!window.syncInProgress) {
@@ -2264,21 +2116,13 @@
             function triggerRefresh() {
                 console.log(`⏰ زمان sync رسیده است. در حال فراخوانی API برای sync داده‌ها...`);
                 
-                // نمایش پیام در حال sync
-                if (timerElement) {
-                    timerElement.textContent = 'در حال sync...';
-                }
-                
                 // دریافت CSRF token
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
                 
                 if (!csrfToken) {
                     console.error('❌ CSRF token not found');
                     setTimeout(() => {
-                        // دریافت مقدار جدید refresh_interval از سرور
-                        getRefreshIntervalFromServer().then(newInterval => {
-                            startTimer(newInterval);
-                        });
+                        startTimer();
                         window.syncInProgress = false;
                     }, 2000);
                     return;
@@ -2302,7 +2146,6 @@
                 .then(data => {
                     if (data.success) {
                         console.log('✅ دیتابیس به‌روزرسانی شد:', data.data);
-                        console.log(`📊 آمار sync: ${data.data.synced_count} همگام‌سازی شده (${data.data.created_count} ایجاد، ${data.data.updated_count} به‌روزرسانی)`);
                         
                         // Refresh همه Livewire component ها
                         if (typeof Livewire !== 'undefined') {
@@ -2330,56 +2173,31 @@
                             }, 500);
                         }
                         
-                        // دریافت مقدار جدید refresh_interval از سرور و شروع مجدد تایمر
-                        getRefreshIntervalFromServer().then(newInterval => {
-                            if (newInterval > 0) {
-                                startTimer(newInterval);
-                                console.log(`🔄 تایمر دوباره شروع شد با مقدار جدید: ${newInterval} دقیقه`);
-                            } else {
-                                // اگر refresh_interval صفر شد، تایمر را غیرفعال کن
-                                if (timerElement) {
-                                    timerElement.textContent = 'غیرفعال';
-                                }
-                                if (timerContainer) {
-                                    timerContainer.style.background = 'rgba(108, 117, 125, 0.1)';
-                                    timerContainer.style.color = '#6c757d';
-                                }
-                            }
-                        });
+                        // بعد از sync موفق، زمان شروع تایمر را ریست کن
+                        startTimer();
                     } else {
                         console.error('❌ خطا در همگام‌سازی:', data.message);
                         // حتی در صورت خطا، زمان را به‌روزرسانی کن تا تایمر ادامه پیدا کند
-                        getRefreshIntervalFromServer().then(newInterval => {
-                            if (newInterval > 0) {
-                                startTimer(newInterval);
-                            }
-                        });
+                        startTimer();
                     }
                 })
                 .catch(error => {
                     console.error('❌ خطا در همگام‌سازی:', error);
                     // حتی در صورت خطا، زمان را به‌روزرسانی کن تا تایمر ادامه پیدا کند
-                    getRefreshIntervalFromServer().then(newInterval => {
-                        if (newInterval > 0) {
-                            startTimer(newInterval);
-                        }
-                    });
+                    startTimer();
                 })
                 .finally(() => {
                     window.syncInProgress = false;
                 });
             }
 
-            // نمایش تایمر در همه صفحات - همیشه نمایش بده
+            // نمایش تایمر در همه صفحات
             if (timerContainer) {
                 timerContainer.style.display = 'flex';
-                console.log('✅ تایمر پیدا شد و نمایش داده می‌شود');
-            } else {
-                console.error('❌ تایمر پیدا نشد!');
             }
             
             if (refreshInterval && refreshInterval > 0) {
-                console.log(`⏰ تایمر شمارش معکوس فعال: هر ${refreshInterval} دقیقه یکبار sync انجام می‌شود.`);
+                console.log(`⏰ رفرش خودکار فعال: صفحه هر ${refreshInterval} دقیقه یکبار به‌روزرسانی می‌شود.`);
                 
                 // بررسی اینکه آیا زمان شروع تایمر وجود دارد
                 const existingStartTime = parseInt(localStorage.getItem('timerStartTime'));
@@ -2387,8 +2205,8 @@
                 
                 // اگر زمان شروع وجود ندارد یا مقدار تنظیمات تغییر کرده، تایمر را از اول شروع کن
                 if (!existingStartTime || existingRefreshInterval !== refreshInterval) {
-                    console.log(`🔄 شروع تایمر از مقدار تنظیمات: ${refreshInterval} دقیقه`);
-                    startTimer(refreshInterval);
+                    console.log('شروع تایمر از مقدار تنظیمات:', refreshInterval, 'دقیقه');
+                    startTimer();
                     localStorage.setItem('refreshInterval', refreshInterval);
                 } else {
                     // اگر زمان شروع وجود دارد، تایمر را ادامه بده
@@ -2402,94 +2220,33 @@
                 }
                 window.timerInterval = setInterval(updateTimer, 1000);
                 
-                // بررسی تغییرات refresh_interval از سرور هر 5 دقیقه (کاهش بار سرور)
-                // فقط یک interval برای این کار
-                if (!window.refreshIntervalChecker) {
-                    window.refreshIntervalChecker = setInterval(function() {
-                        getRefreshIntervalFromServer().then(newInterval => {
-                            if (newInterval !== refreshInterval) {
-                                console.log(`⚙️ مقدار refresh_interval در سرور تغییر کرده: ${refreshInterval} -> ${newInterval}`);
-                                refreshInterval = newInterval;
-                                localStorage.setItem('refreshInterval', refreshInterval);
-                                // اگر تایمر در حال اجرا نیست یا sync در حال انجام نیست، تایمر را ریست کن
-                                if (!window.syncInProgress) {
-                                    startTimer(refreshInterval);
-                                }
+                // بررسی وضعیت sync هر 30 ثانیه (فقط برای به‌روزرسانی زمان sync در localStorage)
+                setInterval(function() {
+                    fetch('/api/residents/sync-status')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.synced && data.last_sync_time) {
+                                // فقط برای اطلاعات، زمان sync را ذخیره کن
+                                const serverTime = new Date(data.last_sync_time).getTime();
+                                localStorage.setItem('lastRefreshTime', serverTime);
                             }
-                        }).catch(() => {
-                            // در صورت خطا، فقط لاگ کن و ادامه بده
-                            console.warn('خطا در بررسی refresh_interval از سرور');
+                        })
+                        .catch(error => {
+                            console.error('خطا در بررسی وضعیت sync:', error);
                         });
-                    }, 300000); // هر 5 دقیقه چک کن (به جای 60 ثانیه)
-                }
+                }, 30000); // هر 30 ثانیه چک کن
             } else {
                 // اگر رفرش غیرفعال است، تایمر را نمایش بده اما با پیام غیرفعال
                 if (timerElement) {
                     timerElement.textContent = 'غیرفعال';
                 }
                 if (timerContainer) {
-                    timerContainer.style.display = 'flex'; // مطمئن شو که نمایش داده می‌شود
-                    const isInSidebar = timerContainer.closest('.sidebar') !== null;
-                    if (isInSidebar) {
-                        timerContainer.style.background = 'rgba(108, 117, 125, 0.2)';
-                        timerContainer.style.color = 'rgba(255, 255, 255, 0.6)';
-                        timerContainer.style.borderColor = 'rgba(108, 117, 125, 0.3)';
-                    } else {
-                        timerContainer.style.background = 'rgba(108, 117, 125, 0.1)';
-                        timerContainer.style.color = '#6c757d';
-                    }
+                    timerContainer.style.background = 'rgba(108, 117, 125, 0.1)';
+                    timerContainer.style.color = '#6c757d';
                 }
-                console.log('⏰ تایمر شمارش معکوس غیرفعال است (مقدار تنظیمات: ' + refreshInterval + ' دقیقه)');
+                console.log('⏰ رفرش خودکار غیرفعال است (مقدار تنظیمات: ' + refreshInterval + ' دقیقه)');
             }
-            
-            // Reset flag بعد از اتمام initialize
-            isInitializing = false;
-        }
-        
-        // اجرای تایمر بعد از لود شدن DOM - با تاخیر برای کاهش بار اولیه
-        function initTimerDelayed() {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function() {
-                    // استفاده از requestIdleCallback برای کاهش بار اولیه
-                    if (typeof requestIdleCallback !== 'undefined') {
-                        requestIdleCallback(initializeTimer, { timeout: 1000 });
-                    } else {
-                        setTimeout(initializeTimer, 300);
-                    }
-                });
-            } else {
-                // DOM قبلاً لود شده است - با تاخیر اجرا کن
-                if (typeof requestIdleCallback !== 'undefined') {
-                    requestIdleCallback(initializeTimer, { timeout: 1000 });
-                } else {
-                    setTimeout(initializeTimer, 300);
-                }
-            }
-        }
-        
-        initTimerDelayed();
-        
-        // همچنین برای Livewire navigation - فقط یک بار و با flag
-        if (!window.livewireNavigatedListener) {
-            window.livewireNavigatedListener = true;
-            let isNavigating = false;
-            
-            document.addEventListener('livewire:navigated', function() {
-                // جلوگیری از initialize تکراری
-                if (isNavigating) {
-                    console.log('⚠️ جلوگیری از initialize تکراری تایمر');
-                    return;
-                }
-                
-                isNavigating = true;
-                console.log('🔄 Livewire navigated، راه‌اندازی مجدد تایمر...');
-                
-                setTimeout(() => {
-                    initializeTimer();
-                    isNavigating = false;
-                }, 500);
-            });
-        }
+        })();
     </script>
     @livewireScripts
 </body>

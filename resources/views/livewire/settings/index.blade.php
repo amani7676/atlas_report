@@ -226,32 +226,15 @@
 </div>
 
 <script>
-    // جلوگیری از reload تکراری با استفاده از flag
-    if (!window.settingsUpdateReloaded) {
-        window.settingsUpdateReloaded = false;
-        
-        document.addEventListener('livewire:init', () => {
-            // راه‌اندازی مجدد تایمر بعد از ذخیره تنظیمات
-            Livewire.on('settings-updated', () => {
-                // جلوگیری از reload تکراری
-                if (window.settingsUpdateReloaded) {
-                    console.log('⚠️ جلوگیری از reload تکراری');
-                    return;
-                }
-                
-                window.settingsUpdateReloaded = true;
-                
-                // پاک کردن زمان شروع تایمر برای شروع مجدد
-                localStorage.removeItem('timerStartTime');
-                localStorage.removeItem('refreshInterval');
-                
-                console.log('⚙️ تنظیمات به‌روزرسانی شد، در حال reload...');
-                
-                setTimeout(() => {
-                    window.settingsUpdateReloaded = false; // Reset flag بعد از reload
-                    location.reload();
-                }, 1000);
-            });
+    document.addEventListener('livewire:init', () => {
+        // راه‌اندازی مجدد تایمر بعد از ذخیره تنظیمات
+        Livewire.on('settings-updated', () => {
+            // پاک کردن زمان شروع تایمر برای شروع مجدد
+            localStorage.removeItem('timerStartTime');
+            localStorage.removeItem('refreshInterval');
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         });
-    }
+    });
 </script>

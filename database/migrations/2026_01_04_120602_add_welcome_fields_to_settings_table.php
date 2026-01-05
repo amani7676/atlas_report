@@ -12,10 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('settings', function (Blueprint $table) {
-            $table->unsignedBigInteger('welcome_pattern_id')->nullable()->after('sms_delay_between_messages')->comment('ID الگوی پیام خوش‌آمدگویی');
-            $table->dateTime('welcome_start_datetime')->nullable()->after('welcome_pattern_id')->comment('تاریخ و زمان شروع ارسال پیام‌های خوش‌آمدگویی');
-            
-            $table->foreign('welcome_pattern_id')->references('id')->on('patterns')->onDelete('set null');
+            //
         });
     }
 
@@ -25,8 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('settings', function (Blueprint $table) {
-            $table->dropForeign(['welcome_pattern_id']);
-            $table->dropColumn(['welcome_pattern_id', 'welcome_start_datetime']);
+            //
         });
     }
 };

@@ -8,11 +8,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\Resident;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use App\Models\ResidentReport;
-use App\Models\SmsMessageResident;
-use App\Models\ResidentGrant;
 
 class SyncResidentsFromApi implements ShouldQueue
 {
@@ -61,76 +56,11 @@ class SyncResidentsFromApi implements ShouldQueue
                 return;
             }
             
-            // استخراج resident_id های جدید از API
-            $newResidentIds = [];
-            foreach ($residents as $item) {
-                if (isset($item['resident_id'])) {
-                    $newResidentIds[] = $item['resident_id'];
-                }
-            }
-            
-            Log::info('Starting sync process', [
-                'new_residents_count' => count($newResidentIds),
-                'existing_count' => Resident::count()
-            ]);
-            
-            // پیدا کردن resident_id هایی که در API نیستند (قبل از پاک کردن residents)
-            $existingResidentIds = Resident::pluck('resident_id')->toArray();
-            $removedResidentIds = array_diff($existingResidentIds, $newResidentIds);
-            
-            $deletedFromReports = 0;
-            $deletedFromSms = 0;
-            $deletedFromGrants = 0;
-            
-            // پاک کردن رکوردهای جداول وابسته برای resident_id هایی که در API نیستند
-            if (!empty($removedResidentIds)) {
-                // پیدا کردن id های دیتابیس برای resident_id هایی که حذف می‌شوند
-                $removedDbIds = Resident::whereIn('resident_id', $removedResidentIds)
-                    ->pluck('id')
-                    ->toArray();
-                
-                if (!empty($removedDbIds)) {
-                    // پاک کردن از resident_reports (با استفاده از id دیتابیس)
-                    $deletedFromReports = ResidentReport::whereIn('resident_id', $removedDbIds)->delete();
-                    
-                    // پاک کردن از sms_message_residents (با استفاده از id دیتابیس)
-                    $deletedFromSms = SmsMessageResident::whereIn('resident_id', $removedDbIds)->delete();
-                    
-                    // پاک کردن از resident_grants (با استفاده از resident_id از API)
-                    if (Schema::hasTable('resident_grants')) {
-                        $deletedFromGrants = ResidentGrant::whereIn('resident_id', $removedResidentIds)->delete();
-                    }
-                }
-            }
-            
-            Log::info('Cleaned dependent tables for removed residents', [
-                'removed_resident_ids_count' => count($removedResidentIds),
-                'deleted_from_reports' => $deletedFromReports,
-                'deleted_from_sms' => $deletedFromSms,
-                'deleted_from_grants' => $deletedFromGrants,
-            ]);
-            
-            // غیرفعال کردن foreign key checks موقتاً برای پاک کردن residents
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
-            
-            // پاک کردن همه داده‌های قبلی از جدول residents
-            $deletedCount = Resident::query()->delete();
-            
-            // Reset AUTO_INCREMENT به 1 تا ID ها از 1 شروع شوند
-            DB::statement('ALTER TABLE residents AUTO_INCREMENT = 1');
-            
-            // فعال کردن دوباره foreign key checks
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
-            
-            Log::info('All existing residents deleted and AUTO_INCREMENT reset', [
-                'deleted_count' => $deletedCount
-            ]);
-            
             $syncedCount = 0;
             $createdCount = 0;
             $updatedCount = 0;
             
-            Log::info('Processing residents from API', ['count' => count($residents)]);
+            Log::info('Processing residents', ['count' => count($residents)]);
             
             // API به صورت flat است - هر ردیف یک resident کامل با تمام فیلدهاست
             foreach ($residents as $item) {
@@ -210,10 +140,22 @@ class SyncResidentsFromApi implements ShouldQueue
                     'last_synced_at' => now(),
                 ];
                 
-                // ایجاد رکورد جدید (چون همه داده‌های قبلی پاک شده‌اند)
+                // ذخیره یا به‌روزرسانی با updateOrCreate
                 try {
-                    Resident::create($data);
-                    $createdCount++;
+                    $existing = Resident::where('resident_id', $residentId)->first();
+                    $wasNew = !$existing;
+                    
+                    Resident::updateOrCreate(
+                        ['resident_id' => $residentId],
+                        $data
+                    );
+                    
+                    if ($wasNew) {
+                        $createdCount++;
+                    } else {
+                        $updatedCount++;
+                    }
+                    
                     $syncedCount++;
                 } catch (\Exception $e) {
                     Log::error('Error saving resident', [
@@ -235,12 +177,8 @@ class SyncResidentsFromApi implements ShouldQueue
                 'time' => now()->format('Y-m-d H:i:s'),
                 'synced_count' => $syncedCount,
                 'created_count' => $createdCount,
-                'updated_count' => 0, // همه رکوردها جدید هستند چون قبلاً پاک شده‌اند
-                'deleted_count' => $deletedCount ?? 0,
-                'deleted_from_reports' => $deletedFromReports ?? 0,
-                'deleted_from_sms' => $deletedFromSms ?? 0,
-                'deleted_from_grants' => $deletedFromGrants ?? 0,
-                'message' => "دیتابیس اقامت‌گران به‌روزرسانی شد. تعداد: {$syncedCount} (پاک شده از residents: {$deletedCount}, از reports: {$deletedFromReports}, از sms: {$deletedFromSms})",
+                'updated_count' => $updatedCount,
+                'message' => "دیتابیس اقامت‌گران به‌روزرسانی شد. تعداد: {$syncedCount}",
             ];
             
             Cache::put('residents_last_sync', $syncData, now()->addDays(7)); // 7 روز cache
@@ -249,7 +187,6 @@ class SyncResidentsFromApi implements ShouldQueue
                 'synced' => $syncedCount,
                 'created' => $createdCount,
                 'updated' => $updatedCount,
-                'deleted' => $deletedCount ?? 0,
             ]);
             
             // ارسال Event برای notification
