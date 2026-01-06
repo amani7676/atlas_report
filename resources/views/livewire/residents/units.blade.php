@@ -95,6 +95,135 @@
     </style>
 
     <div class="container-fluid py-3" dir="rtl">
+        <!-- کارت نمایش نتایج ثبت گزارش -->
+        @if($showSubmissionResult && !empty($lastSubmittedReports))
+            <div id="submission-results-card" class="card mb-4" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden;">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+                        <h5 class="mb-0" style="font-weight: 600;">نتایج ثبت گزارش</h5>
+                    </div>
+                    <button wire:click="closeSubmissionResult" class="btn btn-sm" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="card-body" style="padding: 20px; background: #f8f9fa;">
+                    @foreach($lastSubmittedReports as $submittedReport)
+                        <div class="card mb-3" style="border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 10px; overflow: hidden;">
+                            <div class="card-body" style="padding: 16px;">
+                                <!-- اطلاعات اقامت‌گر -->
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+                                    <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
+                                        {{ mb_substr($submittedReport['resident_name'] ?? 'ن', 0, 1) }}
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 16px; margin-bottom: 4px;">
+                                            {{ $submittedReport['resident_name'] ?? 'نامشخص' }}
+                                        </div>
+                                        <div style="font-size: 13px; color: #64748b;">
+                                            <i class="fas fa-phone" style="margin-left: 6px;"></i>{{ $submittedReport['phone'] ?? 'نامشخص' }}
+                                            <span style="margin: 0 8px;">|</span>
+                                            <i class="fas fa-door-open" style="margin-left: 6px;"></i>{{ $submittedReport['room_name'] ?? 'نامشخص' }}
+                                            <span style="margin: 0 8px;">|</span>
+                                            <i class="fas fa-bed" style="margin-left: 6px;"></i>{{ $submittedReport['bed_name'] ?? 'نامشخص' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- اطلاعات گزارش -->
+                                <div style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <i class="fas fa-file-alt" style="color: #3b82f6;"></i>
+                                        <strong style="color: #1e293b; font-size: 15px;">{{ $submittedReport['report_title'] ?? 'نامشخص' }}</strong>
+                                    </div>
+                                    <div style="font-size: 13px; color: #64748b;">
+                                        <span style="background: white; padding: 4px 10px; border-radius: 6px; margin-left: 8px;">
+                                            دسته: {{ $submittedReport['category_name'] ?? 'بدون دسته' }}
+                                        </span>
+                                        @if(!empty($submittedReport['notes']))
+                                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(59,130,246,0.2);">
+                                                <i class="fas fa-sticky-note" style="margin-left: 6px; color: #3b82f6;"></i>
+                                                <span style="color: #1e293b;">{{ $submittedReport['notes'] }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                
+                                <!-- پاسخ دیتابیس -->
+                                <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; margin-bottom: 12px; border-right: 4px solid #10b981;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                        <i class="fas fa-database" style="color: #10b981; font-size: 16px;"></i>
+                                        <strong style="color: #1e293b; font-size: 14px;">پاسخ دیتابیس:</strong>
+                                    </div>
+                                    <div style="color: #059669; font-size: 13px; margin-right: 24px;">
+                                        <i class="fas fa-check-circle" style="margin-left: 6px;"></i>
+                                        گزارش با موفقیت در دیتابیس ثبت شد
+                                        <span style="color: #64748b; margin-right: 8px;">(ID: {{ $submittedReport['id'] ?? 'نامشخص' }})</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- پاسخ ملی پیامک -->
+                                @if(!empty($submittedReport['sms_result']))
+                                    <div style="background: {{ $submittedReport['sms_result']['success'] ? '#f0fdf4' : '#fef2f2' }}; padding: 12px; border-radius: 8px; border-right: 4px solid {{ $submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444' }};">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                            <i class="fas fa-sms" style="color: {{ $submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444' }}; font-size: 16px;"></i>
+                                            <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                        </div>
+                                        <div style="color: {{ $submittedReport['sms_result']['success'] ? '#059669' : '#dc2626' }}; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
+                                            @if($submittedReport['sms_result']['success'])
+                                                <i class="fas fa-check-circle" style="margin-left: 6px;"></i>
+                                                {{ $submittedReport['sms_result']['message'] ?? 'پیامک با موفقیت ارسال شد' }}
+                                                @if(!empty($submittedReport['sms_result']['rec_id']))
+                                                    <span style="color: #64748b; margin-right: 8px;">(RecId: {{ $submittedReport['sms_result']['rec_id'] }})</span>
+                                                @endif
+                                            @else
+                                                <i class="fas fa-times-circle" style="margin-left: 6px;"></i>
+                                                {{ $submittedReport['sms_result']['message'] ?? $submittedReport['sms_result']['error_message'] ?? 'خطا در ارسال پیامک' }}
+                                                @if(!empty($submittedReport['sms_result']['response_code']))
+                                                    <span style="color: #64748b; margin-right: 8px;">(کد خطا: {{ $submittedReport['sms_result']['response_code'] }})</span>
+                                                @endif
+                                            @endif
+                                        </div>
+                                        
+                                        <!-- نمایش پاسخ دقیق API -->
+                                        @if(!empty($submittedReport['sms_result']['raw_response']) || !empty($submittedReport['sms_result']['api_response']))
+                                            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 8px; border: 1px solid #e5e7eb;">
+                                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                                                    <i class="fas fa-code" style="color: #64748b; font-size: 14px;"></i>
+                                                    <strong style="color: #1e293b; font-size: 13px;">پاسخ دقیق API:</strong>
+                                                </div>
+                                                <div style="background: #1e293b; color: #10b981; padding: 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; direction: ltr; text-align: left;">
+                                                    @if(!empty($submittedReport['sms_result']['raw_response']))
+                                                        <div style="margin-bottom: 6px;">
+                                                            <span style="color: #94a3b8; font-size: 11px;">Raw Response:</span><br>
+                                                            <span style="color: #10b981;">{{ is_string($submittedReport['sms_result']['raw_response']) ? $submittedReport['sms_result']['raw_response'] : json_encode($submittedReport['sms_result']['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</span>
+                                                        </div>
+                                                    @endif
+                                                    @if(!empty($submittedReport['sms_result']['api_response']))
+                                                        <div>
+                                                            <span style="color: #94a3b8; font-size: 11px;">API Response:</span><br>
+                                                            <span style="color: #10b981;">{{ is_string($submittedReport['sms_result']['api_response']) ? $submittedReport['sms_result']['api_response'] : json_encode($submittedReport['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</span>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #f59e0b;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 16px;"></i>
+                                            <span style="color: #92400e; font-size: 13px;">پیامک ارسال نشد یا الگویی برای این گزارش تنظیم نشده است</span>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+        
         <!-- Header -->
         <div class="card mb-3">
             <div class="card-header bg-primary text-white">
@@ -419,10 +548,12 @@
                                                             <div style="display: flex; align-items: start; gap: 12px;">
                                                                 <input
                                                                     class="form-check-input"
-                                                                    type="checkbox"
+                                                                    type="radio"
+                                                                    name="selectedReport"
                                                                     value="{{ $report['id'] }}"
                                                                     id="report_{{ $report['id'] }}"
-                                                                    wire:model="selectedReports"
+                                                                    wire:click="$set('selectedReports', [{{ $report['id'] }}])"
+                                                                    @if(in_array($report['id'], $selectedReports)) checked @endif
                                                                     style="width: 20px; height: 20px; margin-top: 2px; cursor: pointer;"
                                                                 >
                                                                 <div style="flex: 1;">
@@ -649,6 +780,26 @@
         });
 
         // لاگ پاسخ دیتابیس در کنسول
+        // اسکرول به کارت نتایج بعد از بسته شدن مودال
+        Livewire.on('scroll-to-results', () => {
+            setTimeout(() => {
+                const resultsCard = document.getElementById('submission-results-card');
+                if (resultsCard) {
+                    resultsCard.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                    // اضافه کردن انیمیشن highlight
+                    resultsCard.style.transition = 'box-shadow 0.3s ease';
+                    resultsCard.style.boxShadow = '0 8px 24px rgba(102, 126, 234, 0.4)';
+                    setTimeout(() => {
+                        resultsCard.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                    }, 2000);
+                }
+            }, 300); // تاخیر کوتاه برای اطمینان از رندر شدن کارت
+        });
+        
         window.addEventListener('logDatabaseResponse', event => {
             const response = event.detail;
             console.log('=== پاسخ دیتابیس ===');

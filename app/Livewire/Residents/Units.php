@@ -30,7 +30,7 @@ class Units extends Component
     public $currentRoom = null;
     public $categories = [];
     public $reports = [];
-    public $selectedReports = [];
+    public $selectedReports = []; // آرایه برای سازگاری، اما فقط یک گزارش انتخاب می‌شود
     public $notes = '';
     public $expandedUnits = [];
     public $reportModalLoading = false;
@@ -328,6 +328,10 @@ class Units extends Component
                     'message' => $errorMessage,
                     'errors' => $errors
                 ];
+                // بستن مودال حتی در صورت خطا (اگر حداقل یک گزارش موفق ثبت شد)
+                if ($successCount > 0) {
+                    $this->closeModal();
+                }
             } else {
                 // ذخیره پاسخ دیتابیس برای نمایش در مودال
                 $this->databaseResponse = [
@@ -360,6 +364,12 @@ class Units extends Component
                     'count' => $successCount,
                     'reports' => $result['submitted_reports'] ?? []
                 ]);
+                
+                // بستن مودال بعد از ثبت موفق گزارش
+                $this->closeModal();
+                
+                // نمایش نتایج در بالای صفحه
+                $this->showSubmissionResult = true;
             }
         } catch (\Exception $e) {
             \Log::error('Error submitting report', [
@@ -641,6 +651,9 @@ class Units extends Component
                         'api_response' => $smsResult->api_response ?? null,
                         'raw_response' => $smsResult->raw_response ?? null,
                         'sent_at' => $smsResult->sent_at ? $smsResult->sent_at->toDateTimeString() : null,
+                        // پاسخ کامل API برای نمایش دقیق
+                        'full_api_response' => $smsResult->api_response ? (is_string($smsResult->api_response) ? json_decode($smsResult->api_response, true) : $smsResult->api_response) : null,
+                        'full_raw_response' => $smsResult->raw_response ?? null,
                     ];
                     
                     \Log::info('Units - SMS result array created', [
@@ -995,6 +1008,9 @@ class Units extends Component
                             'api_response' => $smsResult->api_response ?? null,
                             'raw_response' => $smsResult->raw_response ?? null,
                             'sent_at' => $smsResult->sent_at ? $smsResult->sent_at->toDateTimeString() : null,
+                            // پاسخ کامل API برای نمایش دقیق
+                            'full_api_response' => $smsResult->api_response ? (is_string($smsResult->api_response) ? json_decode($smsResult->api_response, true) : $smsResult->api_response) : null,
+                            'full_raw_response' => $smsResult->raw_response ?? null,
                         ];
                         
                         $this->smsResponses[] = [
@@ -1042,6 +1058,9 @@ class Units extends Component
         // ذخیره نتایج برای نمایش
         $this->lastSubmittedReports = $submittedReports;
         $this->showSubmissionResult = true;
+        
+        // اسکرول به کارت نتایج بعد از بسته شدن مودال
+        $this->dispatch('scroll-to-results');
         
         // باز کردن modal پاسخ SMS اگر پیامکی ارسال شده باشد
         if (!empty($this->smsResponses)) {
