@@ -2249,6 +2249,9 @@
         })();
     </script>
     @livewireScripts
+    
+    <!-- Persistent Alarm - Shows on all pages -->
+    @livewire('layout.persistent-alarm')
 </body>
 
 </html>
