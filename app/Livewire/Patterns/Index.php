@@ -557,6 +557,98 @@ class Index extends Component
             \Log::info('syncFromApi method called');
             $this->syncing = true;
             
+            // دریافت API Key که واقعاً استفاده می‌شود (قبل از فراخوانی API)
+            // استفاده مستقیم از Query Builder برای اطمینان از خواندن از جدول
+            // بررسی تمام رکوردهای api key (حتی غیرفعال) برای دیباگ
+            // استفاده از 'api key' (با فاصله) به جای 'api_key'
+            $allApiKeyRecords = \App\Models\ApiKey::where('key_name', 'api key')->get();
+            \Log::info('Patterns syncFromApi - All api key records in database', [
+                'total_records' => $allApiKeyRecords->count(),
+                'records' => $allApiKeyRecords->map(function($r) {
+                    return [
+                        'id' => $r->id,
+                        'key_name' => $r->key_name,
+                        'key_value' => $r->key_value,
+                        'is_active' => $r->is_active,
+                    ];
+                })->toArray(),
+            ]);
+            
+            $apiKeyRecord = \App\Models\ApiKey::where('key_name', 'api key')
+                ->where('is_active', true)
+                ->first();
+            
+            $actualApiKey = $apiKeyRecord ? $apiKeyRecord->key_value : null;
+            $apiKeyFromDb = !empty($actualApiKey);
+            
+            // اگر در دیتابیس نبود، از config می‌خوانیم
+            if (empty($actualApiKey)) {
+                $actualApiKey = config('services.melipayamak.api_key') 
+                    ?: config('services.melipayamak.password');
+            }
+            
+            // دریافت Username که واقعاً استفاده می‌شود
+            $usernameRecord = \App\Models\ApiKey::where('key_name', 'username')
+                ->where('is_active', true)
+                ->first();
+            $actualUsername = $usernameRecord ? $usernameRecord->key_value : null;
+            if (empty($actualUsername)) {
+                $actualUsername = config('services.melipayamak.username');
+            }
+            
+            // لاگ مقدار دقیقی که استفاده می‌شود
+            \Log::info('Patterns syncFromApi - API Key that will be used', [
+                'username' => $actualUsername,
+                'api_key_from_database' => $apiKeyFromDb,
+                'api_key_full_value' => $actualApiKey,
+                'api_key_length' => strlen($actualApiKey ?? ''),
+                'api_key_source' => $apiKeyFromDb ? 'database (api_keys table - key_name = "api key")' : 'config',
+                'database_record' => $apiKeyRecord ? [
+                    'id' => $apiKeyRecord->id,
+                    'key_name' => $apiKeyRecord->key_name,
+                    'is_active' => $apiKeyRecord->is_active,
+                    'value_length' => strlen($apiKeyRecord->key_value),
+                    'value_preview' => substr($apiKeyRecord->key_value, 0, 20) . '...',
+                ] : 'not found',
+            ]);
+            
+            // دریافت مقدار دقیق API Key که در MelipayamakService استفاده می‌شود
+            // استفاده مستقیم از Query Builder برای اطمینان
+            // استفاده از 'api key' (با فاصله) به جای 'api_key'
+            $dbApiKeyRecord = \App\Models\ApiKey::where('key_name', 'api key')
+                ->where('is_active', true)
+                ->first();
+            
+            // این مقدار دقیقی است که در API استفاده می‌شود
+            $actualApiKeyUsed = $dbApiKeyRecord ? $dbApiKeyRecord->key_value : null;
+            
+            // اگر در دیتابیس نبود، از config می‌خوانیم (مثل MelipayamakService)
+            if (empty($actualApiKeyUsed)) {
+                $actualApiKeyUsed = config('services.melipayamak.api_key') 
+                    ?: config('services.melipayamak.password');
+            }
+            
+            // دریافت Username
+            $dbUsernameRecord = \App\Models\ApiKey::where('key_name', 'username')
+                ->where('is_active', true)
+                ->first();
+            $actualUsernameUsed = $dbUsernameRecord ? $dbUsernameRecord->key_value : null;
+            if (empty($actualUsernameUsed)) {
+                $actualUsernameUsed = config('services.melipayamak.username');
+            }
+            
+            // لاگ مقدار دقیقی که استفاده می‌شود
+            \Log::info('Patterns syncFromApi - Actual values that will be used in API', [
+                'username_used' => $actualUsernameUsed,
+                'api_key_used' => $actualApiKeyUsed,
+                'api_key_length' => strlen($actualApiKeyUsed ?? ''),
+                'api_key_from_database' => !empty($dbApiKeyRecord),
+                'database_record_id' => $dbApiKeyRecord ? $dbApiKeyRecord->id : null,
+                'database_record_key_name' => $dbApiKeyRecord ? $dbApiKeyRecord->key_name : null,
+                'database_record_value' => $dbApiKeyRecord ? $dbApiKeyRecord->key_value : null,
+                'database_record_is_active' => $dbApiKeyRecord ? $dbApiKeyRecord->is_active : null,
+            ]);
+            
             $melipayamakService = new MelipayamakService();
             $result = $melipayamakService->getSharedServiceBody();
 
@@ -565,16 +657,15 @@ class Index extends Component
                 'patterns_count' => count($result['patterns'] ?? []),
             ]);
             
-            // ذخیره پاسخ API برای نمایش
-            // دریافت اطلاعات username و password (API Key) برای نمایش
-            $reflection = new \ReflectionClass($melipayamakService);
-            $usernameProperty = $reflection->getProperty('username');
-            $passwordProperty = $reflection->getProperty('password');
-            $usernameProperty->setAccessible(true);
-            $passwordProperty->setAccessible(true);
-            $username = $usernameProperty->getValue($melipayamakService);
-            $password = $passwordProperty->getValue($melipayamakService);
+            // تعیین منبع API Key
+            $apiKeySource = $apiKeyFromDb 
+                ? 'database (جدول api_keys - key_name = "api key")' 
+                : (!empty(config('services.melipayamak.api_key')) 
+                    ? 'config (services.melipayamak.api_key)' 
+                    : 'config (services.melipayamak.password)');
             
+            // استفاده از مقادیر دقیقی که از جدول خوانده شده‌اند
+            // این مقادیر همان مقادیری هستند که در API استفاده می‌شوند
             $this->syncResponseData = [
                 'success' => $result['success'] ?? false,
                 'message' => $result['message'] ?? '',
@@ -582,9 +673,29 @@ class Index extends Component
                 'patterns' => $result['patterns'] ?? [],
                 'raw_response' => $result['raw_response'] ?? $result['api_response'] ?? '',
                 'http_status_code' => $result['http_status_code'] ?? null,
-                'username' => $username,
-                'password' => $password, // این در واقع API Key است
+                'username' => $actualUsernameUsed, // Username که از جدول خوانده شده
+                'password' => $actualApiKeyUsed, // API Key که از جدول api_keys خوانده شده است
+                'api_key_source' => $apiKeySource, // منبع API Key
+                'api_key_length' => strlen($actualApiKeyUsed ?? ''), // طول API Key
             ];
+            
+            // لاگ نهایی
+            \Log::info('Patterns syncFromApi - Final display values', [
+                'display_username' => $actualUsernameUsed,
+                'display_api_key' => $actualApiKeyUsed,
+                'display_api_key_length' => strlen($actualApiKeyUsed ?? ''),
+                'display_api_key_source' => $apiKeySource,
+                'database_record_exists' => !empty($apiKeyRecord),
+            ]);
+            
+            // لاگ نهایی
+            \Log::info('Patterns syncFromApi - Final display values', [
+                'display_username' => $actualUsernameUsed,
+                'display_api_key' => $actualApiKeyUsed,
+                'display_api_key_length' => strlen($actualApiKeyUsed ?? ''),
+                'display_api_key_source' => $apiKeySource,
+                'database_record_exists' => !empty($dbApiKeyRecord),
+            ]);
             $this->showSyncResponseModal = true;
 
             if ($result['success']) {
@@ -725,9 +836,46 @@ class Index extends Component
     public function viewRawApiResponse()
     {
         try {
+            // دریافت API Key که واقعاً استفاده می‌شود (از جدول api_keys)
+            $apiKeyRecord = \App\Models\ApiKey::where('key_name', 'api_key')
+                ->where('is_active', true)
+                ->first();
+            
+            $apiKey = $apiKeyRecord ? $apiKeyRecord->key_value : null;
+            
+            // اگر در دیتابیس نبود، از config می‌خوانیم
+            if (empty($apiKey)) {
+                $apiKey = config('services.melipayamak.api_key') 
+                    ?: config('services.melipayamak.password');
+            }
+            
+            // دریافت Username
+            $usernameRecord = \App\Models\ApiKey::where('key_name', 'username')
+                ->where('is_active', true)
+                ->first();
+            $username = $usernameRecord ? $usernameRecord->key_value : null;
+            if (empty($username)) {
+                $username = config('services.melipayamak.username');
+            }
+            
+            // تعیین منبع API Key
+            $apiKeySource = !empty($apiKeyRecord) 
+                ? 'database (جدول api_keys - key_name = "api_key")' 
+                : (!empty(config('services.melipayamak.api_key')) 
+                    ? 'config (services.melipayamak.api_key)' 
+                    : 'config (services.melipayamak.password)');
+            
             $melipayamakService = new MelipayamakService();
             $result = $melipayamakService->getSharedServiceBody();
 
+            // لاگ برای دیباگ
+            \Log::info('Patterns viewRawApiResponse - API Key info', [
+                'username' => $username,
+                'api_key' => $apiKey,
+                'api_key_length' => strlen($apiKey ?? ''),
+                'api_key_source' => $apiKeySource,
+            ]);
+            
             $this->rawApiResponseData = [
                 'success' => $result['success'],
                 'message' => $result['message'] ?? '',
@@ -735,6 +883,10 @@ class Index extends Component
                 'raw_response' => $result['raw_response'] ?? '',
                 'http_status_code' => $result['http_status_code'] ?? null,
                 'patterns' => $result['patterns'] ?? [],
+                'username' => $username ?? '-', // Username که استفاده شده
+                'password' => $apiKey ?? '-', // API Key که استفاده شده است
+                'api_key_source' => $apiKeySource ?? 'نامشخص', // منبع API Key
+                'api_key_length' => strlen($apiKey ?? ''), // طول API Key
             ];
             
             $this->showRawApiResponseModal = true;

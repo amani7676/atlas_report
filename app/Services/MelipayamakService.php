@@ -8,17 +8,91 @@ use Illuminate\Support\Facades\Log;
 class MelipayamakService
 {
     protected $username;
-    protected $password; // APIKey
     protected $baseUrl = 'https://rest.payamak-panel.com/api';
 
     public function __construct()
     {
-        $this->username = config('services.melipayamak.username');
-        // استفاده از APIKey به جای password
-        // اول از دیتابیس می‌خوانیم، سپس از config
-        $this->password = \App\Models\ApiKey::getKeyValue('api_key') 
-            ?: config('services.melipayamak.api_key') 
-            ?: config('services.melipayamak.password');
+        // Username از جدول api_keys می‌خوانیم (اگر وجود داشته باشد)، در غیر این صورت از config
+        $this->username = \App\Models\ApiKey::getKeyValue('username');
+        if (empty($this->username)) {
+            $this->username = config('services.melipayamak.username');
+        }
+    }
+    
+    /**
+     * دریافت Username - همیشه از دیتابیس می‌خواند
+     */
+    public function getUsername()
+    {
+        // استفاده مستقیم از Query Builder برای اطمینان
+        $usernameRecord = \App\Models\ApiKey::where('key_name', 'username')
+            ->where('is_active', true)
+            ->first();
+        
+        $username = $usernameRecord ? $usernameRecord->key_value : null;
+        
+        if (empty($username)) {
+            $username = config('services.melipayamak.username');
+        }
+        
+        Log::debug('Melipayamak getUsername()', [
+            'username_from_db' => $usernameRecord ? 'EXISTS' : 'NOT FOUND',
+            'username_value' => $username,
+            'username_source' => $usernameRecord ? 'database' : 'config',
+        ]);
+        
+        return $username;
+    }
+
+    /**
+     * دریافت API Key (password) از دیتابیس - همیشه از دیتابیس می‌خواند
+     */
+    protected function getPassword()
+    {
+        // همیشه از دیتابیس می‌خوانیم (اولویت اول)
+        // استفاده مستقیم از Query Builder برای اطمینان
+        // استفاده از 'api key' (با فاصله) به جای 'api_key'
+        $apiKeyRecord = \App\Models\ApiKey::where('key_name', 'api key')
+            ->where('is_active', true)
+            ->first();
+        
+        $apiKey = $apiKeyRecord ? $apiKeyRecord->key_value : null;
+        
+        // لاگ برای دیباگ
+        Log::info('Melipayamak getPassword() - Reading from database', [
+            'api_key_found' => !empty($apiKey),
+            'api_key_from_db' => $apiKey ? 'EXISTS (length: ' . strlen($apiKey) . ')' : 'NOT FOUND in database',
+            'api_key_full_value' => $apiKey, // نمایش کامل برای دیباگ
+            'api_key_preview' => $apiKey ? substr($apiKey, 0, 20) . '...' : 'empty',
+            'all_api_keys' => \App\Models\ApiKey::where('is_active', true)->pluck('key_name')->toArray(),
+            'query_result' => $apiKeyRecord ? [
+                'id' => $apiKeyRecord->id,
+                'key_name' => $apiKeyRecord->key_name,
+                'is_active' => $apiKeyRecord->is_active,
+            ] : 'null',
+        ]);
+        
+        // اگر در دیتابیس نبود، از config می‌خوانیم (فقط برای سازگاری)
+        if (empty($apiKey)) {
+            $apiKey = config('services.melipayamak.api_key') 
+                ?: config('services.melipayamak.password');
+            
+            Log::warning('Melipayamak getPassword() - API Key not found in database, using config fallback', [
+                'config_api_key_exists' => !empty(config('services.melipayamak.api_key')),
+                'config_api_key_value' => config('services.melipayamak.api_key'),
+                'config_password_exists' => !empty(config('services.melipayamak.password')),
+                'config_password_value' => config('services.melipayamak.password'),
+                'available_keys_in_db' => \App\Models\ApiKey::where('is_active', true)->pluck('key_name')->toArray(),
+                'fallback_value' => $apiKey,
+            ]);
+        } else {
+            Log::info('Melipayamak getPassword() - Using API Key from database', [
+                'api_key_value' => $apiKey,
+                'api_key_length' => strlen($apiKey),
+            ]);
+        }
+        
+        return $apiKey;
     }
 
     /**
@@ -116,7 +190,7 @@ class MelipayamakService
 
             $data = [
                 'username' => $this->username,
-                'password' => $this->password, // APIKey
+                'password' => $this->getPassword(), // APIKey - همیشه از دیتابیس می‌خواند
                 'to' => $normalizedPhone,
                 'from' => $from,
                 'text' => trim($text),
@@ -330,7 +404,7 @@ class MelipayamakService
 
             $data = [
                 'username' => $this->username,
-                'password' => $this->password, // APIKey
+                'password' => $this->getPassword(), // APIKey - همیشه از دیتابیس می‌خواند
                 'to' => $to,
                 'from' => $from,
                 'text' => trim($text),
@@ -440,7 +514,7 @@ class MelipayamakService
         try {
             $data = [
                 'username' => $this->username,
-                'password' => $this->password, // APIKey
+                'password' => $this->getPassword(), // APIKey - همیشه از دیتابیس می‌خواند
                 'recId' => $recId,
             ];
 
@@ -480,7 +554,7 @@ class MelipayamakService
         try {
             $data = [
                 'username' => $this->username,
-                'password' => $this->password, // APIKey
+                'password' => $this->getPassword(), // APIKey - همیشه از دیتابیس می‌خواند
             ];
 
             $response = Http::asForm()->post($this->baseUrl . '/SendSMS/GetCredit', $data);
@@ -539,7 +613,7 @@ class MelipayamakService
             // ارسال درخواست GET با query parameters
             $response = Http::get($baseUrl, [
                 'username' => $this->username,
-                'password' => $this->password,
+                'password' => $this->getPassword(), // همیشه از دیتابیس می‌خواند
                 'title' => trim($title),
             ]);
 
@@ -634,10 +708,14 @@ class MelipayamakService
     public function getSharedServiceBody()
     {
         try {
+            // دریافت username و password از دیتابیس (همیشه)
+            $username = $this->getUsername();
+            $password = $this->getPassword();
+            
             Log::debug('Melipayamak GetSharedServiceBody Request (SOAP)', [
-                'username' => $this->username,
-                'has_password' => !empty($this->password),
-                'password_length' => strlen($this->password ?? ''),
+                'username' => $username,
+                'has_password' => !empty($password),
+                'password_length' => strlen($password ?? ''),
             ]);
 
             // استفاده از SOAP API بر اساس مستندات
@@ -658,10 +736,10 @@ class MelipayamakService
             }
 
             // بررسی اینکه username و password (API Key) تنظیم شده‌اند
-            if (empty($this->username) || empty($this->password)) {
+            if (empty($username) || empty($password)) {
                 Log::error('Melipayamak credentials not set', [
-                    'has_username' => !empty($this->username),
-                    'has_password' => !empty($this->password),
+                    'has_username' => !empty($username),
+                    'has_password' => !empty($password),
                 ]);
                 return [
                     'success' => false,
@@ -674,10 +752,10 @@ class MelipayamakService
             }
 
             // ساخت داده‌های SOAP
-            // توجه: $this->password در واقع API Key است (نه password واقعی)
+            // توجه: password در واقع API Key است (نه password واقعی)
             $soapData = [
-                'username' => $this->username,
-                'password' => $this->password, // این در واقع API Key است
+                'username' => $username, // از دیتابیس خوانده شده
+                'password' => $password, // از دیتابیس خوانده شده (API Key)
             ];
 
             // ایجاد SOAP Client
@@ -971,7 +1049,7 @@ class MelipayamakService
             // ارسال درخواست GET با query parameters
             $response = Http::get($baseUrl, [
                 'username' => $this->username,
-                'password' => $this->password,
+                'password' => $this->getPassword(), // همیشه از دیتابیس می‌خواند
                 'title' => trim($title),
                 'body' => trim($body),
                 'blackListId' => (int)$blackListId,
@@ -1107,7 +1185,7 @@ class MelipayamakService
             // ارسال درخواست GET با query parameters
             $response = Http::get($baseUrl, [
                 'username' => $this->username,
-                'password' => $this->password,
+                'password' => $this->getPassword(), // همیشه از دیتابیس می‌خواند
                 'bodyId' => (int)$bodyId,
                 'title' => trim($title),
                 'body' => trim($body),
@@ -1272,7 +1350,7 @@ class MelipayamakService
             // ساخت داده‌های SOAP
             $soapData = [
                 'username' => $this->username,
-                'password' => $this->password, // APIKey
+                'password' => $this->getPassword(), // APIKey - همیشه از دیتابیس می‌خواند
                 'text' => $variables, // آرایه متغیرها
                 'to' => $normalizedPhone,
                 'bodyId' => (int)$bodyId,
@@ -1516,7 +1594,7 @@ class MelipayamakService
             
             $data = [
                 'username' => $this->username,
-                'password' => $this->password, // APIKey
+                'password' => $this->getPassword(), // APIKey - همیشه از دیتابیس می‌خواند
                 'to' => $normalizedPhone,
                 'bodyId' => (int)$bodyId,
                 'text' => $text, // متغیرها با جداکننده ;
@@ -1654,7 +1732,7 @@ class MelipayamakService
                     ?: $dbApiKey
                     ?: $configConsoleKey 
                     ?: $configApiKey 
-                    ?: $this->password;
+                    ?: $this->getPassword();
             }
             
             // بررسی اینکه API Key وجود دارد
