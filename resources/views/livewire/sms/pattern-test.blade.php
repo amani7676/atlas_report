@@ -40,23 +40,79 @@
                 <!-- ورودی متغیرها -->
                 @if(count($variables) > 0)
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-3">
-                            مقادیر متغیرها:
-                        </label>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-medium text-gray-700">
+                                مقادیر متغیرها:
+                            </label>
+                            <div class="text-xs text-gray-500 bg-blue-50 px-3 py-1 rounded-full">
+                                <i class="fas fa-info-circle"></i> مقادیر نمونه به صورت خودکار پر شده‌اند
+                            </div>
+                        </div>
                         <div class="space-y-3">
                             @foreach($variables as $variable)
-                                <div class="flex items-center gap-4">
-                                    <label class="w-32 text-sm text-gray-600">
-                                        {{ $variable['code'] }} ({{ $variable['title'] }}):
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        wire:model.live="variableValues.{{ $variable['index'] }}"
-                                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="مقدار {{ $variable['title'] }} را وارد کنید"
-                                    >
+                                <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div class="flex-shrink-0 w-32">
+                                        <label class="text-sm text-gray-600 font-medium">
+                                            {{ $variable['code'] }}
+                                        </label>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            {{ $variable['title'] }}
+                                        </div>
+                                        @if($variable['table_field'])
+                                            <div class="text-xs text-blue-600 mt-1">
+                                                فیلد: {{ $variable['table_field'] }}
+                                            </div>
+                                        @endif
+                                        @if(!$variable['exists_in_db'] ?? true)
+                                            <div class="text-xs text-red-600 mt-1 bg-red-50 px-2 py-1 rounded">
+                                                <i class="fas fa-exclamation-triangle"></i> تعریف نشده
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <div class="flex-1">
+                                        <input 
+                                            type="text" 
+                                            wire:model.live="variableValues.{{ $variable['index'] }}"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            placeholder="مقدار {{ $variable['title'] }} را وارد کنید"
+                                        >
+                                        @if($variable['variable_type'] === 'user')
+                                            <div class="text-xs text-green-600 mt-1">
+                                                <i class="fas fa-user"></i> متغیر کاربری
+                                            </div>
+                                        @elseif($variable['variable_type'] === 'report')
+                                            <div class="text-xs text-purple-600 mt-1">
+                                                <i class="fas fa-file-alt"></i> متغیر گزارش
+                                            </div>
+                                        @elseif($variable['variable_type'] === 'general')
+                                            <div class="text-xs text-orange-600 mt-1">
+                                                <i class="fas fa-cog"></i> متغیر عمومی
+                                            </div>
+                                        @endif
+                                    </div>
                                 </div>
                             @endforeach
+                        </div>
+                        
+                        <!-- دکمه پر کردن مجدد مقادیر نمونه -->
+                        <div class="mt-4 flex gap-2">
+                            <button 
+                                type="button"
+                                wire:click="extractVariables"
+                                class="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-full border border-blue-200"
+                            >
+                                <i class="fas fa-refresh"></i> پر کردن مجدد مقادیر نمونه
+                            </button>
+                            
+                            @if(count($variables) > 0)
+                                <button 
+                                    type="button"
+                                    wire:click="debugVariables"
+                                    class="text-sm text-orange-600 hover:text-orange-800 bg-orange-50 px-3 py-1 rounded-full border border-orange-200"
+                                >
+                                    <i class="fas fa-bug"></i> دیباگ متغیرها
+                                </button>
+                            @endif
                         </div>
                     </div>
                     
@@ -72,8 +128,15 @@
                             
                             @php
                                 $variablesArray = [];
+                                // پیدا کردن تمام ایندکس‌ها و مرتب کردن اونها (مثل کنترلر)
+                                $indices = [];
                                 foreach ($variables as $variable) {
-                                    $index = $variable['index'];
+                                    $indices[] = $variable['index'];
+                                }
+                                sort($indices);
+                                
+                                // پر کردن آرایه بر اساس ترتیب مرتب شده
+                                foreach ($indices as $index) {
                                     $value = $variableValues[$index] ?? '';
                                     $variablesArray[] = $value;
                                 }
@@ -98,6 +161,26 @@
                                         <code class="block mt-1 p-2 bg-white rounded text-xs text-left direction-ltr break-all">
                                             {{ implode(';', $variablesArray) }}
                                         </code>
+                                    </div>
+                                    
+                                    <!-- نمایش تطابق با الگو -->
+                                    <div class="mt-3 p-3 bg-yellow-50 rounded border border-yellow-200">
+                                        <strong class="text-yellow-700 text-xs block mb-1">
+                                            <i class="fas fa-info-circle"></i> بررسی تطابق:
+                                        </strong>
+                                        @php
+                                            preg_match_all('/\{(\d+)\}/', $patternText, $patternMatches);
+                                            $expectedCount = count(array_unique($patternMatches[1]));
+                                            $actualCount = count($variablesArray);
+                                        @endphp
+                                        <div class="text-xs text-yellow-800 mt-1">
+                                            متغیرهای مورد انتظار: {{ $expectedCount }} | متغیرهای وارد شده: {{ $actualCount }}
+                                            @if($expectedCount == $actualCount)
+                                                <span class="text-green-600 font-medium"> ✓ تطابق دارد</span>
+                                            @else
+                                                <span class="text-red-600 font-medium"> ✗ تطابق ندارد</span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             @endif

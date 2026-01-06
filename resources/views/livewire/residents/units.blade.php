@@ -514,72 +514,123 @@
                             </div>
                         @endif
 
-                        <!-- Categories and Reports - Material Design -->
+                        <!-- Categories and Reports - Modern Dropdown Design -->
                         <div style="margin-bottom: 24px;">
                             <label style="font-weight: 600; color: #1e293b; margin-bottom: 16px; display: block; font-size: 16px;">
                                 <i class="fas fa-folder-open" style="margin-left: 8px; color: #667eea;"></i>
-                                دسته‌بندی گزارش‌ها
+                                انتخاب گزارش
                             </label>
-                            <div style="display: flex; flex-direction: column; gap: 12px;">
-                                @foreach($categories as $category)
-                                    <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; transition: all 0.3s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'">
-                                        <div style="padding: 16px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" data-bs-toggle="collapse" data-bs-target="#collapse{{ $category['id'] }}" aria-expanded="false">
-                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
-                                                    <i class="fas fa-folder"></i>
-                                                </div>
-                                                <div>
-                                                    <div style="font-weight: 600; color: #1e293b; font-size: 15px;">{{ $category['name'] }}</div>
-                                                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">{{ count($category['reports']) }} گزارش</div>
-                                                </div>
-                                            </div>
-                                            <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                                                {{ count($category['reports']) }}
-                                            </span>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                                <!-- Dropdown دسته‌بندی -->
+                                <div style="position: relative;">
+                                    <label for="categorySelect" style="font-weight: 500; color: #374151; margin-bottom: 8px; display: block; font-size: 14px;">
+                                        <i class="fas fa-layer-group" style="margin-left: 6px; color: #667eea;"></i>
+                                        دسته‌بندی
+                                    </label>
+                                    <div style="position: relative;">
+                                        <select 
+                                            id="categorySelect"
+                                            wire:model.live="selectedCategoryId"
+                                            style="width: 100%; padding: 12px 16px 12px 45px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; font-weight: 500; background: white; color: #1e293b; cursor: pointer; transition: all 0.2s; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23667eea\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 12px center; background-size: 20px; padding-right: 40px;"
+                                            onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102,126,234,0.1)'"
+                                            onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+                                        >
+                                            <option value="">انتخاب دسته‌بندی...</option>
+                                            @foreach($categories as $category)
+                                                <option value="{{ $category['id'] }}">{{ $category['name'] }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div style="position: absolute; right: 16px; top: 42px; pointer-events: none;">
+                                            <i class="fas fa-folder" style="color: #667eea; font-size: 16px;"></i>
                                         </div>
-                                        <div id="collapse{{ $category['id'] }}" class="collapse" data-bs-parent="#reportAccordion">
-                                            <div style="padding: 16px; background: #f8f9fa; border-top: 1px solid #e5e7eb;">
-                                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
-                                                    @foreach($category['reports'] as $report)
-                                                        <div style="background: white; padding: 16px; border-radius: 10px; border: 2px solid #e5e7eb; transition: all 0.2s; cursor: pointer;" 
-                                                             onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.2)'" 
-                                                             onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
-                                                             onclick="document.getElementById('report_{{ $report['id'] }}').click()">
-                                                            <div style="display: flex; align-items: start; gap: 12px;">
-                                                                <input
-                                                                    class="form-check-input"
-                                                                    type="radio"
-                                                                    name="selectedReport"
-                                                                    value="{{ $report['id'] }}"
-                                                                    id="report_{{ $report['id'] }}"
-                                                                    wire:click="$set('selectedReports', [{{ $report['id'] }}])"
-                                                                    @if(in_array($report['id'], $selectedReports)) checked @endif
-                                                                    style="width: 20px; height: 20px; margin-top: 2px; cursor: pointer;"
-                                                                >
-                                                                <div style="flex: 1;">
-                                                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                                                        <strong style="font-size: 14px; color: #1e293b; font-weight: 600;">{{ $report['title'] }}</strong>
-                                                                        @if(isset($report['negative_score']) && $report['negative_score'] > 0)
-                                                                            <span style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                                                                -{{ $report['negative_score'] }}
-                                                                            </span>
-                                                                        @endif
-                                                                    </div>
-                                                                    @if(isset($report['description']) && $report['description'])
-                                                                        <div style="font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 4px;">
-                                                                            {{ \Illuminate\Support\Str::limit($report['description'], 60) }}
-                                                                        </div>
-                                                                    @endif
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    @endforeach
+                                    </div>
+                                </div>
+
+                                <!-- Dropdown گزارش‌ها -->
+                                <div style="position: relative;">
+                                    <label for="reportSelect" style="font-weight: 500; color: #374151; margin-bottom: 8px; display: block; font-size: 14px;">
+                                        <i class="fas fa-file-alt" style="margin-left: 6px; color: #764ba2;"></i>
+                                        گزارش
+                                    </label>
+                                    <div style="position: relative;">
+                                        <select 
+                                            id="reportSelect"
+                                            wire:model.live="selectedReportId"
+                                            style="width: 100%; padding: 12px 16px 12px 45px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; font-weight: 500; background: white; color: #1e293b; cursor: pointer; transition: all 0.2s; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23764ba2\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 12px center; background-size: 20px; padding-right: 40px;"
+                                            onfocus="this.style.borderColor='#764ba2'; this.style.boxShadow='0 0 0 3px rgba(118,75,162,0.1)'"
+                                            onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+                                            @if(!$selectedCategoryId) disabled @endif
+                                        >
+                                            <option value="">انتخاب گزارش...</option>
+                                            @foreach($filteredReports as $report)
+                                                <option value="{{ $report['id'] }}">{{ $report['title'] }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div style="position: absolute; right: 16px; top: 42px; pointer-events: none;">
+                                            <i class="fas fa-file-alt" style="color: #764ba2; font-size: 16px;"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- نمایش اطلاعات گزارش انتخاب شده -->
+                            @if($selectedReportId)
+                                @php
+                                    $selectedReport = collect($filteredReports)->firstWhere('id', $selectedReportId);
+                                @endphp
+                                @if($selectedReport)
+                                    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 20px; border-radius: 12px; border: 2px solid #0ea5e9; box-shadow: 0 4px 12px rgba(14,165,233,0.15);">
+                                        <div style="display: flex; align-items: start; gap: 16px;">
+                                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                                                <i class="fas fa-check-circle" style="font-size: 20px;"></i>
+                                            </div>
+                                            <div style="flex: 1;">
+                                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                                    <strong style="font-size: 16px; color: #0c4a6e; font-weight: 600;">{{ $selectedReport['title'] }}</strong>
+                                                    @if(isset($selectedReport['negative_score']) && $selectedReport['negative_score'] > 0)
+                                                        <span style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                                                            -{{ $selectedReport['negative_score'] }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                @if(isset($selectedReport['description']) && $selectedReport['description'])
+                                                    <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
+                                                        {{ \Illuminate\Support\Str::limit($selectedReport['description'], 100) }}
+                                                    </div>
+                                                @endif
+                                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(14,165,233,0.2);">
+                                                    <span style="background: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; color: #0284c7; font-weight: 500;">
+                                                        <i class="fas fa-folder" style="margin-left: 6px;"></i>
+                                                        {{ collect($categories)->firstWhere('id', $selectedCategoryId)['name'] ?? 'نامشخص' }}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                @endforeach
-                            </div>
+                                @endif
+                            @endif
+
+                            <!-- پیام راهنما -->
+                            @if(!$selectedCategoryId)
+                                <div style="background: #fef3c7; padding: 16px; border-radius: 10px; border-right: 4px solid #f59e0b; margin-top: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 18px;"></i>
+                                        <span style="color: #92400e; font-size: 14px; font-weight: 500;">
+                                            لطفاً ابتدا دسته‌بندی مورد نظر را انتخاب کنید
+                                        </span>
+                                    </div>
+                                </div>
+                            @elseif($selectedCategoryId && !$selectedReportId)
+                                <div style="background: #fef3c7; padding: 16px; border-radius: 10px; border-right: 4px solid #f59e0b; margin-top: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 18px;"></i>
+                                        <span style="color: #92400e; font-size: 14px; font-weight: 500;">
+                                            حالا گزارش مورد نظر خود را از لیست انتخاب کنید
+                                        </span>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         <!-- Notes - Material Design -->

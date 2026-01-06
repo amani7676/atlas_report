@@ -31,6 +31,9 @@ class Units extends Component
     public $categories = [];
     public $reports = [];
     public $selectedReports = []; // آرایه برای سازگاری، اما فقط یک گزارش انتخاب می‌شود
+    public $selectedCategoryId = null; // دسته‌بندی انتخاب شده
+    public $selectedReportId = null; // گزارش انتخاب شده (مقدار تکی)
+    public $filteredReports = []; // گزارش‌های فیلتر شده بر اساس دسته‌بندی
     public $notes = '';
     public $expandedUnits = [];
     public $reportModalLoading = false;
@@ -106,6 +109,36 @@ class Units extends Component
         $this->reports = Report::all()->toArray();
     }
 
+    /**
+     * به‌روزرسانی گزارش‌های فیلتر شده بر اساس دسته‌بندی انتخاب شده
+     */
+    public function updatedSelectedCategoryId($value)
+    {
+        $this->selectedReports = []; // پاک کردن گزارش‌های انتخاب شده قبلی
+        $this->selectedReportId = null; // پاک کردن گزارش انتخاب شده
+        
+        if ($value) {
+            $category = collect($this->categories)->firstWhere('id', $value);
+            if ($category) {
+                $this->filteredReports = $category['reports'] ?? [];
+            }
+        } else {
+            $this->filteredReports = [];
+        }
+    }
+
+    /**
+     * به‌روزرسانی گزارش انتخاب شده
+     */
+    public function updatedSelectedReportId($value)
+    {
+        if ($value) {
+            $this->selectedReports = [$value]; // برای سازگاری با ساختار موجود
+        } else {
+            $this->selectedReports = [];
+        }
+    }
+
     public function openIndividualReport($resident, $bed, $unitIndex, $roomIndex)
     {
         $unit = $this->units[$unitIndex];
@@ -127,6 +160,9 @@ class Units extends Component
 
         $this->loadReportData();
         $this->selectedReports = [];
+        $this->selectedCategoryId = null;
+        $this->selectedReportId = null;
+        $this->filteredReports = [];
         $this->notes = '';
         $this->showReportModal = true;
         $this->dispatch('modal-opened');
@@ -176,6 +212,9 @@ class Units extends Component
 
         $this->loadReportData();
         $this->selectedReports = [];
+        $this->selectedCategoryId = null;
+        $this->selectedReportId = null;
+        $this->filteredReports = [];
         $this->notes = '';
         $this->showReportModal = true;
         $this->dispatch('modal-opened');
@@ -242,6 +281,9 @@ class Units extends Component
         $this->reportType = 'group';
         $this->loadReportData();
         $this->selectedReports = [];
+        $this->selectedCategoryId = null;
+        $this->selectedReportId = null;
+        $this->filteredReports = [];
         $this->notes = '';
         $this->showReportModal = true;
         $this->dispatch('modal-opened');
@@ -1083,6 +1125,9 @@ class Units extends Component
     {
         $this->showReportModal = false;
         $this->selectedReports = [];
+        $this->selectedCategoryId = null;
+        $this->selectedReportId = null;
+        $this->filteredReports = [];
         $this->notes = '';
         $this->currentResident = null;
         $this->currentRoom = null;
