@@ -38,9 +38,9 @@ class SyncResidentsCommand extends Command
             $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
             if ($lastSync) {
                 $this->info('همگام‌سازی با موفقیت انجام شد.');
-                $this->info("تعداد همگام‌سازی شده: {$lastSync['synced_count']}");
+                $this->info("حذف شده: {$lastSync['deleted_count']}");
                 $this->info("ایجاد شده: {$lastSync['created_count']}");
-                $this->info("به‌روزرسانی شده: {$lastSync['updated_count']}");
+                $this->info("مجموع همگام‌سازی شده: {$lastSync['synced_count']}");
                 
                 // بررسی تعداد واقعی در دیتابیس
                 $actualCount = \App\Models\Resident::count();

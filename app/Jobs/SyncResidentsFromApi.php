@@ -62,6 +62,12 @@ class SyncResidentsFromApi implements ShouldQueue
             
             Log::info('Processing residents', ['count' => count($residents)]);
             
+            // حذف تمام داده‌های قدیمی اقامت‌گران قبل از همگام‌سازی جدید
+            Log::info('Deleting all existing residents before sync');
+            $deletedCount = Resident::count();
+            Resident::query()->delete();
+            Log::info('Deleted existing residents', ['count' => $deletedCount]);
+            
             // API به صورت flat است - هر ردیف یک resident کامل با تمام فیلدهاست
             foreach ($residents as $item) {
                 if (!isset($item['resident_id'])) {
@@ -140,22 +146,10 @@ class SyncResidentsFromApi implements ShouldQueue
                     'last_synced_at' => now(),
                 ];
                 
-                // ذخیره یا به‌روزرسانی با updateOrCreate
+                // ذخیره رکوردهای جدید (چون قبلاً همه حذف شده‌اند)
                 try {
-                    $existing = Resident::where('resident_id', $residentId)->first();
-                    $wasNew = !$existing;
-                    
-                    Resident::updateOrCreate(
-                        ['resident_id' => $residentId],
-                        $data
-                    );
-                    
-                    if ($wasNew) {
-                        $createdCount++;
-                    } else {
-                        $updatedCount++;
-                    }
-                    
+                    Resident::create($data);
+                    $createdCount++;
                     $syncedCount++;
                 } catch (\Exception $e) {
                     Log::error('Error saving resident', [
@@ -177,20 +171,21 @@ class SyncResidentsFromApi implements ShouldQueue
                 'time' => now()->format('Y-m-d H:i:s'),
                 'synced_count' => $syncedCount,
                 'created_count' => $createdCount,
-                'updated_count' => $updatedCount,
-                'message' => "دیتابیس اقامت‌گران به‌روزرسانی شد. تعداد: {$syncedCount}",
+                'updated_count' => 0, // همیشه صفر چون complete replacement انجام می‌شود
+                'deleted_count' => $deletedCount ?? 0,
+                'message' => "دیتابیس اقامت‌گران کاملاً جایگزین شد. حذف شده: {$deletedCount}, ایجاد شده: {$createdCount}",
             ];
             
             Cache::put('residents_last_sync', $syncData, now()->addDays(7)); // 7 روز cache
             
             Log::info('Residents sync completed', [
-                'synced' => $syncedCount,
+                'deleted' => $deletedCount ?? 0,
                 'created' => $createdCount,
-                'updated' => $updatedCount,
+                'synced' => $syncedCount,
             ]);
             
             // ارسال Event برای notification
-            event(new \App\Events\ResidentsSynced($syncedCount, $createdCount, $updatedCount));
+            event(new \App\Events\ResidentsSynced($syncedCount, $createdCount, $deletedCount ?? 0));
             
         } catch (\Exception $e) {
             Log::error('Error syncing residents from API', [

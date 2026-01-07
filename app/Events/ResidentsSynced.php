@@ -16,16 +16,16 @@ class ResidentsSynced implements ShouldBroadcast
 
     public $syncedCount;
     public $createdCount;
-    public $updatedCount;
+    public $deletedCount;
 
     /**
      * Create a new event instance.
      */
-    public function __construct($syncedCount, $createdCount, $updatedCount)
+    public function __construct($syncedCount, $createdCount, $deletedCount)
     {
         $this->syncedCount = $syncedCount;
         $this->createdCount = $createdCount;
-        $this->updatedCount = $updatedCount;
+        $this->deletedCount = $deletedCount;
     }
 
     /**
@@ -56,8 +56,8 @@ class ResidentsSynced implements ShouldBroadcast
         return [
             'synced_count' => $this->syncedCount,
             'created_count' => $this->createdCount,
-            'updated_count' => $this->updatedCount,
-            'message' => "دیتابیس اقامت‌گران به‌روزرسانی شد. تعداد: {$this->syncedCount}",
+            'deleted_count' => $this->deletedCount,
+            'message' => "دیتابیس اقامت‌گران کاملاً جایگزین شد. حذف شده: {$this->deletedCount}, ایجاد شده: {$this->createdCount}",
             'time' => now()->format('Y-m-d H:i:s'),
         ];
     }
