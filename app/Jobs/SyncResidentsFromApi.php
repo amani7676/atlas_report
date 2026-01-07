@@ -66,6 +66,11 @@ class SyncResidentsFromApi implements ShouldQueue
             Log::info('Deleting all existing residents before sync');
             $deletedCount = Resident::count();
             Resident::query()->delete();
+            
+            // ریست کردن auto-increment ID برای شروع از 1
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE residents AUTO_INCREMENT = 1');
+            Log::info('Reset auto-increment ID for residents table');
+            
             Log::info('Deleted existing residents', ['count' => $deletedCount]);
             
             // API به صورت flat است - هر ردیف یک resident کامل با تمام فیلدهاست
