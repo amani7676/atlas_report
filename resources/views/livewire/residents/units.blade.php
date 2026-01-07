@@ -657,139 +657,151 @@
                         @if($databaseResponse)
                             <div style="margin-bottom: 24px; margin-top: 24px; border-top: 2px solid #e5e7eb; padding-top: 24px;">
                                 @if($databaseResponse['success'])
-                                    <div style="background: #d1fae5; padding: 16px; border-radius: 12px; border-right: 4px solid #10b981; margin-bottom: 16px;">
-                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                                            <i class="fas fa-check-circle" style="color: #10b981; font-size: 20px;"></i>
-                                            <strong style="color: #059669; font-size: 16px;">{{ $databaseResponse['message'] }}</strong>
+                                    <div style="background: linear-gradient(135deg, #d1fae5 0%, #f0fdf4 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #10b981; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);">
+                                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                            <div style="background: #10b981; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                <i class="fas fa-check" style="font-size: 18px;"></i>
+                                            </div>
+                                            <div>
+                                                <strong style="color: #059669; font-size: 18px; display: block;">{{ $databaseResponse['message'] }}</strong>
+                                                <span style="color: #047857; font-size: 14px;">تعداد: {{ count($databaseResponse['reports'] ?? []) }} گزارش با موفقیت ثبت شد</span>
+                                            </div>
                                         </div>
-                                        <div style="color: #047857; font-size: 13px;">تعداد: {{ count($databaseResponse['reports'] ?? []) }} گزارش</div>
                                     </div>
 
-                                    @if(!empty($databaseResponse['reports']))
-                                        <div style="max-height: 400px; overflow-y: auto;">
-                                            @foreach($databaseResponse['reports'] as $index => $report)
-                                                <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-right: 3px solid #10b981;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                                        <strong style="color: #059669; font-size: 14px;">گزارش #{{ $index + 1 }}</strong>
-                                                        <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">ID: {{ $report['id'] }}</span>
-                                                    </div>
-
-                                                    <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
-                                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                                            <div><strong style="color: #666;">گزارش:</strong> <span style="color: #1f2937;">{{ $report['report_title'] ?? 'نامشخص' }}</span></div>
-                                                            <div><strong style="color: #666;">دسته‌بندی:</strong> <span style="color: #1f2937;">{{ $report['category_name'] ?? 'بدون دسته' }}</span></div>
-                                                            <div><strong style="color: #666;">اقامت‌گر:</strong> <span style="color: #1f2937;">{{ $report['resident_name'] ?? '-' }}</span></div>
-                                                            <div><strong style="color: #666;">تلفن:</strong> <span style="color: #1f2937; direction: ltr; text-align: right;">{{ $report['phone'] ?? '-' }}</span></div>
-                                                            <div><strong style="color: #666;">واحد:</strong> <span style="color: #1f2937;">{{ $report['unit_name'] ?? '-' }}</span></div>
-                                                            <div><strong style="color: #666;">اتاق:</strong> <span style="color: #1f2937;">{{ $report['room_name'] ?? '-' }}</span></div>
-                                                            <div><strong style="color: #666;">تخت:</strong> <span style="color: #1f2937;">{{ $report['bed_name'] ?? '-' }}</span></div>
-                                                            @if(!empty($report['notes']))
-                                                                <div style="grid-column: 1 / -1;"><strong style="color: #666;">توضیحات:</strong> <span style="color: #1f2937;">{{ $report['notes'] }}</span></div>
-                                                            @endif
-                                                            <div style="grid-column: 1 / -1;"><strong style="color: #666;">تاریخ ثبت:</strong> <span style="color: #1f2937;">{{ jalaliDate($report['created_at'] ?? now(), 'Y/m/d H:i:s') }}</span></div>
+                                    <!-- نمایش پاسخ API ملی پیامک -->
+                                    @if(!empty($smsResponses))
+                                        <div style="background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #3b82f6; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);">
+                                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                                <div style="background: #3b82f6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-mobile-alt" style="font-size: 18px;"></i>
+                                                </div>
+                                                <div>
+                                                    <strong style="color: #1e40af; font-size: 18px; display: block;">پاسخ API ملی پیامک</strong>
+                                                    <span style="color: #1e40af; font-size: 14px;">نتایج ارسال پیامک الگو</span>
+                                                </div>
+                                            </div>
+                                            
+                                            @foreach($smsResponses as $index => $smsResponse)
+                                                <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; border-right: 3px solid {{ $smsResponse['sms_result']['success'] ? '#10b981' : '#ef4444' }}; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                                            <div style="background: {{ $smsResponse['sms_result']['success'] ? '#10b981' : '#ef4444' }}; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas {{ $smsResponse['sms_result']['success'] ? 'fa-check' : 'fa-times' }}" style="font-size: 12px;"></i>
+                                                            </div>
+                                                            <strong style="color: #1e293b; font-size: 15px;">
+                                                                {{ $smsResponse['report_title'] }}
+                                                            </strong>
                                                         </div>
+                                                        <span style="background: {{ $smsResponse['sms_result']['success'] ? '#10b981' : '#ef4444' }}; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                                            {{ $smsResponse['sms_result']['success'] ? 'ارسال موفق' : 'ارسال ناموفق' }}
+                                                        </span>
                                                     </div>
-
-                                                    <!-- نمایش پاسخ ملی پیامک زیر اطلاعات گزارش -->
-                                                    @if(isset($report['sms_result']) && $report['sms_result'] !== null && is_array($report['sms_result']))
-                                                        <div style="margin-top: 12px; padding: 12px; background: {{ $report['sms_result']['success'] ? '#f0fdf4' : '#fef2f2' }}; border-radius: 8px; border-right: 4px solid {{ $report['sms_result']['success'] ? '#10b981' : '#ef4444' }};">
-                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                                                <h6 style="margin: 0; color: {{ $report['sms_result']['success'] ? '#059669' : '#dc2626' }}; font-size: 14px;">
-                                                                    <i class="fas {{ $report['sms_result']['success'] ? 'fa-check-circle' : 'fa-times-circle' }}" style="margin-left: 5px;"></i>
-                                                                    <strong>پاسخ ملی پیامک</strong>
-                                                                </h6>
-                                                                <span style="background: {{ $report['sms_result']['success'] ? '#10b981' : '#ef4444' }}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                                                                    {{ $report['sms_result']['status'] === 'sent' ? 'ارسال شد' : ($report['sms_result']['status'] === 'failed' ? 'خطا' : 'در حال ارسال') }}
-                                                                </span>
-                                                            </div>
-                                                            
-                                                            <div style="margin-bottom: 8px; font-size: 13px;">
-                                                                <strong style="color: #666;">پیام:</strong> 
-                                                                <span style="color: {{ $report['sms_result']['success'] ? '#059669' : '#dc2626' }};">
-                                                                    {{ $report['sms_result']['message'] }}
-                                                                </span>
-                                                            </div>
-                                                            
-                                                            @if(isset($report['sms_result']['response_code']))
-                                                            <div style="margin-bottom: 8px; font-size: 13px;">
-                                                                <strong style="color: #666;">کد پاسخ:</strong> 
-                                                                <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 12px;">{{ $report['sms_result']['response_code'] }}</code>
-                                                            </div>
-                                                            @endif
-                                                            
-                                                            @if(isset($report['sms_result']['rec_id']))
-                                                            <div style="margin-bottom: 8px; font-size: 13px;">
-                                                                <strong style="color: #666;">RecId:</strong> 
-                                                                <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 12px;">{{ $report['sms_result']['rec_id'] }}</code>
-                                                            </div>
-                                                            @endif
-                                                            
-                                                            @if(isset($report['sms_result']['error_message']) && !$report['sms_result']['success'])
-                                                            <div style="margin-bottom: 8px; font-size: 13px;">
-                                                                <strong style="color: #666;">پیام خطا:</strong> 
-                                                                <span style="color: #dc2626;">{{ $report['sms_result']['error_message'] }}</span>
-                                                            </div>
-                                                            @endif
-                                                            
-                                                            @if(isset($report['sms_result']['sent_at']))
-                                                            <div style="margin-bottom: 8px; font-size: 13px;">
-                                                                <strong style="color: #666;">زمان ارسال:</strong> 
-                                                                <span>{{ jalaliDate($report['sms_result']['sent_at'], 'Y/m/d H:i:s') }}</span>
-                                                            </div>
-                                                            @endif
-                                                            
-                                                            @if(isset($report['sms_result']['api_response']))
-                                                            <details style="margin-top: 8px;">
-                                                                <summary style="cursor: pointer; color: #3b82f6; font-weight: 600; font-size: 12px; padding: 6px; background: #dbeafe; border-radius: 4px;">
-                                                                    <i class="fas fa-code" style="margin-left: 5px;"></i>
-                                                                    <strong>پاسخ API</strong>
+                                                    
+                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-user" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">اقامت‌گر:</strong> 
+                                                            <span style="color: #1f2937;">{{ $smsResponse['resident_name'] }}</span>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-phone" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">تلفن:</strong> 
+                                                            <span style="color: #1f2937; direction: ltr;">{{ $smsResponse['phone'] }}</span>
+                                                        </div>
+                                                        
+                                                        @if(isset($smsResponse['sms_result']['rec_id']))
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-hashtag" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">RecId:</strong> 
+                                                            <code style="background: #f8f9fa; padding: 4px 8px; border-radius: 6px; font-size: 12px; color: #059669; font-weight: 600;">{{ $smsResponse['sms_result']['rec_id'] }}</code>
+                                                        </div>
+                                                        @endif
+                                                        
+                                                        @if(isset($smsResponse['sms_result']['response_code']))
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-code" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">کد پاسخ:</strong> 
+                                                            <code style="background: #f8f9fa; padding: 4px 8px; border-radius: 6px; font-size: 12px; color: #1e293b;">{{ $smsResponse['sms_result']['response_code'] }}</code>
+                                                        </div>
+                                                        @endif
+                                                        
+                                                        <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-comment" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">پیام:</strong> 
+                                                            <span style="color: {{ $smsResponse['sms_result']['success'] ? '#059669' : '#dc2626' }}; font-weight: 500;">{{ $smsResponse['sms_result']['message'] }}</span>
+                                                        </div>
+                                                        
+                                                        @if(isset($smsResponse['sms_result']['sent_at']))
+                                                        <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-clock" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">زمان ارسال:</strong> 
+                                                            <span style="color: #1f2937;">{{ jalaliDate($smsResponse['sms_result']['sent_at'], 'Y/m/d H:i:s') }}</span>
+                                                        </div>
+                                                        @endif
+                                                        
+                                                        @if(isset($smsResponse['sms_result']['api_response']))
+                                                        <div style="grid-column: 1 / -1;">
+                                                            <details style="margin-top: 12px;">
+                                                                <summary style="cursor: pointer; color: #3b82f6; font-weight: 600; font-size: 13px; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; gap: 6px;">
+                                                                    <i class="fas fa-code"></i>
+                                                                    <strong>پاسخ کامل API ملی پیامک</strong>
                                                                 </summary>
-                                                                <div style="margin-top: 8px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
-                                                                    <pre style="margin: 0; font-size: 10px; color: #374151; direction: ltr; text-align: left; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; border: 1px solid #e5e7eb; white-space: pre-wrap; word-wrap: break-word;">{{ is_array($report['sms_result']['api_response']) ? json_encode($report['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $report['sms_result']['api_response'] }}</pre>
+                                                                <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                                                    <pre style="margin: 0; font-size: 11px; color: #374151; direction: ltr; text-align: left; max-height: 250px; overflow-y: auto; background: white; padding: 8px; border-radius: 4px; border: 1px solid #d1d5db;">{{ is_array($smsResponse['sms_result']['api_response']) ? json_encode($smsResponse['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $smsResponse['sms_result']['api_response'] }}</pre>
                                                                 </div>
                                                             </details>
-                                                            @endif
-                                                            
-                                                            @if(isset($report['sms_result']['raw_response']))
-                                                            <details style="margin-top: 8px;">
-                                                                <summary style="cursor: pointer; color: #3b82f6; font-weight: 600; font-size: 12px; padding: 6px; background: #dbeafe; border-radius: 4px;">
-                                                                    <i class="fas fa-file-code" style="margin-left: 5px;"></i>
-                                                                    <strong>پاسخ خام (Raw Response)</strong>
-                                                        </summary>
-                                                                <div style="margin-top: 8px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
-                                                                    <pre style="margin: 0; font-size: 10px; color: #374151; direction: ltr; text-align: left; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; border: 1px solid #e5e7eb; white-space: pre-wrap; word-wrap: break-word;">{{ is_array($report['sms_result']['raw_response']) ? json_encode($report['sms_result']['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $report['sms_result']['raw_response'] }}</pre>
-                                                                </div>
-                                                            </details>
-                                                            @endif
                                                         </div>
-                                                    @elseif(isset($report['sms_result']) && $report['sms_result'] === null)
-                                                        <div style="margin-top: 12px; padding: 12px; background: #fef3c7; border-radius: 8px; border-right: 4px solid #f59e0b;">
-                                                            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #92400e;">
-                                                                <i class="fas fa-clock" style="color: #f59e0b;"></i>
-                                                                <span>در حال ارسال پیامک الگویی...</span>
-                                                            </div>
-                                                        </div>
-                                                    @endif
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #f59e0b; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div style="background: #f59e0b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-info-circle" style="font-size: 18px;"></i>
+                                                </div>
+                                                <div>
+                                                    <strong style="color: #92400e; font-size: 18px; display: block;">پیامکی ارسال نشد</strong>
+                                                    <span style="color: #92400e; font-size: 14px;">هیچ پاسخی از API ملی پیامک دریافت نشد. ممکن است الگوی پیامک برای این گزارش تنظیم نشده باشد.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if(!empty($databaseResponse['reports']))
+                                        <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border-right: 3px solid #cbd5e1;">
+                                            <h6 style="color: #64748b; font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="fas fa-list-alt" style="color: #64748b;"></i>
+                                                جزئیات گزارش‌های ثبت شده
+                                            </h6>
+                                            @foreach($databaseResponse['reports'] as $index => $report)
+                                                <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-right: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                                                    <div>
+                                                        <strong style="color: #475569; font-size: 13px;">{{ $report['report_title'] ?? 'نامشخص' }}</strong>
+                                                        <span style="color: #64748b; font-size: 12px; margin-right: 8px;">- {{ $report['resident_name'] ?? '-' }}</span>
+                                                    </div>
+                                                    <span style="background: #e2e8f0; color: #1e293b; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">ID: {{ $report['id'] }}</span>
                                                 </div>
                                             @endforeach
                                         </div>
                                     @endif
-                                @else
-                                    <div style="background: #fee2e2; padding: 16px; border-radius: 12px; border-right: 4px solid #ef4444;">
-                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                                            <i class="fas fa-exclamation-circle" style="color: #ef4444; font-size: 20px;"></i>
-                                            <strong style="color: #dc2626; font-size: 16px;">خطا در ثبت گزارش</strong>
+                                </div>
+                            @else
+                                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="background: #ef4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-exclamation-circle" style="font-size: 18px;"></i>
                                         </div>
-                                        <div style="color: #991b1b; font-size: 13px; white-space: pre-wrap;">{{ $databaseResponse['message'] }}</div>
-                                        @if(!empty($databaseResponse['error_details']))
-                                            <details style="margin-top: 10px;">
-                                                <summary style="cursor: pointer; color: #dc2626; font-size: 12px;">جزئیات خطا</summary>
-                                                <pre style="margin-top: 8px; padding: 10px; background: white; border-radius: 4px; font-size: 11px; direction: ltr; text-align: left; max-height: 200px; overflow-y: auto;">{{ json_encode($databaseResponse['error_details'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                            </details>
-                                        @endif
+                                        <div>
+                                            <strong style="color: #dc2626; font-size: 18px; display: block;">خطا در ثبت گزارش</strong>
+                                            <span style="color: #991b1b; font-size: 14px;">{{ $databaseResponse['message'] }}</span>
+                                        </div>
                                     </div>
-                                @endif
-                            </div>
+                                </div>
+                            @endif
                         @endif
                     </div>
 

@@ -478,173 +478,184 @@ class Units extends Component
                     'notes' => $this->notes,
                 ]);
 
-                // ارسال مستقیم پیامک الگویی (مشابه GroupSms)
-                $smsResult = null;
-                $report = Report::with('category')->find($reportId);
-                
-                if ($report && !empty($this->currentResident['phone'])) {
-                    // دریافت اولین الگوی فعال مرتبط با گزارش
-                    $pattern = $report->activePatterns()
-                        ->where('patterns.is_active', true)
-                        ->whereNotNull('patterns.pattern_code')
-                        ->first();
+                // ارسال مستقیم پیامک الگویی (با استفاده از متد SendByBaseNumber)
+                    $smsResult = null;
+                    $report = Report::with('category')->find($reportId);
                     
-                    if ($pattern && $pattern->pattern_code) {
-                        try {
-                            // دریافت اطلاعات resident از API
-                            $residentService = new ResidentService();
-                            $residentApiData = null;
-                            if (!empty($this->currentResident['id'])) {
-                                try {
-                                    $residentApiData = $residentService->getResidentById($this->currentResident['id']);
-                                } catch (\Exception $e) {
-                                    Log::error('Error getting resident data from API', [
-                                        'resident_id' => $this->currentResident['id'],
-                                        'error' => $e->getMessage(),
+                    if ($report && !empty($this->currentResident['phone'])) {
+                        // دریافت اولین الگوی فعال مرتبط با گزارش
+                        $pattern = $report->activePatterns()
+                            ->where('patterns.is_active', true)
+                            ->whereNotNull('patterns.pattern_code')
+                            ->first();
+                        
+                        if ($pattern && $pattern->pattern_code) {
+                            try {
+                                Log::info('Units - Found pattern for report', [
+                                    'report_id' => $reportId,
+                                    'report_title' => $report->title,
+                                    'pattern_id' => $pattern->id,
+                                    'pattern_code' => $pattern->pattern_code,
+                                    'pattern_text' => $pattern->text,
+                                ]);
+                                
+                                // پیدا کردن resident در جدول residents بر اساس resident_id از API
+                                $residentDb = \App\Models\Resident::where('resident_id', $this->currentResident['id'])->first();
+                                $residentDbId = $residentDb ? $residentDb->id : null;
+                                
+                                // ساخت داده‌های resident برای استخراج متغیرها
+                                $residentData = [
+                                    'id' => $this->currentResident['id'] ?? null,
+                                    'db_id' => $residentDbId,
+                                    'resident_id' => $this->currentResident['id'] ?? null,
+                                    'resident_name' => $this->currentResident['name'] ?? '',
+                                    'name' => $this->currentResident['name'] ?? '',
+                                    'phone' => $this->currentResident['phone'] ?? '',
+                                    'unit_id' => $this->currentResident['unit_id'] ?? null,
+                                    'unit_name' => $this->currentResident['unit_name'] ?? '',
+                                    'room_id' => $this->currentResident['room_id'] ?? null,
+                                    'room_name' => $this->currentResident['room_name'] ?? '',
+                                    'bed_id' => $this->currentResident['bed_id'] ?? null,
+                                    'bed_name' => $this->currentResident['bed_name'] ?? '',
+                                ];
+                                
+                                // استخراج متغیرها از متن الگو
+                                $variables = $this->extractPatternVariables($pattern->text, $residentData);
+                                
+                                Log::info('Units - Extracted variables for SMS', [
+                                    'pattern_text' => $pattern->text,
+                                    'variables' => $variables,
+                                    'variables_count' => count($variables),
+                                ]);
+                                
+                                // دریافت شماره فرستنده و API Key
+                                $senderNumber = SenderNumber::getActivePatternNumbers()->first();
+                                $senderNumberValue = $senderNumber ? $senderNumber->number : null;
+                                $apiKey = $senderNumber ? $senderNumber->api_key : null;
+                                
+                                // اگر API Key از sender number دریافت نشد، از جاهای دیگر استفاده می‌کنیم
+                                if (empty($apiKey)) {
+                                    $dbConsoleKey = \App\Models\ApiKey::getKeyValue('console_api_key');
+                                    $dbApiKey = \App\Models\ApiKey::getKeyValue('api key');
+                                    $configConsoleKey = config('services.melipayamak.console_api_key');
+                                    $configApiKey = config('services.melipayamak.api_key');
+                                    
+                                    $apiKey = $dbConsoleKey
+                                        ?: $dbApiKey
+                                        ?: $configConsoleKey
+                                        ?: $configApiKey;
+                                }
+                                
+                                // ایجاد رکورد در sms_message_residents
+                                $smsMessageResident = SmsMessageResident::create([
+                                    'sms_message_id' => null,
+                                    'report_id' => $reportId,
+                                    'pattern_id' => $pattern->id,
+                                    'is_pattern' => true,
+                                    'pattern_variables' => implode(';', $variables),
+                                    'resident_id' => $residentDbId,
+                                    'resident_name' => $this->currentResident['name'] ?? '',
+                                    'phone' => $this->currentResident['phone'] ?? '',
+                                    'title' => $pattern->title,
+                                    'description' => $pattern->text,
+                                    'status' => 'pending',
+                                ]);
+                                
+                                // ارسال پیامک با متد SendByBaseNumber (طبق مستندات ملی پیامک)
+                                $melipayamakService = new MelipayamakService();
+                                $bodyId = (int)$pattern->pattern_code;
+                                
+                                Log::info('Units - About to send SMS with SendByBaseNumber', [
+                                    'phone' => $this->currentResident['phone'],
+                                    'body_id' => $bodyId,
+                                    'pattern_code' => $pattern->pattern_code,
+                                    'pattern_text' => $pattern->text,
+                                    'variables' => $variables,
+                                    'variables_count' => count($variables),
+                                    'sender_number' => $senderNumberValue,
+                                    'has_api_key' => !empty($apiKey),
+                                ]);
+                                
+                                // استفاده از متد SendByBaseNumber (طبق مستندات)
+                                $result = $melipayamakService->sendByBaseNumber(
+                                    $this->currentResident['phone'],
+                                    $bodyId,
+                                    $variables,
+                                    $senderNumberValue,
+                                    $apiKey
+                                );
+                                
+                                Log::info('Units - SMS SendByBaseNumber result', [
+                                    'success' => $result['success'] ?? false,
+                                    'message' => $result['message'] ?? 'No message',
+                                    'response_code' => $result['response_code'] ?? null,
+                                    'rec_id' => $result['rec_id'] ?? null,
+                                    'api_response' => $result['api_response'] ?? null,
+                                    'raw_response' => $result['raw_response'] ?? null,
+                                ]);
+                                
+                                // به‌روزرسانی وضعیت
+                                if ($result['success']) {
+                                    $smsMessageResident->update([
+                                        'status' => 'sent',
+                                        'sent_at' => now(),
+                                        'response_code' => $result['response_code'] ?? null,
+                                        'rec_id' => $result['rec_id'] ?? null,
+                                        'api_response' => $result['api_response'] ?? null,
+                                        'raw_response' => $result['raw_response'] ?? null,
+                                    ]);
+                                    
+                                    Log::info('Units - SMS sent successfully', [
+                                        'sms_message_resident_id' => $smsMessageResident->id,
+                                        'rec_id' => $result['rec_id'],
+                                        'response_code' => $result['response_code'],
+                                    ]);
+                                } else {
+                                    $smsMessageResident->update([
+                                        'status' => 'failed',
+                                        'error_message' => $result['message'] ?? 'خطا در ارسال',
+                                        'response_code' => $result['response_code'] ?? null,
+                                        'rec_id' => $result['rec_id'] ?? null,
+                                        'api_response' => $result['api_response'] ?? null,
+                                        'raw_response' => $result['raw_response'] ?? null,
+                                    ]);
+                                    
+                                    Log::error('Units - SMS sending failed', [
+                                        'sms_message_resident_id' => $smsMessageResident->id,
+                                        'error_message' => $result['message'],
+                                        'response_code' => $result['response_code'],
                                     ]);
                                 }
-                            }
-                            
-                            // پیدا کردن resident در جدول residents بر اساس resident_id از API
-                            $residentDb = \App\Models\Resident::where('resident_id', $this->currentResident['id'])->first();
-                            
-                            // ساخت داده‌های resident از دیتابیس برای استخراج متغیرها
-                            $residentDataForVariables = null;
-                            if ($residentDb) {
-                                $residentDataForVariables = [
-                                    'id' => $residentDb->id,
-                                    'resident_id' => $residentDb->resident_id,
-                                    'resident_full_name' => $residentDb->resident_full_name,
-                                    'resident_phone' => $residentDb->resident_phone,
-                                    'unit_id' => $residentDb->unit_id,
-                                    'unit_name' => $residentDb->unit_name,
-                                    'unit_code' => $residentDb->unit_code,
-                                    'room_id' => $residentDb->room_id,
-                                    'room_name' => $residentDb->room_name,
-                                    'room_code' => $residentDb->room_code,
-                                    'bed_id' => $residentDb->bed_id,
-                                    'bed_name' => $residentDb->bed_name,
-                                    'bed_code' => $residentDb->bed_code,
-                                    'contract_payment_date_jalali' => $residentDb->contract_payment_date_jalali,
-                                    'contract_start_date_jalali' => $residentDb->contract_start_date_jalali,
-                                    'contract_end_date_jalali' => $residentDb->contract_end_date_jalali,
-                                    'resident_age' => $residentDb->resident_age,
-                                    'resident_job' => $residentDb->resident_job,
-                                ];
-                            }
-                            
-                            // ساخت داده‌های resident برای استخراج متغیرها (سازگاری)
-                            $residentData = [
-                                'id' => $this->currentResident['id'] ?? null,
-                                'db_id' => $residentDbId,
-                                'resident_id' => $this->currentResident['id'] ?? null,
-                                'resident_name' => $this->currentResident['name'] ?? '',
-                                'name' => $this->currentResident['name'] ?? '',
-                                'phone' => $this->currentResident['phone'] ?? '',
-                                'unit_id' => $this->currentResident['unit_id'] ?? null,
-                                'unit_name' => $this->currentResident['unit_name'] ?? '',
-                                'room_id' => $this->currentResident['room_id'] ?? null,
-                                'room_name' => $this->currentResident['room_name'] ?? '',
-                                'bed_id' => $this->currentResident['bed_id'] ?? null,
-                                'bed_name' => $this->currentResident['bed_name'] ?? '',
-                            ];
-                            
-                            // استخراج متغیرها از متن الگو (با استفاده از داده‌های دیتابیس)
-                            $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentDataForVariables, $report);
-                            
-                            // دریافت شماره فرستنده
-                            $senderNumber = SenderNumber::getActivePatternNumbers()->first();
-                            $senderNumberValue = $senderNumber ? $senderNumber->number : null;
-                            $apiKey = $senderNumber ? $senderNumber->api_key : null;
-                            
-                            // اگر API Key از sender number دریافت نشد، از جدول api_keys استفاده می‌کنیم
-                            if (empty($apiKey)) {
-                                $dbConsoleKey = \App\Models\ApiKey::getKeyValue('console_api_key');
-                                $dbApiKey = \App\Models\ApiKey::getKeyValue('api key');
-                                $configConsoleKey = config('services.melipayamak.console_api_key');
-                                $configApiKey = config('services.melipayamak.api_key');
                                 
-                                $apiKey = $dbConsoleKey
-                                    ?: $dbApiKey
-                                    ?: $configConsoleKey
-                                    ?: $configApiKey;
-                            }
-                            
-                            // علامت‌گذاری که پیامک در حال ارسال است (برای جلوگیری از ارسال دوبار توسط Event Listener)
-                            $residentReport->update(['has_been_sent' => true]);
-                            
-                            // ایجاد رکورد در sms_message_residents
-                            $smsMessageResident = SmsMessageResident::create([
-                                'sms_message_id' => null,
-                                'report_id' => $reportId,
-                                'pattern_id' => $pattern->id,
-                                'is_pattern' => true,
-                                'pattern_variables' => implode(';', $variables),
-                                'resident_id' => $residentDbId,
-                                'resident_name' => $this->currentResident['name'] ?? '',
-                                'phone' => $this->currentResident['phone'] ?? '',
-                                'title' => $pattern->title,
-                                'description' => $pattern->text,
-                                'status' => 'pending',
-                            ]);
-                            
-                            // ارسال پیامک با الگو - استفاده از sendByBaseNumber2 (مشابه PatternManual)
-                            $melipayamakService = new MelipayamakService();
-                            $bodyId = (int)$pattern->pattern_code;
-                            
-                            $result = $melipayamakService->sendByBaseNumber2(
-                                $this->currentResident['phone'],
-                                $bodyId,
-                                $variables,
-                                $senderNumberValue,
-                                $apiKey
-                            );
-                            
-                            // به‌روزرسانی وضعیت
-                            if ($result['success']) {
-                                $smsMessageResident->update([
-                                    'status' => 'sent',
-                                    'sent_at' => now(),
-                                    'response_code' => $result['response_code'] ?? null,
-                                    'rec_id' => $result['rec_id'] ?? null,
-                                    'api_response' => $result['api_response'] ?? null,
-                                    'raw_response' => $result['raw_response'] ?? null,
-                                ]);
-                            } else {
-                                $smsMessageResident->update([
-                                    'status' => 'failed',
-                                    'error_message' => $result['message'] ?? 'خطا در ارسال',
-                                    'response_code' => $result['response_code'] ?? null,
-                                    'rec_id' => $result['rec_id'] ?? null,
-                                    'api_response' => $result['api_response'] ?? null,
-                                    'raw_response' => $result['raw_response'] ?? null,
+                                // refresh برای دریافت داده‌های جدید
+                                $smsMessageResident->refresh();
+                                
+                                // ذخیره نتیجه برای نمایش
+                                $smsResult = $smsMessageResident;
+                                
+                            } catch (\Exception $e) {
+                                Log::error('Error sending SMS in Units', [
+                                    'report_id' => $reportId,
+                                    'resident_id' => $residentDbId,
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
                                 ]);
                             }
-                            
-                            // refresh برای دریافت داده‌های جدید
-                            $smsMessageResident->refresh();
-                            
-                            // ذخیره نتیجه برای نمایش
-                            $smsResult = $smsMessageResident;
-                            
-                            Log::info('Units - SMS sent successfully', [
-                                'sms_message_resident_id' => $smsMessageResident->id,
-                                'status' => $smsMessageResident->status,
-                                'rec_id' => $smsMessageResident->rec_id,
-                                'response_code' => $smsMessageResident->response_code,
-                            ]);
-                            
-                        } catch (\Exception $e) {
-                            Log::error('Error sending SMS in Units', [
+                        } else {
+                            Log::warning('Units - No active pattern found for report', [
                                 'report_id' => $reportId,
-                                'resident_id' => $residentDbId,
-                                'error' => $e->getMessage(),
-                                'trace' => $e->getTraceAsString(),
+                                'report_title' => $report->title ?? 'Unknown',
+                                'patterns_count' => $report->activePatterns()->count(),
                             ]);
                         }
-                    }
-                }
-
+                    } else {
+                        Log::warning('Units - No report or phone number', [
+                            'report_id' => $reportId,
+                            'has_report' => $report ? true : false,
+                            'has_phone' => !empty($this->currentResident['phone']),
+                        ]);
+                    }  
+                
                 // لاگ برای بررسی ذخیره‌سازی
                 \Log::info('گزارش در دیتابیس ذخیره شد', [
                     'resident_report_id' => $residentReport->id,
@@ -707,6 +718,45 @@ class Units extends Component
                     \Log::warning('Units - SMS result is null', [
                         'report_id' => $reportId,
                         'resident_db_id' => $residentDbId,
+                        'resident_phone' => $this->currentResident['phone'] ?? null,
+                        'pattern_found' => $pattern ?? null,
+                        'pattern_code' => $pattern->pattern_code ?? null,
+                    ]);
+                }
+                
+                // اگر SMS Result وجود ندارد، اما نتیجه ارسال مستقیم داریم، از آن استفاده می‌کنیم
+                if (!$smsResultArray && isset($result) && $result) {
+                    \Log::info('Units - Using direct result for SMS display', [
+                        'result_exists' => isset($result),
+                        'result_success' => $result['success'] ?? 'unknown',
+                        'result_rec_id' => $result['rec_id'] ?? 'none',
+                        'result_message' => $result['message'] ?? 'no message',
+                    ]);
+                    
+                    $smsResultArray = [
+                        'status' => $result['success'] ? 'sent' : 'failed',
+                        'success' => $result['success'] ?? false,
+                        'message' => $result['message'] ?? 'نتیجه نامشخص',
+                        'response_code' => $result['response_code'] ?? null,
+                        'rec_id' => $result['rec_id'] ?? null,
+                        'error_message' => $result['success'] ? null : ($result['message'] ?? null),
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
+                        'sent_at' => now()->toDateTimeString(),
+                        'full_api_response' => $result['api_response'] ?? null,
+                        'full_raw_response' => $result['raw_response'] ?? null,
+                    ];
+                    
+                    \Log::info('Units - SMS result array created from direct result', [
+                        'sms_result_array' => $smsResultArray,
+                        'direct_result' => $result,
+                    ]);
+                } else {
+                    \Log::warning('Units - No SMS result available', [
+                        'has_sms_result' => !empty($smsResult),
+                        'has_sms_result_array' => !empty($smsResultArray),
+                        'has_result' => isset($result),
+                        'result_is_valid' => isset($result) && $result,
                     ]);
                 }
                 
