@@ -1461,6 +1461,12 @@
                                 <span>پیامک‌های ارسال شده</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="/welcome-messages" class="{{ request()->is('welcome-messages*') ? 'active' : '' }}">
+                                <i class="fas fa-heart"></i>
+                                <span>پیام‌های خوش‌آمدگویی</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 

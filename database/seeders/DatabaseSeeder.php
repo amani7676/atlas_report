@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
         
         $this->call([
             ApiKeySeeder::class,
+            SettingsSeeder::class,
+            WelcomeMessageSeeder::class,
         ]);
     }
 }

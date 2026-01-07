@@ -50,6 +50,11 @@ Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.
 Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index');
 Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.index');
 
+// پیام‌های خوش‌آمدگویی
+Route::get('/welcome-messages', \App\Livewire\WelcomeMessages\Index::class)->name('welcome-messages.index');
+Route::get('/welcome-messages/logs', [\App\Http\Controllers\WelcomeMessageController::class, 'logs'])->name('welcome-messages.logs');
+Route::post('/welcome-messages/process', [\App\Http\Controllers\WelcomeMessageController::class, 'process'])->name('welcome-messages.process');
+
 // API endpoint for syncing residents
 Route::post('/api/residents/sync', function () {
     try {

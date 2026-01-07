@@ -40,3 +40,29 @@ Schedule::command('auto-sms:check')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();
+
+// بررسی و ارسال پیام‌های خوش‌آمدگویی بر اساس تنظیمات
+Schedule::call(function () {
+    $settings = \App\Models\Settings::first();
+    
+    if (!$settings || !$settings->welcome_system_active) {
+        return;
+    }
+    
+    $interval = $settings->welcome_check_interval_minutes ?? 1;
+    
+    // بررسی اینکه آیا زمان اجرا رسیده است
+    $lastRun = \Illuminate\Support\Facades\Cache::get('welcome_messages_last_run');
+    $now = now();
+    
+    if (!$lastRun || $now->diffInMinutes($lastRun) >= $interval) {
+        \Artisan::call('welcome:process');
+        \Illuminate\Support\Facades\Cache::put('welcome_messages_last_run', $now, now()->addDays(1));
+        \Log::info('Welcome messages processed via scheduler', [
+            'interval' => $interval,
+            'last_run' => $lastRun?->format('Y-m-d H:i:s'),
+        ]);
+    }
+})->name('welcome-messages-auto-process')
+  ->everyMinute()
+  ->withoutOverlapping();

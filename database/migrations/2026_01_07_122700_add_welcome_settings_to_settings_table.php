@@ -12,16 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('settings', function (Blueprint $table) {
-            // تاریخ شروع ارسال پیام‌های خوش‌آمدگویی
             $table->date('welcome_start_date')->nullable()->comment('تاریخ شروع ارسال پیام‌های خوش‌آمدگویی');
-            
-            // فاصله زمانی بررسی (بر حسب دقیقه)
             $table->integer('welcome_check_interval_minutes')->default(1)->comment('فاصله زمانی بررسی پیام‌های خوش‌آمدگویی به دقیقه');
-            
-            // گزارش پیش‌فرض خوش‌آمدگویی
             $table->foreignId('welcome_report_id')->nullable()->comment('گزارش پیش‌فرض برای پیام خوش‌آمدگویی');
-            
-            // وضعیت فعال بودن سیستم خوش‌آمدگویی
             $table->boolean('welcome_system_active')->default(false)->comment('آیا سیستم خوش‌آمدگویی فعال است؟');
         });
     }
