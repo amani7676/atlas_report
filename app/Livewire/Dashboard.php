@@ -16,6 +16,7 @@ class Dashboard extends Component
     public $recentSentMessages;
     public $totalSentMessages;
     public $failedMessages;
+    public $orphanedRecordsCount = 0;
 
     public function mount()
     {
@@ -40,6 +41,38 @@ class Dashboard extends Component
         // آمار پیام‌ها
         $this->totalSentMessages = SmsMessageResident::count();
         $this->failedMessages = SmsMessageResident::where('status', 'failed')->count();
+        
+        // شمارش رکوردهای یتیم
+        $this->countOrphanedRecords();
+    }
+    
+    public function countOrphanedRecords()
+    {
+        // دریافت تمام resident_id های موجود در جدول residents
+        $existingResidentIds = \App\Models\Resident::pluck('resident_id')->toArray();
+        
+        $orphanedCount = 0;
+        
+        // شمارش گزارش‌هایی که resident_id ندارند (null)
+        $orphanedCount += ResidentReport::whereNull('resident_id')->count();
+        
+        // شمارش پیام‌هایی که resident_id ندارند (null)
+        $orphanedCount += SmsMessageResident::whereNull('resident_id')->count();
+        
+        // اگر اقامتگری وجود دارد، رکوردهای با resident_id نامعتبر را هم بشمار
+        if (!empty($existingResidentIds)) {
+            // شمارش گزارش‌های اقامتگرانی که دیگر وجود ندارند
+            $orphanedCount += ResidentReport::whereNotNull('resident_id')
+                ->whereNotIn('resident_id', $existingResidentIds)
+                ->count();
+            
+            // شمارش پیام‌های اقامتگرانی که دیگر وجود ندارند
+            $orphanedCount += SmsMessageResident::whereNotNull('resident_id')
+                ->whereNotIn('resident_id', $existingResidentIds)
+                ->count();
+        }
+        
+        $this->orphanedRecordsCount = $orphanedCount;
     }
     
     public function cleanupOrphanedRecords()

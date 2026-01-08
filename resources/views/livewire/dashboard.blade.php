@@ -5,11 +5,22 @@
                 <h2 style="margin: 0;">داشبورد مدیریت</h2>
                 <p style="margin: 5px 0 0 0;">سیستم گزارش‌گیری اقامت‌گران</p>
             </div>
-            <button wire:click="cleanupOrphanedRecords" wire:loading.attr="disabled" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-sync-alt" wire:loading.class="fa-spin"></i>
-                <span wire:loading.remove>رفرش و پاک‌سازی</span>
-                <span wire:loading>در حال پردازش...</span>
-            </button>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                @if($orphanedRecordsCount > 0)
+                    <span style="background: #dc3545; color: white; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold;">
+                        {{ $orphanedRecordsCount }}
+                    </span>
+                @else
+                    <span style="background: #6c757d; color: white; padding: 6px 12px; border-radius: 20px; font-size: 14px;">
+                        0
+                    </span>
+                @endif
+                <button wire:click="cleanupOrphanedRecords" wire:loading.attr="disabled" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-trash-alt" wire:loading.class="fa-spin"></i>
+                    <span wire:loading.remove>نیاز به حذف اطلاعات به درد نخور</span>
+                    <span wire:loading>در حال پردازش...</span>
+                </button>
+            </div>
         </div>
     </div>
 
