@@ -284,13 +284,12 @@ class Manual extends Component
                 $messageText .= "\n" . $smsMessage->link;
             }
 
-            // استفاده از residentDbId که قبلاً پیدا شده
             // ایجاد رکورد در جدول sms_message_residents
             $smsMessageResident = SmsMessageResident::create([
                 'sms_message_id' => $smsMessage->id,
                 'report_id' => $this->selectedReport,
                 'is_pattern' => false,
-                'resident_id' => $residentDbId, // استفاده از id جدول residents
+                'resident_id' => $this->selectedResident['id'], // استفاده از resident_id از API
                 'resident_name' => $this->selectedResident['name'],
                 'phone' => $this->selectedResident['phone'],
                 'title' => $smsMessage->title,

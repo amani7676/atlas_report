@@ -57,7 +57,7 @@ class SmsMessageResident extends Model
     
     public function resident(): BelongsTo
     {
-        return $this->belongsTo(Resident::class);
+        return $this->belongsTo(Resident::class, 'resident_id', 'resident_id');
     }
     
     public function report(): BelongsTo

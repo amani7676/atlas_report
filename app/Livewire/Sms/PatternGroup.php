@@ -593,7 +593,7 @@ class PatternGroup extends Component
                     // بررسی وضعیت ارسال از Event
                     $smsMessageResident = SmsMessageResident::where('report_id', $this->selectedReport)
                         ->where('pattern_id', $pattern->id)
-                        ->where('resident_id', $residentDbId)
+                        ->where('resident_id', $residentApiId)
                         ->where('created_at', '>=', now()->subMinutes(5)) // فقط در 5 دقیقه گذشته
                         ->first();
                     
@@ -605,7 +605,7 @@ class PatternGroup extends Component
                             'pattern_id' => $pattern->id,
                             'is_pattern' => true,
                             'pattern_variables' => implode(';', $variables),
-                            'resident_id' => $residentDbId,
+                            'resident_id' => $residentApiId, // استفاده از resident_id از API
                             'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
                             'phone' => $residentData['phone'],
                             'title' => $pattern->title,
@@ -636,7 +636,7 @@ class PatternGroup extends Component
                     'pattern_id' => $pattern->id,
                     'is_pattern' => true,
                     'pattern_variables' => implode(';', $variables),
-                    'resident_id' => $residentDbId,
+                    'resident_id' => $residentApiId, // استفاده از resident_id از API
                     'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
                     'phone' => $residentData['phone'],
                     'title' => $pattern->title,
@@ -877,7 +877,7 @@ class PatternGroup extends Component
                     'pattern_id' => $pattern->id,
                     'is_pattern' => true,
                     'pattern_variables' => implode(';', $variables),
-                    'resident_id' => $residentDbId,
+                    'resident_id' => $residentApiId, // استفاده از resident_id از API
                     'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
                     'phone' => $residentData['phone'],
                     'title' => $pattern->title,

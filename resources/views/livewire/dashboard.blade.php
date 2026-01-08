@@ -1,7 +1,16 @@
 <div>
     <div class="card">
-        <h2>داشبورد مدیریت</h2>
-        <p>سیستم گزارش‌گیری اقامت‌گران</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h2 style="margin: 0;">داشبورد مدیریت</h2>
+                <p style="margin: 5px 0 0 0;">سیستم گزارش‌گیری اقامت‌گران</p>
+            </div>
+            <button wire:click="cleanupOrphanedRecords" wire:loading.attr="disabled" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-sync-alt" wire:loading.class="fa-spin"></i>
+                <span wire:loading.remove>رفرش و پاک‌سازی</span>
+                <span wire:loading>در حال پردازش...</span>
+            </button>
+        </div>
     </div>
 
     <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">

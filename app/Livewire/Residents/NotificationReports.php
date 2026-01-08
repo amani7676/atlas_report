@@ -100,7 +100,7 @@ class NotificationReports extends Component
 
     public function getReportsQueryProperty(): Builder
     {
-        $query = ResidentReport::with(['report', 'report.category', 'resident'])
+        $query = ResidentReport::with(['report', 'report.category'])
             ->whereHas('report', function ($q) {
                 $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
             })
@@ -114,14 +114,16 @@ class NotificationReports extends Component
                 $query->whereDate('created_at', '<=', $this->filters['date_to']);
             })
             ->when($this->filters['resident_name'], function ($query) {
-                $query->whereHas('resident', function ($q) {
-                    $q->where('resident_full_name', 'like', '%' . $this->filters['resident_name'] . '%');
-                });
+                $residentId = \App\Models\Resident::where('resident_full_name', 'like', '%' . $this->filters['resident_name'] . '%')->value('resident_id');
+                if ($residentId) {
+                    $query->where('resident_id', $residentId);
+                }
             })
             ->when($this->filters['resident_phone'], function ($query) {
-                $query->whereHas('resident', function ($q) {
-                    $q->where('resident_phone', 'like', '%' . $this->filters['resident_phone'] . '%');
-                });
+                $residentId = \App\Models\Resident::where('resident_phone', 'like', '%' . $this->filters['resident_phone'] . '%')->value('resident_id');
+                if ($residentId) {
+                    $query->where('resident_id', $residentId);
+                }
             });
 
         return $query->orderBy($this->sortField, $this->sortDirection);

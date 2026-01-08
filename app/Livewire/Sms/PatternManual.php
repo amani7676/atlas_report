@@ -596,7 +596,6 @@ class PatternManual extends Component
                     'report_error' => $reportError,
                 ]);
                 
-            // استفاده از residentDbId که قبلاً پیدا شده
             // ایجاد رکورد در جدول sms_message_residents
             $smsMessageResident = SmsMessageResident::create([
                 'sms_message_id' => null, // برای پیام‌های الگویی sms_message_id نداریم
@@ -604,7 +603,7 @@ class PatternManual extends Component
                 'pattern_id' => $pattern->id,
                 'is_pattern' => true,
                 'pattern_variables' => implode(';', $variables), // متغیرها با ; جدا می‌شوند
-                'resident_id' => $residentDbId, // استفاده از id جدول residents
+                'resident_id' => $this->selectedResident['id'], // استفاده از resident_id از API
                 'resident_name' => $this->selectedResident['name'],
                 'phone' => $phone,
                 'title' => $pattern->title,
