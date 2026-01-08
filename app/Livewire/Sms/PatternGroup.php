@@ -549,7 +549,7 @@ class PatternGroup extends Component
                     try {
                         $residentReport = ResidentReport::create([
                             'report_id' => $this->selectedReport,
-                            'resident_id' => $residentDbId,
+                            'resident_id' => $residentData['resident_id'], // استفاده از resident_id از API
                             'resident_name' => $residentData['name'] ?? $residentData['resident_name'],
                             'phone' => $residentData['phone'],
                             'unit_id' => $residentData['unit_id'] ?? null,

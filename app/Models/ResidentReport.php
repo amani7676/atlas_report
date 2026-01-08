@@ -43,18 +43,7 @@ class ResidentReport extends Model
             
             // بررسی و غیرفعال کردن بخشودگی‌ها بعد از ثبت تخلف جدید
             if ($residentReport->resident_id) {
-                $resident = $residentReport->resident;
-                if ($resident) {
-                    self::checkAndDeactivateGrantsForResident($resident->resident_id);
-                }
-            }
-        });
-
-        // همگام‌سازی با API در زمان خواندن
-        static::retrieved(function ($model) {
-            if ($model->resident_id) {
-                $apiService = new ResidentApiService();
-                $apiService->syncResidentData($model);
+                self::checkAndDeactivateGrantsForResident($residentReport->resident_id);
             }
         });
     }
@@ -83,7 +72,7 @@ class ResidentReport extends Model
             // فقط تخلف‌هایی که تاریخ ثبت آنها >= تاریخ بخشودگی است
             $uncheckedTotalScore = self::join('reports', 'resident_reports.report_id', '=', 'reports.id')
                 ->where('reports.category_id', 1) // دسته‌بندی تخلف
-                ->where('resident_reports.resident_id', $resident->id)
+                ->where('resident_reports.resident_id', $residentId)
                 ->where('resident_reports.is_checked', false)
                 ->whereDate('resident_reports.created_at', '>=', $grantDate->toDateString())
                 ->sum('reports.negative_score') ?? 0;
@@ -102,12 +91,11 @@ class ResidentReport extends Model
                 ]);
                 
                 // false کردن تمام تخلف‌های چک شده این اقامت‌گر
-                $updatedCount = self::whereHas('report', function($q) {
-                    $q->where('category_id', 1);
-                })
-                ->where('resident_id', $resident->id)
-                ->where('is_checked', true)
-                ->update(['is_checked' => false]);
+                $updatedCount = self::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                    ->where('reports.category_id', 1)
+                    ->where('resident_reports.resident_id', $residentId)
+                    ->where('resident_reports.is_checked', true)
+                    ->update(['resident_reports.is_checked' => false]);
                 
                 \Log::info('Checked violations unmarked', [
                     'resident_id' => $residentId,
@@ -122,9 +110,24 @@ class ResidentReport extends Model
         return $this->belongsTo(Report::class);
     }
     
-    public function resident(): BelongsTo
+    /**
+     * دریافت اطلاعات اقامت‌گر بر اساس resident_id
+     */
+    public function getResidentData()
     {
-        return $this->belongsTo(Resident::class, 'resident_id', 'id');
+        if (!$this->resident_id) {
+            return null;
+        }
+
+        // ابتدا از دیتابیس محلی جستجو می‌کنیم
+        $resident = \App\Models\Resident::where('resident_id', $this->resident_id)->first();
+        if ($resident) {
+            return $resident;
+        }
+
+        // اگر در دیتابیس محلی نبود، از API دریافت می‌کنیم
+        $apiService = new ResidentApiService();
+        return $apiService->getResidentDataForVariables($this->resident_id);
     }
 
     public function category()
@@ -132,131 +135,49 @@ class ResidentReport extends Model
         return $this->report->category();
     }
 
+        
     /**
-     * دریافت اطلاعات به‌روز اقامت‌گر از API
-     */
-    public function getFreshResidentData()
-    {
-        if (!$this->resident_id) {
-            return null;
-        }
-
-        $apiService = new ResidentApiService();
-        return $apiService->getResidentDataForVariables($this->resident_id);
-    }
-
-    /**
-     * Accessor برای دریافت نام به‌روز اقامت‌گر
-     */
-    public function getFreshResidentNameAttribute()
-    {
-        if ($this->resident) {
-            return $this->resident->resident_full_name;
-        }
-        $data = $this->getFreshResidentData();
-        return $data['name'] ?? 'نامشخص';
-    }
-
-    /**
-     * Accessor برای دریافت شماره تلفن به‌روز
-     */
-    public function getFreshPhoneAttribute()
-    {
-        if ($this->resident) {
-            return $this->resident->resident_phone;
-        }
-        $data = $this->getFreshResidentData();
-        return $data['phone'] ?? null;
-    }
-    
-    /**
-     * Accessor برای دریافت نام اقامت‌گر از رابطه
+     * Accessor برای دریافت نام اقامت‌گر
      */
     public function getResidentNameAttribute()
     {
-        // استفاده از relation (اگر load شده باشد)
-        if ($this->relationLoaded('resident')) {
-            if ($this->resident) {
-                return $this->resident->resident_full_name ?? null;
-            }
-            return null;
-        }
-        
-        // اگر relation load نشده باشد، آن را lazy load می‌کنیم
-        // اما فقط اگر resident_id موجود باشد
-        if ($this->resident_id) {
-            $resident = $this->resident()->first();
-            return $resident ? ($resident->resident_full_name ?? null) : null;
-        }
-        
-        return null;
+        $resident = $this->getResidentData();
+        return $resident ? ($resident->resident_full_name ?? 'نامشخص') : 'نامشخص';
     }
     
     /**
-     * Accessor برای دریافت نام واحد از رابطه
+     * Accessor برای دریافت نام واحد
      */
     public function getUnitNameAttribute()
     {
-        if ($this->relationLoaded('resident')) {
-            return $this->resident ? $this->resident->unit_name : null;
-        }
-        
-        if ($this->resident_id) {
-            $resident = $this->resident()->first();
-            return $resident ? $resident->unit_name : null;
-        }
-        
-        return null;
+        $resident = $this->getResidentData();
+        return $resident ? $resident->unit_name : null;
     }
     
     /**
-     * Accessor برای دریافت نام اتاق از رابطه
+     * Accessor برای دریافت نام اتاق
      */
     public function getRoomNameAttribute()
     {
-        if ($this->relationLoaded('resident')) {
-            return $this->resident ? $this->resident->room_name : null;
-        }
-        
-        if ($this->resident_id) {
-            $resident = $this->resident()->first();
-            return $resident ? $resident->room_name : null;
-        }
-        
-        return null;
+        $resident = $this->getResidentData();
+        return $resident ? $resident->room_name : null;
     }
     
     /**
-     * Accessor برای دریافت نام تخت از رابطه
+     * Accessor برای دریافت نام تخت
      */
     public function getBedNameAttribute()
     {
-        if ($this->relationLoaded('resident')) {
-            return $this->resident ? $this->resident->bed_name : null;
-        }
-        
-        if ($this->resident_id) {
-            $resident = $this->resident()->first();
-            return $resident ? $resident->bed_name : null;
-        }
-        
-        return null;
+        $resident = $this->getResidentData();
+        return $resident ? $resident->bed_name : null;
     }
     
     /**
-     * Accessor برای دریافت شماره تلفن از رابطه
+     * Accessor برای دریافت شماره تلفن
      */
     public function getPhoneAttribute()
     {
-        if ($this->relationLoaded('resident')) {
-            return $this->resident ? $this->resident->resident_phone : null;
-        }
-        
-        if ($this->resident_id) {
-            $resident = $this->resident()->first();
-            return $resident ? $resident->resident_phone : null;
-        }
-        
-        return null;
+        $resident = $this->getResidentData();
+        return $resident ? $resident->resident_phone : null;
     }
 }

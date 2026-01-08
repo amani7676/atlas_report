@@ -466,7 +466,7 @@ class Units extends Component
                 // ایجاد رکورد در دیتابیس
                 $residentReport = \App\Models\ResidentReport::create([
                     'report_id' => $reportId,
-                    'resident_id' => $residentDbId, // استفاده از id واقعی از جدول residents
+                    'resident_id' => $this->currentResident['id'], // استفاده از resident_id از API
                     'resident_name' => $this->currentResident['name'] ?? null,
                     'phone' => $this->currentResident['phone'] ?? null,
                     'unit_id' => $this->currentResident['unit_id'] ?? null,
@@ -863,7 +863,7 @@ class Units extends Component
                     // ایجاد رکورد در دیتابیس
                     $residentReport = \App\Models\ResidentReport::create([
                         'report_id' => $reportId,
-                        'resident_id' => $residentDbId, // استفاده از id واقعی از جدول residents
+                        'resident_id' => $residentData['resident_id'], // استفاده از resident_id از API
                         'resident_name' => $residentData['resident_name'] ?? null,
                         'phone' => $residentData['phone'] ?? null,
                         'unit_id' => $residentData['unit_id'] ?? null,
@@ -1375,7 +1375,7 @@ class Units extends Component
             $uncheckedCount = \App\Models\ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
-            ->where('resident_id', $resident->id)
+            ->where('resident_id', $resident->resident_id)
             ->where('is_checked', false)
             ->count();
 
@@ -1407,7 +1407,7 @@ class Units extends Component
                 $uncheckedCount = \App\Models\ResidentReport::whereHas('report', function($q) {
                     $q->where('category_id', 1); // دسته‌بندی تخلف
                 })
-                ->where('resident_id', $resident->id)
+                ->where('resident_id', $resident->resident_id)
                 ->where('is_checked', false)
                 ->count();
 

@@ -494,7 +494,7 @@ class ExpiredToday extends Component
             // ثبت گزارش جدید
             ResidentReport::create([
                 'report_id' => $report->id,
-                'resident_id' => $resident->id,
+                'resident_id' => $resident->resident_id, // استفاده از resident_id از API
                 'notes' => 'ایجاد شده به صورت خودکار از ارسال پیامک سررسید',
                 'has_been_sent' => true,
                 'is_checked' => false,

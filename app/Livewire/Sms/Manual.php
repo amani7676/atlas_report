@@ -240,7 +240,7 @@ class Manual extends Component
             // برای گزارش‌های اطلاع‌رسانی (notification) و تخلف (violation) هر دو ثبت می‌شود
             $residentReport = ResidentReport::create([
                 'report_id' => $this->selectedReport,
-                'resident_id' => $residentDbId, // استفاده از id جدول residents
+                'resident_id' => $this->selectedResident['id'], // استفاده از resident_id از API
                 'resident_name' => $this->selectedResident['name'],
                 'phone' => $this->selectedResident['phone'],
                 'unit_id' => $this->selectedResident['unit_id'],

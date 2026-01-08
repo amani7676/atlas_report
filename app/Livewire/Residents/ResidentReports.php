@@ -317,25 +317,23 @@ class ResidentReports extends Component
 
     public function getReportsQueryProperty(): Builder
     {
-        $query = ResidentReport::with(['report', 'report.category', 'resident'])
+        $query = ResidentReport::with(['report', 'report.category'])
             ->whereHas('report', function ($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->whereHas('resident', function ($residentQuery) {
-                        $residentQuery->where('resident_full_name', 'like', '%' . $this->search . '%')
-                            ->orWhere('resident_phone', 'like', '%' . $this->search . '%')
-                            ->orWhere('unit_name', 'like', '%' . $this->search . '%')
-                            ->orWhere('room_name', 'like', '%' . $this->search . '%');
+                    $q->whereHas('report', function ($reportQuery) {
+                        $reportQuery->where('title', 'like', '%' . $this->search . '%');
                     })
                     ->orWhere('notes', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->filterByResidentName, function ($query) {
-                $query->whereHas('resident', function ($q) {
-                    $q->where('resident_full_name', $this->filterByResidentName);
-                });
+                $residentId = \App\Models\Resident::where('resident_full_name', $this->filterByResidentName)->value('resident_id');
+                if ($residentId) {
+                    $query->where('resident_id', $residentId);
+                }
             })
             ->when($this->filters['unit_id'], function ($query) {
                 $query->where('unit_id', $this->filters['unit_id']);
@@ -478,15 +476,25 @@ class ResidentReports extends Component
             return [];
         }
 
+        // دریافت resident_id های مربوط به جستجو از جدول residents
+        $residentIds = Resident::where('resident_full_name', 'like', '%' . $this->residentSearch . '%')
+            ->pluck('resident_id')
+            ->toArray();
+
+        if (empty($residentIds)) {
+            return [];
+        }
+
         return ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 1); // دسته‌بندی تخلف
         })
-        ->whereHas('resident', function($q) {
-            $q->where('resident_full_name', 'like', '%' . $this->residentSearch . '%');
-        })
-        ->with('resident')
+        ->whereIn('resident_id', $residentIds)
         ->get()
-        ->pluck('resident.resident_full_name')
+        ->map(function ($report) {
+            $resident = $report->getResidentData();
+            return $resident ? $resident->resident_full_name : null;
+        })
+        ->filter()
         ->unique()
         ->sort()
         ->values()
@@ -509,8 +517,8 @@ class ResidentReports extends Component
             $this->residentReports = ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
-            ->where('resident_id', $resident->id)
-            ->with(['report', 'report.category', 'resident'])
+            ->where('resident_id', $resident->resident_id)
+            ->with(['report', 'report.category'])
             ->orderBy('created_at', 'desc')
             ->get();
             
@@ -595,8 +603,8 @@ class ResidentReports extends Component
         $reports = ResidentReport::whereHas('report', function($q) {
             $q->where('category_id', 1); // دسته‌بندی تخلف
         })
-        ->where('resident_id', $resident->id)
-        ->with(['report', 'report.category', 'resident'])
+        ->where('resident_id', $resident->resident_id)
+        ->with(['report', 'report.category'])
         ->orderBy('created_at', 'desc')
         ->get();
 
@@ -836,8 +844,8 @@ class ResidentReports extends Component
                         $this->residentReports = ResidentReport::whereHas('report', function($q) {
                             $q->where('category_id', 1);
                         })
-                        ->where('resident_id', $resident->id)
-                        ->with(['report', 'report.category', 'resident'])
+                        ->where('resident_id', $resident->resident_id)
+                        ->with(['report', 'report.category'])
                         ->orderBy('created_at', 'desc')
                         ->get();
                     }
@@ -881,7 +889,7 @@ class ResidentReports extends Component
             $uncheckedReports = ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1);
             })
-            ->where('resident_id', $resident->id)
+            ->where('resident_id', $resident->resident_id)
             ->where('is_checked', false)
             ->with('report')
             ->get();
@@ -901,7 +909,7 @@ class ResidentReports extends Component
                 $updatedCount = ResidentReport::whereHas('report', function($q) {
                     $q->where('category_id', 1);
                 })
-                ->where('resident_id', $resident->id)
+                ->where('resident_id', $resident->resident_id)
                 ->where('is_checked', true)
                 ->update(['is_checked' => false]);
 
@@ -915,7 +923,7 @@ class ResidentReports extends Component
                 $updatedCount = ResidentReport::whereHas('report', function($q) {
                     $q->where('category_id', 1);
                 })
-                ->where('resident_id', $resident->id)
+                ->where('resident_id', $resident->resident_id)
                 ->where('is_checked', false)
                 ->update(['is_checked' => true]);
 
@@ -935,8 +943,8 @@ class ResidentReports extends Component
                 $this->residentReports = ResidentReport::whereHas('report', function($q) {
                     $q->where('category_id', 1); // دسته‌بندی تخلف
                 })
-                ->where('resident_id', $resident->id)
-                ->with(['report', 'report.category', 'resident'])
+                ->where('resident_id', $resident->resident_id)
+                ->with(['report', 'report.category'])
                 ->orderBy('created_at', 'desc')
                 ->get();
                 
@@ -1002,7 +1010,7 @@ class ResidentReports extends Component
             $updatedCount = ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1);
             })
-            ->where('resident_id', $resident->id)
+            ->where('resident_id', $resident->resident_id)
             ->where('is_checked', true)
             ->update(['is_checked' => false]);
 
@@ -1017,8 +1025,8 @@ class ResidentReports extends Component
             $this->residentReports = ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
-            ->where('resident_id', $resident->id)
-            ->with(['report', 'report.category', 'resident'])
+            ->where('resident_id', $resident->resident_id)
+            ->with(['report', 'report.category'])
             ->orderBy('created_at', 'desc')
             ->get();
             
@@ -1099,9 +1107,6 @@ class ResidentReports extends Component
     {
         $reports = $this->reportsQuery->paginate($this->perPage);
 
-        // اطمینان از load شدن relation resident
-        $reports->load('resident');
-
         // همگام‌سازی اطلاعات با API برای رکوردهای نمایش داده شده
         foreach ($reports as $report) {
             if ($report->resident_id) {
@@ -1109,9 +1114,6 @@ class ResidentReports extends Component
                 $apiService->syncResidentData($report);
             }
         }
-
-        // reload relation بعد از sync
-        $reports->load('resident');
 
         $filteredRooms = $this->getFilteredRooms();
         $residentsList = $this->searchResidents();
