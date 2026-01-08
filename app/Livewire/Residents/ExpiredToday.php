@@ -23,6 +23,8 @@ class ExpiredToday extends Component
     public $perPage = 20;
     public $selectedResidents = [];
     public $selectAll = false;
+    public $selectAllToday = false; // برای انتخاب همه سررسیدهای امروز
+    public $selectAllPast = false; // برای انتخاب همه سررسیدهای گذشته
     
     // Computed property برای بررسی اینکه آیا می‌توان ارسال کرد
     public function getCanSendProperty()
@@ -39,6 +41,8 @@ class ExpiredToday extends Component
         // اطمینان از اینکه selectedResidents همیشه یک array خالی است
         $this->selectedResidents = [];
         $this->selectAll = false;
+        $this->selectAllToday = false;
+        $this->selectAllPast = false;
         $this->loadPatterns();
     }
 
@@ -62,6 +66,8 @@ class ExpiredToday extends Component
         // پاک کردن همه انتخاب‌ها
         $this->selectedResidents = [];
         $this->selectAll = false;
+        $this->selectAllToday = false;
+        $this->selectAllPast = false;
     }
 
     // Pattern SMS properties
@@ -105,43 +111,126 @@ class ExpiredToday extends Component
             $this->selectedResidents = [];
         }
         
-        // دریافت همه اقامت‌گران فیلتر شده در صفحه فعلی
-        $residents = $this->getFilteredResidentsQuery()->get();
-        $activeResidentIds = [];
+        // اگر چیزی انتخاب شده، همه را لغو انتخاب کن
+        if (!empty($this->selectedResidents)) {
+            $this->selectedResidents = [];
+            $this->selectAll = false;
+            $this->selectAllToday = false;
+            $this->selectAllPast = false;
+        } else {
+            // اگر چیزی انتخاب نشده، همه را انتخاب کن
+            // دریافت همه اقامت‌گران فیلتر شده در صفحه فعلی
+            $residents = $this->getFilteredResidentsQuery()->get();
+            $activeResidentIds = [];
+            
+            // فقط اقامت‌گران فعال را جمع‌آوری می‌کنیم
+            foreach ($residents as $resident) {
+                $disabledInfo = $this->isResidentDisabled($resident);
+                if (!$disabledInfo['disabled']) {
+                    $activeResidentIds[] = (int)$resident->id;
+                }
+            }
+            
+            if (empty($activeResidentIds)) {
+                // اگر هیچ اقامت‌گر فعالی وجود ندارد، هیچ کاری انجام نمی‌دهیم
+                $this->selectAll = false;
+                return;
+            }
+            
+            // انتخاب همه اقامتگران فعال
+            $this->selectedResidents = $activeResidentIds;
+            $this->selectAll = true;
+        }
         
-        // فقط اقامت‌گران فعال را جمع‌آوری می‌کنیم
+        // به‌روزرسانی وضعیت دکمه‌ها
+        $this->updateSelectAllState();
+        
+        // ارسال event برای به‌روزرسانی دکمه
+        $this->dispatch('updateSendButton');
+    }
+
+    /**
+     * انتخاب فقط سررسیدهای امروز (0 روز گذشته)
+     */
+    public function selectTodayOnly()
+    {
+        // اطمینان از اینکه selectedResidents یک array است
+        if (!is_array($this->selectedResidents)) {
+            $this->selectedResidents = [];
+        }
+        
+        // دریافت همه اقامت‌گران فیلتر شده
+        $residents = $this->getFilteredResidentsQuery()->get();
+        $todayResidentIds = [];
+        
         foreach ($residents as $resident) {
+            $daysPast = $this->getDaysPastDue($resident->contract_payment_date_jalali);
             $disabledInfo = $this->isResidentDisabled($resident);
-            if (!$disabledInfo['disabled']) {
-                $activeResidentIds[] = (int)$resident->id;
+            
+            // فقط اقامتگران فعال و امروز (0 روز گذشته)
+            if ($daysPast == 0 && !$disabledInfo['disabled']) {
+                $todayResidentIds[] = (int)$resident->id;
             }
         }
         
-        if (empty($activeResidentIds)) {
-            // اگر هیچ اقامت‌گر فعالی وجود ندارد، هیچ کاری انجام نمی‌دهیم
-            $this->selectAll = false;
+        if (empty($todayResidentIds)) {
+            // اگر هیچ اقامت‌گر امروز وجود ندارد، انتخاب را خالی کن
+            $this->selectedResidents = [];
+            $this->selectAllToday = false;
             return;
         }
         
-        // تبدیل selectedResidents به array از integer
-        $currentSelected = array_map('intval', $this->selectedResidents);
+        // جایگزینی انتخاب‌ها با فقط اقامتگران امروز
+        $this->selectedResidents = $todayResidentIds;
+        $this->selectAllToday = true;
         
-        // بررسی اینکه آیا همه اقامت‌گران فعال در صفحه فعلی انتخاب شده‌اند
-        $allSelected = count($activeResidentIds) === count($currentSelected) && 
-                      empty(array_diff($activeResidentIds, $currentSelected));
+        // به‌روزرسانی وضعیت دکمه‌ها
+        $this->updateSelectAllState();
         
-        if ($allSelected) {
-            // اگر همه انتخاب شده‌اند، همه را deselect می‌کنیم
-            // حذف فقط اقامت‌گران صفحه فعلی از selectedResidents
-            $this->selectedResidents = array_values(array_diff($currentSelected, $activeResidentIds));
-            $this->selectAll = false;
-        } else {
-            // اگر همه انتخاب نشده‌اند، همه را select می‌کنیم
-            // اضافه کردن اقامت‌گران صفحه فعلی به selectedResidents (بدون تکرار)
-            $merged = array_unique(array_merge($currentSelected, $activeResidentIds));
-            $this->selectedResidents = array_values($merged);
-            $this->selectAll = true;
+        // ارسال event برای به‌روزرسانی دکمه ارسال
+        $this->dispatch('updateSendButton');
+    }
+
+    /**
+     * انتخاب فقط سررسیدهای گذشته (1+ روز گذشته)
+     */
+    public function selectPastOnly()
+    {
+        // اطمینان از اینکه selectedResidents یک array است
+        if (!is_array($this->selectedResidents)) {
+            $this->selectedResidents = [];
         }
+        
+        // دریافت همه اقامت‌گران فیلتر شده
+        $residents = $this->getFilteredResidentsQuery()->get();
+        $pastResidentIds = [];
+        
+        foreach ($residents as $resident) {
+            $daysPast = $this->getDaysPastDue($resident->contract_payment_date_jalali);
+            $disabledInfo = $this->isResidentDisabled($resident);
+            
+            // فقط اقامتگران فعال و گذشته (1+ روز گذشته)
+            if ($daysPast >= 1 && !$disabledInfo['disabled']) {
+                $pastResidentIds[] = (int)$resident->id;
+            }
+        }
+        
+        if (empty($pastResidentIds)) {
+            // اگر هیچ اقامت‌گر گذشته وجود ندارد، انتخاب را خالی کن
+            $this->selectedResidents = [];
+            $this->selectAllPast = false;
+            return;
+        }
+        
+        // جایگزینی انتخاب‌ها با فقط اقامتگران گذشته
+        $this->selectedResidents = $pastResidentIds;
+        $this->selectAllPast = true;
+        
+        // به‌روزرسانی وضعیت دکمه‌ها
+        $this->updateSelectAllState();
+        
+        // ارسال event برای به‌روزرسانی دکمه ارسال
+        $this->dispatch('updateSendButton');
     }
 
     public function updatedSelectedResidents()
@@ -194,23 +283,45 @@ class ExpiredToday extends Component
         // دریافت همه اقامت‌گران فیلتر شده
         $allFilteredResidents = $this->getFilteredResidentsQuery()->get();
         $activeResidentIds = [];
+        $todayResidentIds = [];
+        $pastResidentIds = [];
         
         foreach ($allFilteredResidents as $resident) {
             $disabledInfo = $this->isResidentDisabled($resident);
             if (!$disabledInfo['disabled']) {
-                $activeResidentIds[] = (int)$resident->id;
+                $residentId = (int)$resident->id;
+                $activeResidentIds[] = $residentId;
+                
+                // دسته‌بندی بر اساس روزهای گذشته
+                $daysPast = $this->getDaysPastDue($resident->contract_payment_date_jalali);
+                if ($daysPast == 0) {
+                    $todayResidentIds[] = $residentId;
+                } elseif ($daysPast >= 1) {
+                    $pastResidentIds[] = $residentId;
+                }
             }
         }
         
         // تبدیل selectedResidents به array از integer
         $currentSelected = array_map('intval', $this->selectedResidents);
         
-        // بررسی اینکه آیا همه اقامت‌گران فعال انتخاب شده‌اند
+        // بررسی انتخاب همه (برای دکمه انتخاب همه اصلی)
         $allActiveSelected = !empty($activeResidentIds) && 
                             count($activeResidentIds) === count($currentSelected) && 
                             empty(array_diff($activeResidentIds, $currentSelected));
-        
         $this->selectAll = $allActiveSelected;
+        
+        // بررسی انتخاب فقط امروزها
+        $allTodaySelected = !empty($todayResidentIds) && 
+                           count($todayResidentIds) === count(array_intersect($todayResidentIds, $currentSelected)) &&
+                           empty(array_diff($currentSelected, $todayResidentIds));
+        $this->selectAllToday = $allTodaySelected;
+        
+        // بررسی انتخاب فقط گذشته‌ها
+        $allPastSelected = !empty($pastResidentIds) && 
+                          count($pastResidentIds) === count(array_intersect($pastResidentIds, $currentSelected)) &&
+                          empty(array_diff($currentSelected, $pastResidentIds));
+        $this->selectAllPast = $allPastSelected;
     }
 
     /**

@@ -512,38 +512,105 @@
             </div>
         </div>
 
+        <!-- دکمه‌های انتخاب - بالای جدول -->
+        <div class="mb-3">
+            <div class="d-flex gap-2 flex-wrap justify-content-between align-items-center">
+                <div class="d-flex gap-2 flex-wrap">
+                    <!-- دکمه انتخاب همه -->
+                    <button 
+                        type="button"
+                        wire:click="toggleSelectAll"
+                        wire:key="select-all-button"
+                        class="btn btn-sm"
+                        style="
+                            background: {{ $selectAll ? 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }};
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 8px 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i class="fas {{ $selectAll ? 'fa-times-square' : 'fa-check-square' }}"></i>
+                        {{ $selectAll ? 'لغو انتخاب همه' : 'انتخاب همه' }}
+                    </button>
+                    
+                    <!-- دکمه انتخاب سررسیدهای امروز -->
+                    <button 
+                        type="button"
+                        wire:click="selectTodayOnly"
+                        wire:key="select-today-button"
+                        class="btn btn-sm"
+                        style="
+                            background: {{ $selectAllToday ? 'linear-gradient(135deg, #00b894 0%, #00cec9 100%)' : 'linear-gradient(135deg, #55efc4 0%, #00b894 100%)' }};
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 8px 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 2px 8px rgba(0,184,148,0.15);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i class="fas fa-calendar-day"></i>
+                        {{ $selectAllToday ? 'لغو امروز' : 'امروز' }}
+                    </button>
+                    
+                    <!-- دکمه انتخاب سررسیدهای گذشته -->
+                    <button 
+                        type="button"
+                        wire:click="selectPastOnly"
+                        wire:key="select-past-button"
+                        class="btn btn-sm"
+                        style="
+                            background: {{ $selectAllPast ? 'linear-gradient(135deg, #ee5a24 0%, #f79f1f 100%)' : 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)' }};
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 8px 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 2px 8px rgba(238,90,36,0.15);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i class="fas fa-calendar-times"></i>
+                        {{ $selectAllPast ? 'لغو گذشته' : 'گذشته' }}
+                    </button>
+                </div>
+                
+                <div class="text-muted small">
+                    {{ count($selectedResidents) }} نفر انتخاب شده
+                </div>
+            </div>
+        </div>
+
         <!-- جدول -->
         <div class="table-responsive table-container">
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th style="width: 120px;">
-                            <button 
-                                type="button"
-                                wire:click="toggleSelectAll"
-                                wire:key="select-all-button"
-                                class="btn btn-sm"
-                                style="
-                                    background: {{ $selectAll ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }};
-                                    color: white;
-                                    border: none;
-                                    border-radius: 20px;
-                                    padding: 6px 16px;
-                                    font-size: 12px;
-                                    font-weight: 600;
-                                    cursor: pointer;
-                                    transition: all 0.3s ease;
-                                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                                    display: inline-flex;
-                                    align-items: center;
-                                    gap: 6px;
-                                "
-                                onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)';"
-                                onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)';"
-                            >
-                                <i class="fas {{ $selectAll ? 'fa-check-square' : 'fa-square' }}"></i>
-                                <span>{{ $selectAll ? 'لغو انتخاب همه' : 'انتخاب همه' }}</span>
-                            </button>
+                        <th style="width: 80px;">
+                            <input type="checkbox" 
+                                   wire:click="toggleSelectAll" 
+                                   {{ $selectAll ? 'checked' : '' }}
+                                   title="انتخاب/لغو انتخاب همه">
                         </th>
                         <th>ردیف</th>
                         <th>نام</th>
