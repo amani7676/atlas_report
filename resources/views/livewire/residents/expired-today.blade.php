@@ -42,6 +42,36 @@
         .custom-pagination .page-link i {
             font-size: 0.75rem;
         }
+        
+        /* استایل برای ردیف‌های انتخاب شده */
+        .table tbody tr.selected-row {
+            background-color: #D9E9CF !important;
+            box-shadow: inset 0 0 0 2px rgba(39, 174, 96, 0.2);
+        }
+        
+        .table tbody tr.selected-row:hover {
+            background-color: #C5E1A5 !important;
+        }
+        
+        .table tbody tr.selected-row td {
+            background-color: transparent !important;
+        }
+        
+        /* استایل برای چک‌باکس در ردیف انتخاب شده */
+        .table tbody tr.selected-row input[type="checkbox"]:checked {
+            background-color: #27AE60;
+            border-color: #27AE60;
+        }
+        
+        /* استایل برای ردیف‌های غیرفعال */
+        .table tbody tr.disabled-row {
+            opacity: 0.5;
+            background-color: #f8f9fa !important;
+        }
+        
+        .table tbody tr.disabled-row:hover {
+            background-color: #f8f9fa !important;
+        }
 
         /* Responsive Styles - Global */
         .table-responsive {
@@ -539,7 +569,7 @@
                         "
                     >
                         <i class="fas {{ $selectAll ? 'fa-times-square' : 'fa-check-square' }}"></i>
-                        {{ $selectAll ? 'لغو انتخاب همه' : 'انتخاب همه' }}
+                        {{ $selectAll ? 'انتخاب همه' : 'حذف انتخاب' }}
                     </button>
                     
                     <!-- دکمه انتخاب سررسیدهای امروز -->
@@ -628,9 +658,10 @@
                             $disabledInfo = $this->isResidentDisabled($resident);
                             $isDisabled = $disabledInfo['disabled'];
                             $disabledReason = $disabledInfo['reason'];
+                            $isSelected = is_array($this->selectedResidents) && in_array((int)$resident->id, array_map('intval', $this->selectedResidents));
                         @endphp
-                        <tr style="{{ $isDisabled ? 'opacity: 0.5; background-color: #f8f9fa;' : '' }}" 
-                            title="{{ $isDisabled ? $disabledReason : '' }}">
+                        <tr class="{{ $isSelected ? 'selected-row' : '' }} {{ $isDisabled ? 'disabled-row' : '' }}" 
+                            title="{{ $isDisabled ? $disabledReason : ($isSelected ? 'انتخاب شده' : '') }}">
                             <td>
                                 @if($isDisabled)
                                     <input 
@@ -926,6 +957,62 @@
     <!-- قفل صفحه هنگام ارسال -->
     <div class="modal-backdrop fade show" style="z-index: 9998; pointer-events: all;"></div>
     @endif
+
+    <!-- راهنمای کاربر -->
+    <div class="mt-4">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    راهنمای استفاده از دکمه‌های انتخاب
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12 col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-calendar-day me-2"></i>
+                            دکمه "امروز"
+                        </h6>
+                        <ul class="small">
+                            <li>فقط اقامتگرانی که امروز سررسیدشان است انتخاب می‌شوند (0 روز گذشته)</li>
+                            <li>الگوی پیامک حاوی "سررسید" به صورت خودکار انتخاب می‌شود</li>
+                            <li>مناسب برای یادآوری پرداخت روز سررسید</li>
+                        </ul>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <h6 class="text-danger">
+                            <i class="fas fa-calendar-times me-2"></i>
+                            دکمه "گذشته"
+                        </h6>
+                        <ul class="small">
+                            <li>فقط اقامتگرانی که 1+ روز از سررسیدشان گذشته انتخاب می‌شوند</li>
+                            <li>الگوی پیامک حاوی "دیرکرد" به صورت خودکار انتخاب می‌شود</li>
+                            <li>مناسب برای پیگیری پرداخت‌های معوقه</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h6 class="text-secondary">
+                        <i class="fas fa-check-square me-2"></i>
+                        دکمه "انتخاب همه"
+                    </h6>
+                    <ul class="small">
+                        <li>وقتی چیزی انتخاب نشده: همه اقامتگران فعال را انتخاب می‌کند</li>
+                        <li>وقتی چیزی انتخاب شده: همه انتخاب‌ها را لغو می‌کند</li>
+                        <li>دکمه متن "حذف انتخاب" را نمایش می‌دهد وقتی انتخابی وجود دارد</li>
+                        <li>الگوی پیامک تغییر نمی‌کند (الگوی قبلی حفظ می‌شود)</li>
+                    </ul>
+                </div>
+                <div class="alert alert-light mt-3 mb-0">
+                    <small class="text-muted">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        <strong>نکته:</strong> شما می‌توانید پس از انتخاب گروه مورد نظر، الگوی پیامک را به صورت دستی تغییر دهید.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
 
     @script
     <script>

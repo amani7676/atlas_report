@@ -184,6 +184,9 @@ class ExpiredToday extends Component
         $this->selectedResidents = $todayResidentIds;
         $this->selectAllToday = true;
         
+        // انتخاب خودکار الگوی "سررسید"
+        $this->autoSelectPattern('سررسید');
+        
         // به‌روزرسانی وضعیت دکمه‌ها
         $this->updateSelectAllState();
         
@@ -226,11 +229,31 @@ class ExpiredToday extends Component
         $this->selectedResidents = $pastResidentIds;
         $this->selectAllPast = true;
         
+        // انتخاب خودکار الگوی "دیرکرد"
+        $this->autoSelectPattern('دیرکرد');
+        
         // به‌روزرسانی وضعیت دکمه‌ها
         $this->updateSelectAllState();
         
         // ارسال event برای به‌روزرسانی دکمه ارسال
         $this->dispatch('updateSendButton');
+    }
+
+    /**
+     * انتخاب خودکار الگو بر اساس کلمه کلیدی
+     */
+    private function autoSelectPattern($keyword)
+    {
+        // جستجوی الگویی که کلمه کلیدی در عنوانش وجود دارد
+        $pattern = $this->patterns->first(function ($p) use ($keyword) {
+            return strpos($p->title, $keyword) !== false;
+        });
+        
+        if ($pattern) {
+            $this->selectedPattern = $pattern->id;
+            // بررسی گزارش برای الگوی انتخاب شده
+            $this->checkPatternReport();
+        }
     }
 
     public function updatedSelectedResidents()
