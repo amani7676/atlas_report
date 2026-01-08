@@ -23,33 +23,64 @@
             <div class="stats-number">{{ $totalCategories }}</div>
             <div class="stats-label">دسته‌بندی‌ها</div>
         </div>
+
+        <div class="stats-card" style="background: linear-gradient(135deg, #06ffa5, #00c896);">
+            <i class="fas fa-paper-plane" style="font-size: 24px;"></i>
+            <div class="stats-number">{{ $totalSentMessages }}</div>
+            <div class="stats-label">پیام‌های ارسال شده</div>
+        </div>
+
+        <div class="stats-card" style="background: linear-gradient(135deg, #ff6b6b, #ee5a52);">
+            <i class="fas fa-exclamation-triangle" style="font-size: 24px;"></i>
+            <div class="stats-number">{{ $failedMessages }}</div>
+            <div class="stats-label">پیام‌های ناموفق</div>
+        </div>
     </div>
 
     <div class="card">
-        <h3 style="margin-bottom: 20px;">آخرین گزارش‌ها</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0;">آخرین پیام‌های ارسال شده</h3>
+            <a href="{{ route('sms.sent') }}" style="color: #007bff; text-decoration: none; font-size: 14px;">
+                مشاهده همه <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
 
-        @if($recentReports->count() > 0)
+        @if($recentSentMessages->count() > 0)
             <div class="table-container">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>عنوان</th>
-                            <th>دسته‌بندی</th>
-                            <th>نمره منفی</th>
-                            <th>تاریخ ایجاد</th>
+                            <th>نام اقامت‌گر</th>
+                            <th>متن پیام</th>
+                            <th>وضعیت</th>
+                            <th>تاریخ</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($recentReports as $report)
+                        @foreach($recentSentMessages as $message)
                             <tr>
-                                <td>{{ $report->title }}</td>
-                                <td>{{ $report->category->name }}</td>
+                                <td>{{ $message->resident_name }}</td>
                                 <td>
-                                    <span style="color: #f72585; font-weight: bold;">
-                                        {{ $report->negative_score }}
-                                    </span>
+                                    <div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ $message->smsMessage->text ?? '' }}">
+                                        {{ $message->smsMessage->text ?? 'نامشخص' }}
+                                    </div>
                                 </td>
-                                <td>{{ jalaliDate($report->created_at, 'Y/m/d H:i') }}</td>
+                                <td>
+                                    @if($message->status == 'sent')
+                                        <span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                            <i class="fas fa-check"></i> ارسال شده
+                                        </span>
+                                    @elseif($message->status == 'failed')
+                                        <span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                            <i class="fas fa-times"></i> ناموفق
+                                        </span>
+                                    @else
+                                        <span style="background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                            <i class="fas fa-clock"></i> در انتظار
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>{{ jalaliDate($message->created_at, 'Y/m/d H:i') }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -57,8 +88,8 @@
             </div>
         @else
             <div style="text-align: center; padding: 40px; color: #666;">
-                <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;"></i>
-                <p>هنوز هیچ گزارشی ثبت نشده است</p>
+                <i class="fas fa-sms" style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;"></i>
+                <p>هنوز هیچ پیامی ارسال نشده است</p>
             </div>
         @endif
     </div>
