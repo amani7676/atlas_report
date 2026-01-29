@@ -176,6 +176,8 @@ class ResidentApiService
             'contract_start_date' => $resident['start_date'] ?? $resident['contract_start_date'] ?? null,
             'contract_end_date' => $resident['end_date'] ?? $resident['contract_end_date'] ?? null,
             'contract_expiry_date' => $resident['expiry_date'] ?? $resident['contract_expiry_date'] ?? null,
+            // فیلد delay از API
+            'delay' => $resident['delay'] ?? null,
         ];
     }
 }

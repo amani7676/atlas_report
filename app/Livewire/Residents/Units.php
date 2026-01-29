@@ -43,12 +43,7 @@ class Units extends Component
     public $reportCheckError = null; // پیام خطا برای چک نشدن همه گزارش‌ها
     public $showSmsResponseModal = false; // نمایش modal پاسخ SMS
     public $smsResponses = []; // پاسخ‌های SMS برای نمایش در modal
-
-    public function mount()
-    {
-        $this->loadUnits();
-        $this->loadReportData();
-    }
+    public $patternMessage = null; // پیام الگو با مقداردهی کدها
 
     /**
      * Listener برای event residents-synced
@@ -64,21 +59,47 @@ class Units extends Component
         $this->loadUnits();
     }
 
+    public function mount()
+    {
+        Log::info('Units::mount - Component mounting');
+        $this->loadUnits();
+        $this->loadReportData();
+        Log::info('Units::mount - Component mounted successfully');
+    }
+
     public function loadUnits()
     {
         $this->loading = true;
         $this->error = null;
 
         try {
+            Log::info('Units::loadUnits - Starting to load units');
+            
             $residentService = new ResidentService();
             $this->units = $residentService->getAllResidents();
+            
+            Log::info('Units::loadUnits - Units loaded successfully', [
+                'units_count' => count($this->units)
+            ]);
+            
             $this->sortData();
+            
+            Log::info('Units::loadUnits - Data sorted successfully');
         } catch (\Exception $e) {
+            Log::error('Units::loadUnits - Error loading units', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             $this->error = 'خطا در دریافت اطلاعات از دیتابیس: ' . $e->getMessage();
             $this->units = $this->getSampleData();
+            
+            Log::info('Units::loadUnits - Using sample data');
         }
 
         $this->loading = false;
+        
+        Log::info('Units::loadUnits - Loading completed, loading set to false');
     }
 
     private function sortData()
@@ -137,12 +158,54 @@ class Units extends Component
         } else {
             $this->selectedReports = [];
         }
+        
+        // وقتی گزارش تغییر می‌کند، به صورت خودکار پیام الگو را محاسبه کن
+        $this->patternMessage = $this->calculatePatternMessage();
+    }
+
+    public function updatedCurrentResident()
+    {
+        // وقتی اقامت‌گر تغییر می‌کند، پیام الگو را به‌روز کن
+        $this->patternMessage = $this->calculatePatternMessage();
     }
 
     public function openIndividualReport($resident, $bed, $unitIndex, $roomIndex)
     {
+        Log::info('Units::openIndividualReport - Opening report modal', [
+            'unitIndex' => $unitIndex,
+            'roomIndex' => $roomIndex,
+            'resident_id' => $resident['id'] ?? 'N/A',
+            'resident_name' => $resident['full_name'] ?? 'N/A',
+            'total_units' => count($this->units)
+        ]);
+
+        // بررسی وجود واحد
+        if (!isset($this->units[$unitIndex])) {
+            Log::error('Units::openIndividualReport - Unit not found', [
+                'unitIndex' => $unitIndex,
+                'available_units' => array_keys($this->units)
+            ]);
+            return;
+        }
+
         $unit = $this->units[$unitIndex];
+        
+        // بررسی وجود اتاق
+        if (!isset($unit['rooms'][$roomIndex])) {
+            Log::error('Units::openIndividualReport - Room not found', [
+                'unitIndex' => $unitIndex,
+                'roomIndex' => $roomIndex,
+                'available_rooms' => array_keys($unit['rooms'])
+            ]);
+            return;
+        }
+
         $room = $unit['rooms'][$roomIndex];
+
+        Log::info('Units::openIndividualReport - Unit and room found', [
+            'unit_name' => $unit['unit']['name'] ?? 'N/A',
+            'room_name' => $room['name'] ?? 'N/A'
+        ]);
 
         $this->reportType = 'individual';
         $this->currentResident = [
@@ -158,6 +221,10 @@ class Units extends Component
             'room_name' => $room['name']
         ];
 
+        Log::info('Units::openIndividualReport - Current resident set', [
+            'current_resident' => $this->currentResident
+        ]);
+
         $this->loadReportData();
         $this->selectedReports = [];
         $this->selectedCategoryId = null;
@@ -166,6 +233,8 @@ class Units extends Component
         $this->notes = '';
         $this->showReportModal = true;
         $this->dispatch('modal-opened');
+
+        Log::info('Units::openIndividualReport - Modal opened successfully');
     }
 
     public function openGroupReportFromRoom($unitIndex, $roomIndex)
@@ -1435,109 +1504,106 @@ class Units extends Component
     }
 
     /**
-     * استخراج و جایگزینی متغیرها در الگو (مشابه GroupSms)
+     * استخراج و جایگزینی متغیرها در الگو (سیستم جدید با pivot table)
      */
     protected function extractPatternVariables($patternText, $residentData, $residentDataFromDb = null, $report = null)
     {
         // پیدا کردن تمام متغیرها در الگو (مثل {0}, {1}, {2})
         preg_match_all('/\{(\d+)\}/', $patternText, $matches);
         
-        if (empty($matches[1])) {
+        if (empty($matches[0])) {
             return []; // اگر متغیری وجود نداشت
         }
 
-        // استفاده از داده‌های دیتابیس اگر موجود باشد، در غیر این صورت از API
+        $variableCodes = $matches[0]; // ['{0}', '{1}', '{2}']
+        
+        // استفاده از داده‌های دیتابیس اگر موجود باشد
+        $resident = null;
         if ($residentDataFromDb) {
-            // تبدیل داده‌های دیتابیس به ساختار مورد نیاز
-            $residentDataForVariables = [
-                'resident' => [
-                    'id' => $residentDataFromDb['id'] ?? $residentDataFromDb['resident_id'] ?? null,
-                    'resident_id' => $residentDataFromDb['resident_id'] ?? null,
-                    // نگه داشتن نام فیلدهای واقعی دیتابیس
-                    'resident_full_name' => $residentDataFromDb['resident_full_name'] ?? '',
-                    'resident_phone' => $residentDataFromDb['resident_phone'] ?? '',
-                    'resident_age' => $residentDataFromDb['resident_age'] ?? '',
-                    'resident_job' => $residentDataFromDb['resident_job'] ?? '',
-                    'contract_payment_date_jalali' => $residentDataFromDb['contract_payment_date_jalali'] ?? '',
-                    'contract_start_date_jalali' => $residentDataFromDb['contract_start_date_jalali'] ?? '',
-                    'contract_end_date_jalali' => $residentDataFromDb['contract_end_date_jalali'] ?? '',
-                    // همچنین نام‌های جایگزین برای سازگاری
-                    'full_name' => $residentDataFromDb['resident_full_name'] ?? '',
-                    'name' => $residentDataFromDb['resident_full_name'] ?? '',
-                    'phone' => $residentDataFromDb['resident_phone'] ?? '',
-                    'national_id' => $residentDataFromDb['national_id'] ?? $residentDataFromDb['national_code'] ?? '',
-                    'national_code' => $residentDataFromDb['national_id'] ?? $residentDataFromDb['national_code'] ?? '',
-                    'payment_date_jalali' => $residentDataFromDb['contract_payment_date_jalali'] ?? '',
-                ],
-                'unit' => [
-                    'id' => $residentDataFromDb['unit_id'] ?? null,
-                    'name' => $residentDataFromDb['unit_name'] ?? '',
-                    'code' => $residentDataFromDb['unit_code'] ?? '',
-                ],
-                'room' => [
-                    'id' => $residentDataFromDb['room_id'] ?? null,
-                    'name' => $residentDataFromDb['room_name'] ?? '',
-                    'code' => $residentDataFromDb['room_code'] ?? '',
-                ],
-                'bed' => [
-                    'id' => $residentDataFromDb['bed_id'] ?? null,
-                    'name' => $residentDataFromDb['bed_name'] ?? '',
-                    'code' => $residentDataFromDb['bed_code'] ?? '',
-                ],
-            ];
+            $resident = (object) $residentDataFromDb;
         } else {
-            // دریافت اطلاعات کامل resident از API یا استفاده از داده‌های موجود
-            $residentDataForVariables = $this->getResidentDataFromDb($residentData);
-        }
-        
-        // دریافت اطلاعات گزارش
-        $reportData = null;
-        if ($report) {
-            $reportData = [
-                'title' => $report->title,
-                'description' => $report->description,
-                'category_name' => $report->category->name ?? '',
-                'negative_score' => $report->negative_score,
-                'type' => $report->type ?? 'violation',
-            ];
-        }
-
-        // بارگذاری متغیرها از دیتابیس
-        $variables = PatternVariable::where('is_active', true)
-            ->get()
-            ->keyBy('code'); // کلید بر اساس کد (مثل {0}, {1})
-
-        $result = [];
-        $usedIndices = array_unique(array_map('intval', $matches[1]));
-        sort($usedIndices); // مرتب‌سازی بر اساس ترتیب در الگو
-
-        // پیدا کردن بزرگترین index برای ساخت آرایه کامل
-        $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
-        
-        // ساخت آرایه کامل از 0 تا maxIndex
-        // API ملی پیامک انتظار دارد که متغیرها به ترتیب {0}, {1}, {2}, ... باشند
-        // حتی اگر در الگو {0}, {2}, {3} باشد، باید آرایه [value0, '', value2, value3] باشد
-        for ($i = 0; $i <= $maxIndex; $i++) {
-            $code = '{' . $i . '}';
-            $variable = $variables->get($code);
-            
-            if ($variable) {
-                $value = $this->getVariableValue($variable, $residentDataForVariables, $reportData);
-                
-                // اطمینان از اینکه value یک رشته است
-                if (!is_string($value)) {
-                    $value = (string)$value;
-                }
-                
-                $result[] = $value;
-            } else {
-                // اگر متغیر در دیتابیس تعریف نشده یا در الگو استفاده نشده، مقدار خالی می‌گذاریم
-                // این برای متغیرهای جا افتاده (مثل {1} در الگوی {0}, {2}, {3}) ضروری است
-                $result[] = ''; // مقدار خالی برای متغیرهای جا افتاده
+            // دریافت اطلاعات resident از دیتابیس
+            if (isset($residentData['id'])) {
+                $resident = \App\Models\Resident::where('resident_id', $residentData['id'])->first();
             }
         }
 
-        return $result;
+        if (!$resident) {
+            Log::error('Units::extractPatternVariables - Resident not found', [
+                'residentData' => $residentData,
+                'residentDataFromDb' => $residentDataFromDb
+            ]);
+            return array_fill(0, count($variableCodes), ''); // آرایه خالی با تعداد کدها
+        }
+
+        // پیدا کردن الگوی مرتبط با متن
+        $pattern = \App\Models\Pattern::where('text', $patternText)->first();
+        if (!$pattern) {
+            Log::error('Units::extractPatternVariables - Pattern not found', [
+                'patternText' => $patternText
+            ]);
+            return array_fill(0, count($variableCodes), '');
+        }
+
+        // دریافت متغیر الگو
+        $patternVariable = \App\Models\PatternVariable::where('pattern_code', $pattern->pattern_code)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$patternVariable) {
+            Log::error('Units::extractPatternVariables - Pattern variable not found', [
+                'pattern_code' => $pattern->pattern_code
+            ]);
+            return array_fill(0, count($variableCodes), '');
+        }
+
+        Log::info('Units::extractPatternVariables - Extracting variables', [
+            'pattern_id' => $pattern->id,
+            'pattern_code' => $pattern->pattern_code,
+            'variable_codes' => $variableCodes,
+            'table_name' => $patternVariable->table_name,
+        ]);
+
+        // ساخت آرایه متغیرها به ترتیب
+        $variables = [];
+        
+        foreach ($variableCodes as $code) {
+            // جستجو در جدول pivot
+            $pivotData = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
+                ->where('pattern_id', $pattern->id)
+                ->where('variable_code', $code)
+                ->first();
+
+            if ($pivotData && $pivotData->table_field) {
+                $tableField = $pivotData->table_field;
+                $tableName = $patternVariable->table_name;
+
+                // استخراج مقدار
+                $value = $this->getVariableValueFromTable($tableName, $tableField, $resident, $report);
+                
+                Log::info('Units::extractPatternVariables - Variable extracted', [
+                    'code' => $code,
+                    'table_field' => $tableField,
+                    'table_name' => $tableName,
+                    'value' => $value,
+                ]);
+                
+                $variables[] = $value;
+            } else {
+                Log::warning('Units::extractPatternVariables - Pivot data not found', [
+                    'code' => $code,
+                    'pattern_id' => $pattern->id,
+                ]);
+                $variables[] = '';
+            }
+        }
+
+        Log::info('Units::extractPatternVariables - Final variables', [
+            'variables' => $variables,
+            'variables_count' => count($variables),
+        ]);
+
+        return $variables;
     }
 
     protected function getResidentDataFromDb($residentData)
@@ -1738,6 +1804,267 @@ class Units extends Component
             return $date->format('Y/m/d');
         } catch (\Exception $e) {
             return $date;
+        }
+    }
+
+    /**
+     * دریافت پیام الگو با مقداردهی کدها برای گزارش انتخاب شده
+     */
+    public function getPatternMessageWithVariables()
+    {
+        $result = $this->calculatePatternMessage();
+        $this->patternMessage = $result;
+    }
+
+    /**
+     * محاسبه پیام الگو با مقداردهی کدها
+     */
+    private function calculatePatternMessage()
+    {
+        if (!$this->selectedReportId) {
+            return [
+                'success' => false,
+                'message' => 'هیچ گزارشی انتخاب نشده است'
+            ];
+        }
+
+        $report = Report::find($this->selectedReportId);
+        if (!$report) {
+            return [
+                'success' => false,
+                'message' => 'گزارش یافت نشد'
+            ];
+        }
+
+        // دریافت اطلاعات resident فعلی
+        $resident = null;
+        if ($this->currentResident) {
+            Log::info('Units::calculatePatternMessage - Looking for resident', [
+                'current_resident_id' => $this->currentResident['id'],
+                'current_resident_name' => $this->currentResident['name'] ?? 'N/A'
+            ]);
+            
+            // استفاده از resident_id برای جستجو در جدول residents
+            $resident = Resident::where('resident_id', $this->currentResident['id'])->first();
+            
+            Log::info('Units::calculatePatternMessage - Resident search result', [
+                'resident_found' => $resident ? 'Yes' : 'No',
+                'resident_db_id' => $resident ? $resident->id : 'N/A',
+                'resident_name' => $resident ? $resident->resident_full_name : 'N/A'
+            ]);
+        }
+
+        if (!$resident) {
+            Log::error('Units::calculatePatternMessage - Resident not found', [
+                'current_resident' => $this->currentResident,
+                'search_id' => $this->currentResident['id'] ?? 'N/A'
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => 'اطلاعات اقامت‌گر یافت نشد'
+            ];
+        }
+
+        // دریافت اولین الگوی فعال مرتبط با گزارش
+        $pattern = $report->activePatterns()
+            ->where('patterns.is_active', true)
+            ->whereNotNull('patterns.pattern_code')
+            ->orderBy('report_pattern.sort_order')
+            ->first();
+
+        if (!$pattern || !$pattern->pattern_code) {
+            return [
+                'success' => false,
+                'message' => 'الگویی برای این گزارش تعریف نشده است'
+            ];
+        }
+
+        // دریافت متغیر الگو
+        $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$patternVariable) {
+            return [
+                'success' => false,
+                'message' => 'متغیری برای این الگو تعریف نشده است'
+            ];
+        }
+
+        // استخراج کدها از متن الگو
+        preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+        $variableCodes = $matches[0];
+        
+        if (empty($variableCodes)) {
+            return [
+                'success' => true,
+                'pattern_title' => $pattern->title,
+                'original_message' => $pattern->text,
+                'final_message' => $pattern->text,
+                'variables' => []
+            ];
+        }
+
+        // جایگزینی کدها با مقادیر
+        $finalMessage = $pattern->text;
+        $variables = [];
+
+        foreach ($variableCodes as $code) {
+            // جستجو در جدول pivot
+            $pivotData = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
+                ->where('pattern_id', $pattern->id)
+                ->where('variable_code', $code)
+                ->first();
+
+            if ($pivotData && $pivotData->table_field) {
+                $tableField = $pivotData->table_field;
+                $tableName = $patternVariable->table_name;
+
+                // استخراج مقدار
+                $value = $this->getVariableValueFromTable($tableName, $tableField, $resident, $report);
+                
+                $variables[] = [
+                    'code' => $code,
+                    'field' => $tableField,
+                    'table' => $tableName,
+                    'value' => $value
+                ];
+
+                // جایگزینی در متن
+                $finalMessage = str_replace($code, $value, $finalMessage);
+            } else {
+                $variables[] = [
+                    'code' => $code,
+                    'field' => 'نامشخص',
+                    'table' => 'نامشخص',
+                    'value' => ''
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'pattern_title' => $pattern->title,
+            'pattern_code' => $pattern->pattern_code,
+            'original_message' => $pattern->text,
+            'final_message' => $finalMessage,
+            'variables' => $variables
+        ];
+    }
+
+    /**
+     * استخراج مقدار متغیر از جدول مشخص شده
+     */
+    private function getVariableValueFromTable($tableName, $tableField, $resident, $report)
+    {
+        if (empty($tableName) || empty($tableField)) {
+            return '';
+        }
+
+        switch ($tableName) {
+            case 'residents':
+                return $this->getResidentFieldValue($tableField, $resident);
+            case 'reports':
+                return $this->getReportFieldValue($tableField, $report);
+            case 'units':
+                return $this->getUnitFieldValue($tableField, $resident);
+            case 'rooms':
+                return $this->getRoomFieldValue($tableField, $resident);
+            case 'beds':
+                return $this->getBedFieldValue($tableField, $resident);
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول residents
+     */
+    private function getResidentFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'resident_full_name':
+            case 'full_name':
+            case 'name':
+                return $resident->resident_full_name ?? $resident->full_name ?? '';
+            case 'resident_phone':
+            case 'phone':
+                return $resident->resident_phone ?? $resident->phone ?? '';
+            case 'room_name':
+                return $resident->room_name ?? '';
+            case 'bed_name':
+                return $resident->bed_name ?? '';
+            case 'unit_name':
+                return $resident->unit_name ?? '';
+            default:
+                return $resident->$field ?? '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول reports
+     */
+    private function getReportFieldValue($field, $report)
+    {
+        switch ($field) {
+            case 'title':
+                return $report->title ?? '';
+            case 'description':
+                return $report->description ?? '';
+            case 'category_name':
+                return $report->category->name ?? '';
+            case 'negative_score':
+                return (string)($report->negative_score ?? '');
+            case 'type':
+                return $report->type ?? '';
+            default:
+                return $report->$field ?? '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول units
+     */
+    private function getUnitFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->unit_name ?? '';
+            case 'id':
+                return (string)($resident->unit_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول rooms
+     */
+    private function getRoomFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->room_name ?? '';
+            case 'id':
+                return (string)($resident->room_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول beds
+     */
+    private function getBedFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->bed_name ?? '';
+            case 'id':
+                return (string)($resident->bed_id ?? '');
+            default:
+                return '';
         }
     }
 

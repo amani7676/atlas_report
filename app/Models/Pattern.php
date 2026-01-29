@@ -35,4 +35,61 @@ class Pattern extends Model
             ->withPivot('sort_order', 'is_active')
             ->withTimestamps();
     }
+    
+    public function patternVariables()
+    {
+        return $this->belongsToMany(PatternVariable::class, 'pattern_pattern_variables')
+            ->withPivot('variable_code', 'sort_order')
+            ->orderBy('pivot_sort_order');
+    }
+    
+    public function getPatternVariablesWithCodes()
+    {
+        return $this->patternVariables()
+            ->withPivot('variable_code', 'table_field')
+            ->get()
+            ->mapWithKeys(function ($variable) {
+                // اضافه کردن فیلد table_field از جدول pivot به متغیر
+                $variable->pivot_table_field = $variable->pivot->table_field;
+                return [$variable->pivot->variable_code => $variable];
+            });
+    }
+    
+    public function replaceVariables($text, $data = [])
+    {
+        $variables = $this->getPatternVariablesWithCodes();
+        
+        foreach ($variables as $code => $variable) {
+            $value = $this->getVariableValue($variable, $data);
+            $text = str_replace($code, $value, $text);
+        }
+        
+        return $text;
+    }
+    
+    private function getVariableValue($variable, $data = [])
+    {
+        $tableField = $variable->table_field;
+        
+        // اگر داده مستقیم ارسال شده باشد
+        if (isset($data[$tableField])) {
+            return $data[$tableField];
+        }
+        
+        // اگر داده تو در تو باشد (مثل category.name)
+        if (strpos($tableField, '.') !== false) {
+            $parts = explode('.', $tableField);
+            $value = $data;
+            foreach ($parts as $part) {
+                if (isset($value[$part])) {
+                    $value = $value[$part];
+                } else {
+                    return '[' . $tableField . ']';
+                }
+            }
+            return $value;
+        }
+        
+        return '[' . $tableField . ']';
+    }
 }

@@ -482,7 +482,7 @@ class GroupSms extends Component
                 $residentData = $resident->toArray(); // استفاده از تمام فیلدهای دیتابیس
 
                 // استخراج متغیرها از متن الگو
-                $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentApiData);
+                $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentApiData, $pattern->id);
 
                 // لاگ اطلاعات برای دیباگ
                 Log::info('GroupSms - Sending pattern SMS', [
@@ -715,7 +715,7 @@ class GroupSms extends Component
     /**
      * استخراج و جایگزینی متغیرها در الگو
      */
-    protected function extractPatternVariables($patternText, $residentData, $residentApiData = null)
+    protected function extractPatternVariables($patternText, $residentData, $residentApiData = null, $patternId = null)
     {
         preg_match_all('/\{(\d+)\}/', $patternText, $matches);
         
@@ -726,6 +726,47 @@ class GroupSms extends Component
         // استفاده از داده‌های API اگر موجود باشد، در غیر این صورت از داده‌های دیتابیس
         $residentDataForVariables = $residentApiData ?? $this->getResidentDataFromDb($residentData);
 
+        // اگر pattern_id وجود دارد، از متغیرهای اختصاصی آن الگو استفاده می‌کنیم
+        if ($patternId) {
+            $pattern = Pattern::find($patternId);
+            if ($pattern) {
+                $patternVariables = $pattern->getPatternVariablesWithCodes();
+                
+                $result = [];
+                $usedIndices = array_unique(array_map('intval', $matches[1]));
+                sort($usedIndices);
+                
+                // پیدا کردن بزرگترین index برای ساخت آرایه کامل
+                $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
+                
+                // ساخت آرایه کامل از 0 تا maxIndex
+                for ($i = 0; $i <= $maxIndex; $i++) {
+                    $code = '{' . $i . '}';
+                    
+                    if (isset($patternVariables[$code])) {
+                        $variable = $patternVariables[$code];
+                        $value = $this->getVariableValue($variable, $residentDataForVariables, null);
+                        $result[] = $value;
+                    } else {
+                        // اگر متغیر اختصاصی برای این کد وجود نداشت، از متغیر عمومی استفاده می‌کنیم
+                        $globalVariable = PatternVariable::where('code', $code)
+                            ->where('is_active', true)
+                            ->first();
+                        
+                        if ($globalVariable) {
+                            $value = $this->getVariableValue($globalVariable, $residentDataForVariables, null);
+                            $result[] = $value;
+                        } else {
+                            $result[] = '';
+                        }
+                    }
+                }
+                
+                return $result;
+            }
+        }
+
+        // اگر pattern_id وجود نداشت یا الگو پیدا نشد، از روش قدیمی استفاده می‌کنیم
         $variables = PatternVariable::where('is_active', true)
             ->get()
             ->keyBy('code');
@@ -738,8 +779,6 @@ class GroupSms extends Component
         $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
         
         // ساخت آرایه کامل از 0 تا maxIndex
-        // API ملی پیامک انتظار دارد که متغیرها به ترتیب {0}, {1}, {2}, ... باشند
-        // حتی اگر در الگو {0}, {2}, {3} باشد، باید آرایه [value0, '', value2, value3] باشد
         for ($i = 0; $i <= $maxIndex; $i++) {
             $code = '{' . $i . '}';
             $variable = $variables->get($code);
@@ -804,7 +843,13 @@ class GroupSms extends Component
 
     protected function getVariableValue($variable, $residentData, $reportData)
     {
-        $field = $variable->table_field;
+        // اگر متغیر از نوع اختصاصی است و table_field در pivot دارد، از آن استفاده می‌کنیم
+        if (isset($variable->pivot_table_field)) {
+            $field = $variable->pivot_table_field;
+        } else {
+            $field = $variable->table_field;
+        }
+        
         $type = $variable->variable_type;
 
         if ($type === 'user') {

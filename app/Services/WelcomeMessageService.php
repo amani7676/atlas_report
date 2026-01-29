@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Resident;
 use App\Models\ResidentReport;
 use App\Models\Report;
+use App\Models\Pattern;
 use App\Models\Settings;
 use App\Services\MelipayamakService;
 use Carbon\Carbon;
@@ -169,18 +170,31 @@ class WelcomeMessageService
     private function sendWelcomeMessage($resident, $residentReport)
     {
         try {
-            // ارسال پیامک از طریق سرویس ملی پیامک
-            // اینجا می‌توانید الگوی پیامک خوش‌آمدگویی خود را تنظیم کنید
-            $patternCode = 'welcome'; // کد الگوی خوش‌آمدگویی شما
-            $message = $this->prepareWelcomeMessage($resident);
+            // دریافت الگوی پیام خوش‌آمدگویی
+            $pattern = Pattern::find($residentReport->report->pattern_id ?? null);
             
-            $result = $this->melipayamakService->sendPattern(
-                $patternCode,
-                $residentReport->resident_phone,
-                [
-                    'name' => $residentReport->resident_name,
-                ]
-            );
+            if (!$pattern) {
+                // اگر الگو وجود نداشت، از روش قدیمی استفاده می‌کنیم
+                $patternCode = 'welcome';
+                $message = $this->prepareWelcomeMessage($resident);
+                
+                $result = $this->melipayamakService->sendPattern(
+                    $patternCode,
+                    $residentReport->resident_phone,
+                    [
+                        'name' => $residentReport->resident_name,
+                    ]
+                );
+            } else {
+                // استفاده از متغیرهای اختصاصی الگو
+                $message = $pattern->replaceVariables($pattern->text, $this->prepareResidentData($resident));
+                
+                $result = $this->melipayamakService->sendPattern(
+                    $pattern->pattern_code,
+                    $residentReport->resident_phone,
+                    $this->preparePatternVariables($pattern, $resident)
+                );
+            }
 
             if ($result && isset($result['success']) && $result['success']) {
                 // به‌روزرسانی گزارش اقامت‌گر
@@ -197,6 +211,75 @@ class WelcomeMessageService
         } catch (\Exception $e) {
             Log::error('Error sending welcome message: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * آماده‌سازی داده‌های اقامت‌گر برای جایگزینی متغیرها
+     */
+    private function prepareResidentData($resident)
+    {
+        return [
+            'full_name' => $resident->resident_full_name ?? $resident->name ?? '',
+            'name' => $resident->resident_full_name ?? $resident->name ?? '',
+            'phone' => $resident->resident_phone ?? $resident->phone ?? '',
+            'national_id' => $resident->national_id ?? '',
+            'national_code' => $resident->national_code ?? $resident->national_id ?? '',
+            'unit_name' => $resident->unit_name ?? '',
+            'unit_code' => $resident->unit_code ?? '',
+            'room_name' => $resident->room_name ?? '',
+            'bed_name' => $resident->bed_name ?? '',
+            'start_date' => $resident->contract_start_date ?? $resident->start_date ?? '',
+            'end_date' => $resident->contract_end_date ?? $resident->end_date ?? '',
+            'contract_start_date' => $resident->contract_start_date ?? '',
+            'contract_end_date' => $resident->contract_end_date ?? '',
+            'expiry_date' => $resident->contract_expiry_date ?? $resident->expiry_date ?? '',
+        ];
+    }
+    
+    /**
+     * آماده‌سازی متغیرهای الگو برای ارسال به ملی پیامک
+     */
+    private function preparePatternVariables($pattern, $resident)
+    {
+        $variables = $pattern->getPatternVariablesWithCodes();
+        $residentData = $this->prepareResidentData($resident);
+        $patternVariables = [];
+        
+        foreach ($variables as $code => $variable) {
+            $value = $this->getVariableValue($variable, $residentData);
+            $patternVariables[$variable->table_field] = $value;
+        }
+        
+        return $patternVariables;
+    }
+    
+    /**
+     * دریافت مقدار متغیر
+     */
+    private function getVariableValue($variable, $data = [])
+    {
+        $tableField = $variable->table_field;
+        
+        // اگر داده مستقیم ارسال شده باشد
+        if (isset($data[$tableField])) {
+            return $data[$tableField];
+        }
+        
+        // اگر داده تو در تو باشد (مثل category.name)
+        if (strpos($tableField, '.') !== false) {
+            $parts = explode('.', $tableField);
+            $value = $data;
+            foreach ($parts as $part) {
+                if (isset($value[$part])) {
+                    $value = $value[$part];
+                } else {
+                    return '[' . $tableField . ']';
+                }
+            }
+            return $value;
+        }
+        
+        return '[' . $tableField . ']';
     }
 
     /**

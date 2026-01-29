@@ -48,7 +48,7 @@
                                 <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                             @endif
                         </th>
-                        <th>کد الگو</th>
+                        <th>فیلد جدول</th>
                         <th>نام جدول</th>
                         <th>الگوی مرتبط</th>
                         <th wire:click="sortBy('variable_type')" style="cursor: pointer;">
@@ -63,7 +63,12 @@
                                 <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                             @endif
                         </th>
-                        <th>وضعیت</th>
+                        <th wire:click="sortBy('is_active')" style="cursor: pointer;">
+                            وضعیت
+                            @if($sortBy === 'is_active')
+                                <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
+                            @endif
+                        </th>
                         <th>عملیات</th>
                     </tr>
                 </thead>
@@ -82,13 +87,9 @@
                                 @endif
                             </td>
                             <td>
-                                @if($variable->pattern_code)
-                                    <code style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 3px; font-size: 12px; border: 1px solid #bbdefb;">
-                                        {{ $variable->pattern_code }}
-                                    </code>
-                                @else
-                                    <span style="color: #999;">-</span>
-                                @endif
+                                <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 12px;">
+                                    {{ $variable->table_field }}
+                                </code>
                             </td>
                             <td>
                                 @if($variable->table_name)
@@ -212,7 +213,7 @@
     <!-- Create/Edit Modal -->
     @if($showModal)
         <div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;">
-            <div style="background: white; border-radius: 10px; width: 100%; max-width: 900px; max-height: 95vh; overflow-y: auto; padding: 30px;">
+            <div style="background: white; border-radius: 10px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; padding: 30px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h3>{{ $isEditing ? 'ویرایش متغیر' : 'ایجاد متغیر جدید' }}</h3>
                     <button wire:click="closeModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">
@@ -221,15 +222,55 @@
                 </div>
 
                 <form wire:submit.prevent="{{ $isEditing ? 'updateVariable' : 'createVariable' }}">
-                    
-                    <!-- 1. لیست فیلدهای جداول -->
                     <div class="form-group">
-                        <label class="form-label">لیست فیلدهای جداول</label>
+                        <label class="form-label">کد متغیر <span style="color: red;">*</span></label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input 
+                                type="text" 
+                                wire:model="code" 
+                                class="form-control" 
+                                placeholder="مثال: {0}, {1}, {2}"
+                                required
+                                style="flex: 1;"
+                                pattern="\{[0-9]+\}"
+                            >
+                            <button 
+                                type="button"
+                                wire:click="generateNextCode"
+                                class="btn" 
+                                style="background: #17a2b8; color: white;"
+                                title="تولید کد بعدی"
+                            >
+                                <i class="fas fa-magic"></i>
+                                تولید کد
+                            </button>
+                        </div>
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                            فرمت: {0}, {1}, {2} و ...
+                        </small>
+                        @error('code') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">عنوان <span style="color: red;">*</span></label>
+                        <input 
+                            type="text" 
+                            wire:model="title" 
+                            class="form-control" 
+                            placeholder="مثال: نام کاربر"
+                            required
+                        >
+                        @error('title') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">فیلد جدول <span style="color: red;">*</span></label>
                         
                         @if(!empty($availableTableFields))
                             <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px; max-height: 300px; overflow-y: auto;">
-                                <strong style="font-size: 13px; display: block; margin-bottom: 15px;">فیلدهای موجود در جداول ثبت شده:</strong>
+                                <strong style="font-size: 13px; display: block; margin-bottom: 10px;">فیلدهای موجود در جداول ثبت شده:</strong>
                                 @php
+                                    // گروه‌بندی فیلدها بر اساس جدول
                                     $groupedFields = [];
                                     foreach ($availableTableFields as $field) {
                                         $tableKey = $field['table_display_name'] ?? ($field['table_name'] ?? 'سایر');
@@ -240,18 +281,17 @@
                                     }
                                 @endphp
                                 @foreach($groupedFields as $tableDisplayName => $fields)
-                                    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border: 1px solid #dee2e6;">
-                                        <h6 style="margin-bottom: 10px; color: #495057; font-size: 14px;">
+                                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6;">
+                                        <strong style="font-size: 12px; color: #666; display: block; margin-bottom: 8px;">
                                             <i class="fas fa-table"></i> {{ $tableDisplayName }}
-                                            <small style="color: #6c757d; margin-right: 10px;">({{ $fields[0]['table_name'] ?? '' }})</small>
-                                        </h6>
+                                        </strong>
                                         <div style="display: flex; flex-wrap: wrap; gap: 5px;">
                                             @foreach($fields as $field)
                                                 <button 
                                                     type="button"
                                                     wire:click="selectTableField('{{ $field['name'] }}')"
                                                     class="btn" 
-                                                    style="background: {{ $selectedTableField === $field['name'] ? '#28a745' : '#4361ee' }}; color: white; padding: 5px 10px; font-size: 12px; border-radius: 4px;"
+                                                    style="background: {{ $selectedTableField === $field['name'] ? '#28a745' : '#4361ee' }}; color: white; padding: 5px 10px; font-size: 12px;"
                                                     title="{{ $field['name'] }} ({{ $field['table_name'] ?? '' }})"
                                                 >
                                                     {{ $field['label'] }}
@@ -265,133 +305,15 @@
                         
                         <input 
                             type="text" 
-                            wire:model="pattern_code" 
+                            wire:model="table_field" 
                             class="form-control" 
-                            placeholder="کد الگو (اگر الگو انتخاب شود، به صورت خودکار تنظیم می‌شود)"
-                        >
-                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
-                            این فیلد اختیاری است. فیلدهای اصلی را در بخش تخصیص متغیرها به الگوها انتخاب کنید.
-                        </small>
-                        @error('pattern_code') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- 2. عنوان متغیر -->
-                    <div class="form-group">
-                        <label class="form-label">عنوان متغیر <span style="color: red;">*</span></label>
-                        <input 
-                            type="text" 
-                            wire:model="title" 
-                            class="form-control" 
-                            placeholder="مثال: نام کامل کاربر (اگر الگو انتخاب شود، نام الگو به صورت خودکار وارد می‌شود)"
+                            placeholder="مثال: fullname, phone, name یا از لیست بالا انتخاب کنید"
                             required
                         >
                         <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
-                            @if(!empty($selectedPatterns))
-                                @if(count($selectedPatterns) === 1)
-                                    عنوان با نام الگوی انتخاب شده یکی است. می‌توانید آن را تغییر دهید.
-                                @else
-                                    چند الگو انتخاب شده است، لطفاً عنوان مناسب وارد کنید.
-                                @endif
-                            @else
-                                عنوان را وارد کنید یا یک الگو انتخاب کنید تا عنوان به صورت خودکار تنظیم شود.
-                            @endif
+                            نام فیلد در جدول دیتابیس (می‌توانید از لیست بالا انتخاب کنید یا مستقیماً وارد کنید)
                         </small>
-                        @error('title') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- 3. لیست کشویی الگوهای پیامی -->
-                    <div class="form-group">
-                        <label class="form-label">الگوهای پیامی <span style="color: red;">*</span></label>
-                        <select wire:model.live="selectedPatterns" class="form-control" multiple size="4">
-                            @foreach($availablePatterns as $id => $title)
-                                <option value="{{ $id }}" {{ in_array($id, $selectedPatterns) ? 'selected' : '' }}>
-                                    {{ $title }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
-                            انتخاب حداقل یک الگو الزامی است. می‌توانید چند الگو را با نگه داشتن Ctrl انتخاب کنید.
-                        </small>
-                        @error('selectedPatterns') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- 4. نمایش متن الگو و 5. کدهای متغیر و 6. تخصیص فیلدها -->
-                    @if(!empty($selectedPatterns))
-                        <div class="form-group">
-                            <label class="form-label">تخصیص متغیرها به الگوها</label>
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
-                                @foreach($selectedPatterns as $patternId)
-                                    @php
-                                        $pattern = \App\Models\Pattern::find($patternId);
-                                        if(!$pattern) continue;
-                                    @endphp
-                                    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border: 1px solid #dee2e6;">
-                                        <h6 style="margin-bottom: 10px; color: #495057;">
-                                            <i class="fas fa-file-alt"></i> {{ $pattern->title }}
-                                            @if($pattern->pattern_code) <small>({{ $pattern->pattern_code }})</small> @endif
-                                        </h6>
-                                        
-                                        <!-- متن الگو -->
-                                        <div style="margin-bottom: 15px; padding: 10px; background: #e9ecef; border-radius: 4px; font-family: monospace; font-size: 13px;">
-                                            {{ $patternTexts[$patternId] ?? '' }}
-                                        </div>
-                                        
-                                        <!-- کدهای متغیر و تخصیص فیلدها -->
-                                        @if(isset($patternVariables[$patternId]) && !empty($patternVariables[$patternId]))
-                                            <div style="margin-bottom: 10px;">
-                                                <strong style="font-size: 12px; color: #666;">کدهای متغیرهای موجود:</strong>
-                                                <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;">
-                                                    @foreach($patternVariables[$patternId] as $variableCode)
-                                                        <span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
-                                                            {{ $variableCode }}
-                                                        </span>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                            
-                                            @foreach($patternVariables[$patternId] as $variableCode)
-                                                <div style="margin-bottom: 10px;">
-                                                    <label style="font-size: 12px; font-weight: bold; color: #495057;">
-                                                        {{ $variableCode }} → فیلد مربوطه:
-                                                    </label>
-                                                    <select 
-                                                        wire:model="variableAssignments.{{ $patternId }}.{{ $variableCode }}" 
-                                                        class="form-control form-control-sm"
-                                                        style="font-size: 12px;"
-                                                    >
-                                                        <option value="">انتخاب فیلد...</option>
-                                                        @foreach($availableTableFields as $field)
-                                                            <option value="{{ $field['name'] }}">
-                                                                {{ $field['label'] }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    @error('variableAssignments.' . $patternId . '.' . $variableCode) 
-                                                        <span style="color: red; font-size: 11px;">{{ $message }}</span> 
-                                                    @enderror
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <p style="color: #6c757d; font-size: 12px; font-style: italic;">
-                                                این الگو هیچ کد متغیری ({0}, {1}, ...) ندارد.
-                                            </p>
-                                        @endif
-                                    </div>
-                                @endforeach
-                            </div>
-                            @error('variableAssignments') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
-                        </div>
-                    @endif
-
-                    <!-- فیلدهای دیگر -->
-                    <div class="form-group">
-                        <label class="form-label">نوع متغیر <span style="color: red;">*</span></label>
-                        <select wire:model.live="variable_type" class="form-control" required>
-                            <option value="user">کاربر</option>
-                            <option value="report">گزارش</option>
-                            <option value="general">عمومی</option>
-                        </select>
-                        @error('variable_type') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        @error('table_field') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="form-group">
@@ -402,7 +324,69 @@
                             class="form-control" 
                             placeholder="مثال: residents, reports"
                         >
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                            نام جدول دیتابیس (در صورت نیاز)
+                        </small>
                         @error('table_name') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">الگوهای مرتبط <span style="color: red;">*</span></label>
+                        <select wire:model.live="pattern_ids" class="form-control" multiple size="4">
+                            @foreach($availablePatterns as $id => $title)
+                                <option value="{{ $id }}" {{ in_array($id, $pattern_ids) ? 'selected' : '' }}>
+                                    {{ $title }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                            انتخاب حداقل یک الگو الزامی است. می‌توانید چند الگو را با نگه داشتن Ctrl انتخاب کنید.
+                        </small>
+                        @error('pattern_ids') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                    </div>
+
+                    @if(!empty($pattern_ids))
+                        <div class="form-group">
+                            <label class="form-label">کد متغیر برای الگوها <span style="color: red;">*</span></label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input 
+                                    type="text" 
+                                    wire:model="variable_code" 
+                                    class="form-control" 
+                                    placeholder="مثال: {0}, {1}, {2}"
+                                    required
+                                    style="flex: 1;"
+                                    pattern="\{[0-9]+\}"
+                                >
+                                <button 
+                                    type="button"
+                                    wire:click="generateNextVariableCode"
+                                    class="btn" 
+                                    style="background: #17a2b8; color: white;"
+                                    title="تولید کد بعدی برای الگوها"
+                                >
+                                    <i class="fas fa-magic"></i>
+                                    تولید کد
+                                </button>
+                            </div>
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                                این کد برای همه الگوهای انتخاب شده اعمال می‌شود
+                            </small>
+                            @error('variable_code') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
+                        </div>
+                    @endif
+
+                    <div class="form-group">
+                        <label class="form-label">نوع متغیر <span style="color: red;">*</span></label>
+                        <select wire:model.live="variable_type" class="form-control" required>
+                            <option value="user">کاربر</option>
+                            <option value="report">گزارش</option>
+                            <option value="general">عمومی</option>
+                        </select>
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                            با تغییر نوع، فیلدهای جدول مربوطه نمایش داده می‌شوند
+                        </small>
+                        @error('variable_type') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="form-group">
@@ -425,43 +409,52 @@
                             min="0"
                             placeholder="0"
                         >
+                        <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                            عدد کمتر = نمایش بالاتر
+                        </small>
                         @error('sort_order') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="form-group">
-                        <div class="form-check">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                             <input 
                                 type="checkbox" 
-                                wire:model="is_active" 
-                                class="form-check-input" 
-                                id="is_active"
+                                wire:model="is_active"
                             >
-                            <label class="form-check-label" for="is_active">
-                                فعال
-                            </label>
-                        </div>
+                            <span>فعال</span>
+                        </label>
                     </div>
 
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i>
-                            {{ $isEditing ? 'به‌روزرسانی' : 'ایجاد' }}
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                        <button type="button" wire:click="closeModal" class="btn" style="background: #6c757d; color: white;">
+                            لغو
                         </button>
-                        <button type="button" wire:click="closeModal" class="btn btn-secondary">
-                            <i class="fas fa-times"></i>
-                            انصراف
+                        <button type="submit" class="btn btn-primary">
+                            {{ $isEditing ? 'ذخیره تغییرات' : 'ایجاد متغیر' }}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     @endif
-</div>
 
-<script>
-function confirmDeleteVariable(id, title) {
-    if (confirm('آیا از حذف متغیر "' + title + '" اطمینان دارید؟')) {
-        @this.call('deleteVariable', id);
-    }
-}
-</script>
+    <script>
+        function confirmDeleteVariable(id, title) {
+            Swal.fire({
+                title: 'حذف متغیر',
+                html: `آیا مطمئن هستید که می‌خواهید متغیر <strong>"${title}"</strong> را حذف کنید؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'بله، حذف شود',
+                cancelButtonText: 'لغو',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.deleteVariable(id);
+                }
+            });
+        }
+    </script>
+</div>

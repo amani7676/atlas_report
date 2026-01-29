@@ -38,8 +38,8 @@ class SyncButton extends Component
                 // نمایش آلارم ساده
                 $this->dispatch('showToast', [
                     'type' => 'success',
-                    'title' => 'Success',
-                    'message' => '',
+                    'title' => 'همگام‌سازی موفق',
+                    'message' => "داده‌ها با موفقیت همگام‌سازی شد. تعداد کل: {$totalInDb}",
                     'duration' => 3000,
                 ]);
             }
@@ -56,8 +56,8 @@ class SyncButton extends Component
             if ($showToast) {
                 $this->dispatch('showToast', [
                     'type' => 'error',
-                    'title' => 'Error',
-                    'message' => '',
+                    'title' => 'خطا در همگام‌سازی',
+                    'message' => 'خطا در همگام‌سازی داده‌ها. لطفاً دوباره تلاش کنید.',
                     'duration' => 3000,
                 ]);
             }

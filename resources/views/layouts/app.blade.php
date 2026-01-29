@@ -2256,8 +2256,101 @@
     </script>
     @livewireScripts
     
-    <!-- Persistent Alarm - Shows on all pages -->
-    @livewire('layout.persistent-alarm')
+    <!-- Persistent Alarm - Method 2: Simple HTML with AJAX -->
+    <div id="sync-alarm" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(238, 90, 82, 0.3); min-width: 320px; max-width: 400px; display: none;">
+        <div style="display: flex; align-items: flex-start; gap: 15px;">
+            <div style="flex-shrink: 0; font-size: 24px;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div style="flex: 1;">
+                <div style="font-weight: 700; margin-bottom: 6px; font-size: 16px;">
+                    نیاز به همگام‌سازی
+                </div>
+                <div style="font-size: 13px; opacity: 0.95; margin-bottom: 12px;">
+                    داده‌ها ممکن است به‌روز نباشند. برای دریافت آخرین اطلاعات روی دکمه همگام‌سازی کلیک کنید.
+                </div>
+                <button onclick="syncData()" id="sync-btn" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                    <i class="fas fa-sync-alt" id="sync-icon"></i>
+                    <span id="sync-text">همگام‌سازی داده‌ها</span>
+                </button>
+            </div>
+            <button onclick="closeAlarm()" style="flex-shrink: 0; background: rgba(255, 255, 255, 0.2); border: none; color: white; cursor: pointer; padding: 0; width: 28px; height: 28px; border-radius: 50%; font-size: 14px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+    // نمایش آلارم
+    document.addEventListener('DOMContentLoaded', function() {
+        const alarm = document.getElementById('sync-alarm');
+        if (alarm) {
+            alarm.style.display = 'block';
+        }
+    });
+
+    // تابع همگام‌سازی
+    function syncData() {
+        const btn = document.getElementById('sync-btn');
+        const icon = document.getElementById('sync-icon');
+        const text = document.getElementById('sync-text');
+        
+        // نمایش لودینگ
+        btn.disabled = true;
+        icon.className = 'fas fa-sync-alt fa-spin';
+        text.textContent = 'در حال همگام‌سازی...';
+        
+        // ارسال درخواست AJAX
+        fetch('/sync-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // نمایش پیام موفقیت
+                showToast('success', 'همگام‌سازی موفق', data.message);
+                // مخفی کردن آلارم
+                document.getElementById('sync-alarm').style.display = 'none';
+            } else {
+                showToast('error', 'خطا', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'خطا', 'خطا در همگام‌سازی داده‌ها');
+        })
+        .finally(() => {
+            // بازگشت به حالت اولیه
+            btn.disabled = false;
+            icon.className = 'fas fa-sync-alt';
+            text.textContent = 'همگام‌سازی داده‌ها';
+        });
+    }
+
+    // تابع بستن آلارم
+    function closeAlarm() {
+        document.getElementById('sync-alarm').style.display = 'none';
+    }
+
+    // تابع نمایش Toast (اگر وجود نداشت)
+    function showToast(type, title, message) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: type === 'success' ? 'success' : 'error',
+                title: title,
+                text: message,
+                timer: 3000,
+                showConfirmButton: false
+            });
+        } else {
+            alert(title + ': ' + message);
+        }
+    }
+    </script>
 </body>
 
 </html>

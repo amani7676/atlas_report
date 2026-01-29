@@ -150,6 +150,31 @@
     </div>
 
     <script>
+        // تابع تایید حذف
+        function confirmDelete(id, type, persianType = null) {
+            const typeName = persianType || (type === 'Report' ? 'گزارش' : 'دسته‌بندی');
+            
+            Swal.fire({
+                title: `حذف ${typeName}`,
+                text: `آیا مطمئن هستید که می‌خواهید این ${typeName} را حذف کنید؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'بله، حذف شود',
+                cancelButtonText: 'لغو',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (type === 'Report') {
+                        @this.deleteReport(id);
+                    } else {
+                        @this.deleteCategory(id);
+                    }
+                }
+            });
+        }
+
         // Listen for bulk delete confirmation
         window.addEventListener('confirmBulkDelete', event => {
             const { type, count } = event.detail;

@@ -196,6 +196,38 @@ class ResidentReports extends Component
     }
 
     /**
+     * تعداد اقامت‌گران با بیشترین تخلف
+     */
+    public function getTopViolationResidentsCountProperty()
+    {
+        return $this->topResidents->count();
+    }
+
+    /**
+     * تعداد گزارش‌های انتخاب شده
+     */
+    public function getSelectedReportsCountProperty()
+    {
+        return count($this->selectedReports);
+    }
+
+    /**
+     * اقامت‌گر فعلی برای فیلتر
+     */
+    public function getCurrentResidentProperty()
+    {
+        return $this->filterByResidentName;
+    }
+
+    /**
+     * لیست اقامت‌گران با بیشترین تخلف (alias برای topResidents)
+     */
+    public function getTopViolationResidentsProperty()
+    {
+        return $this->topResidents;
+    }
+
+    /**
      * تعداد اقامت‌گرانی که تخلف‌های تکرارای یکسان دارند
      */
     public function getRepeatViolationResidentsCountProperty()
@@ -1103,6 +1135,225 @@ class ResidentReports extends Component
         ResidentReport::checkAndDeactivateGrantsForResident($residentId);
     }
 
+    /**
+     * دریافت پیام الگو با مقداردهی کدها برای یک گزارش
+     */
+    public function getPatternMessageWithVariables($residentReportId)
+    {
+        $residentReport = ResidentReport::with(['report', 'resident', 'report.patterns'])->find($residentReportId);
+        
+        if (!$residentReport || !$residentReport->report || !$residentReport->resident) {
+            return [
+                'success' => false,
+                'message' => 'اطلاعات گزارش یافت نشد'
+            ];
+        }
+
+        $report = $residentReport->report;
+        $resident = $residentReport->resident;
+
+        // دریافت اولین الگوی فعال مرتبط با گزارش
+        $pattern = $report->activePatterns()
+            ->where('patterns.is_active', true)
+            ->whereNotNull('patterns.pattern_code')
+            ->orderBy('report_pattern.sort_order')
+            ->first();
+
+        if (!$pattern || !$pattern->pattern_code) {
+            return [
+                'success' => false,
+                'message' => 'الگویی برای این گزارش تعریف نشده است'
+            ];
+        }
+
+        // دریافت متغیر الگو
+        $patternVariable = \App\Models\PatternVariable::where('pattern_code', $pattern->pattern_code)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$patternVariable) {
+            return [
+                'success' => false,
+                'message' => 'متغیری برای این الگو تعریف نشده است'
+            ];
+        }
+
+        // استخراج کدها از متن الگو
+        preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+        $variableCodes = $matches[0];
+        
+        if (empty($variableCodes)) {
+            return [
+                'success' => true,
+                'pattern_title' => $pattern->title,
+                'original_message' => $pattern->text,
+                'final_message' => $pattern->text,
+                'variables' => []
+            ];
+        }
+
+        // جایگزینی کدها با مقادیر
+        $finalMessage = $pattern->text;
+        $variables = [];
+
+        foreach ($variableCodes as $code) {
+            // جستجو در جدول pivot
+            $pivotData = DB::table('pattern_pattern_variables')
+                ->where('pattern_id', $pattern->id)
+                ->where('variable_code', $code)
+                ->first();
+
+            if ($pivotData && $pivotData->table_field) {
+                $tableField = $pivotData->table_field;
+                $tableName = $patternVariable->table_name;
+
+                // استخراج مقدار
+                $value = $this->getVariableValueFromTable($tableName, $tableField, $resident, $report);
+                
+                $variables[] = [
+                    'code' => $code,
+                    'field' => $tableField,
+                    'table' => $tableName,
+                    'value' => $value
+                ];
+
+                // جایگزینی در متن
+                $finalMessage = str_replace($code, $value, $finalMessage);
+            } else {
+                $variables[] = [
+                    'code' => $code,
+                    'field' => 'نامشخص',
+                    'table' => 'نامشخص',
+                    'value' => ''
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'pattern_title' => $pattern->title,
+            'pattern_code' => $pattern->pattern_code,
+            'original_message' => $pattern->text,
+            'final_message' => $finalMessage,
+            'variables' => $variables
+        ];
+    }
+
+    /**
+     * استخراج مقدار متغیر از جدول مشخص شده
+     */
+    private function getVariableValueFromTable($tableName, $tableField, $resident, $report)
+    {
+        if (empty($tableName) || empty($tableField)) {
+            return '';
+        }
+
+        switch ($tableName) {
+            case 'residents':
+                return $this->getResidentFieldValue($tableField, $resident);
+            case 'reports':
+                return $this->getReportFieldValue($tableField, $report);
+            case 'units':
+                return $this->getUnitFieldValue($tableField, $resident);
+            case 'rooms':
+                return $this->getRoomFieldValue($tableField, $resident);
+            case 'beds':
+                return $this->getBedFieldValue($tableField, $resident);
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول residents
+     */
+    private function getResidentFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'resident_full_name':
+            case 'full_name':
+            case 'name':
+                return $resident->resident_full_name ?? $resident->full_name ?? '';
+            case 'resident_phone':
+            case 'phone':
+                return $resident->resident_phone ?? $resident->phone ?? '';
+            case 'room_name':
+                return $resident->room_name ?? '';
+            case 'bed_name':
+                return $resident->bed_name ?? '';
+            case 'unit_name':
+                return $resident->unit_name ?? '';
+            default:
+                return $resident->$field ?? '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول reports
+     */
+    private function getReportFieldValue($field, $report)
+    {
+        switch ($field) {
+            case 'title':
+                return $report->title ?? '';
+            case 'description':
+                return $report->description ?? '';
+            case 'category_name':
+                return $report->category->name ?? '';
+            case 'negative_score':
+                return (string)($report->negative_score ?? '');
+            case 'type':
+                return $report->type ?? '';
+            default:
+                return $report->$field ?? '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول units
+     */
+    private function getUnitFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->unit_name ?? '';
+            case 'id':
+                return (string)($resident->unit_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول rooms
+     */
+    private function getRoomFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->room_name ?? '';
+            case 'id':
+                return (string)($resident->room_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول beds
+     */
+    private function getBedFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->bed_name ?? '';
+            case 'id':
+                return (string)($resident->bed_id ?? '');
+            default:
+                return '';
+        }
+    }
+
     public function render()
     {
         $reports = $this->reportsQuery->paginate($this->perPage);
@@ -1126,6 +1377,10 @@ class ResidentReports extends Component
             'distinctResidentsCount' => $this->distinctResidentsCount,
             'reportsByUnit' => $this->reportsByUnit,
             'topResidents' => $this->topResidents,
+            'topViolationResidents' => $this->topViolationResidents,
+            'topViolationResidentsCount' => $this->topViolationResidentsCount,
+            'selectedReportsCount' => $this->selectedReportsCount,
+            'currentResident' => $this->currentResident,
             'reportsList' => $this->reportsList,
             'residentsList' => $residentsList,
             'repeatViolationResidentsCount' => $this->repeatViolationResidentsCount,

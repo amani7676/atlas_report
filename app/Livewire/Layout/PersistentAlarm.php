@@ -4,15 +4,13 @@ namespace App\Livewire\Layout;
 
 use Livewire\Component;
 use App\Jobs\SyncResidentsFromApi;
+use Illuminate\Support\Facades\Log;
 
 class PersistentAlarm extends Component
 {
     public $showAlarm = true;
     public $syncing = false;
 
-    /**
-     * همگام‌سازی داده‌ها و رفرش صفحه
-     */
     public function syncAndRefresh()
     {
         $this->syncing = true;
@@ -22,24 +20,23 @@ class PersistentAlarm extends Component
             $job = new SyncResidentsFromApi();
             $job->handle();
             
-            // نمایش پیام موفقیت کوتاه
+            // نمایش پیام موفقیت
             $this->dispatch('showToast', [
                 'type' => 'success',
                 'title' => 'همگام‌سازی موفق',
-                'message' => 'دیتابیس با موفقیت به‌روزرسانی شد. صفحه در حال رفرش شدن است...',
-                'duration' => 2000,
+                'message' => 'دیتابیس با موفقیت به‌روزرسانی شد.',
+                'duration' => 3000,
             ]);
             
-            // رفرش صفحه بعد از 2 ثانیه
-            $this->dispatch('refreshPage');
+            // مخفی کردن آلارم
+            $this->showAlarm = false;
             
         } catch (\Exception $e) {
-            \Log::error('Error syncing residents from PersistentAlarm component', [
+            Log::error('Error syncing residents', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
             
-            // نمایش پیام خطا
             $this->dispatch('showToast', [
                 'type' => 'error',
                 'title' => 'خطا در همگام‌سازی',
@@ -51,9 +48,6 @@ class PersistentAlarm extends Component
         }
     }
 
-    /**
-     * بستن آلارم
-     */
     public function closeAlarm()
     {
         $this->showAlarm = false;

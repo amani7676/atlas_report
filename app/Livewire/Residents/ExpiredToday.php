@@ -150,7 +150,7 @@ class ExpiredToday extends Component
     }
 
     /**
-     * انتخاب فقط سررسیدهای امروز (0 روز گذشته)
+     * انتخاب سررسیدهای امروز و دیروز (0 و 1 روز گذشته)
      */
     public function selectTodayOnly()
     {
@@ -167,8 +167,8 @@ class ExpiredToday extends Component
             $daysPast = $this->getDaysPastDue($resident->contract_payment_date_jalali);
             $disabledInfo = $this->isResidentDisabled($resident);
             
-            // فقط اقامتگران فعال و امروز (0 روز گذشته)
-            if ($daysPast == 0 && !$disabledInfo['disabled']) {
+            // اقامتگران فعال و امروز و دیروز (0 و 1 روز گذشته)
+            if (($daysPast == 0 || $daysPast == 1) && !$disabledInfo['disabled']) {
                 $todayResidentIds[] = (int)$resident->id;
             }
         }
@@ -184,8 +184,8 @@ class ExpiredToday extends Component
         $this->selectedResidents = $todayResidentIds;
         $this->selectAllToday = true;
         
-        // انتخاب خودکار الگوی "سررسید"
-        $this->autoSelectPattern('سررسید');
+        // انتخاب خودکار الگوی دقیق "سررسید"
+        $this->autoSelectExactPattern('سررسید');
         
         // به‌روزرسانی وضعیت دکمه‌ها
         $this->updateSelectAllState();
@@ -212,8 +212,8 @@ class ExpiredToday extends Component
             $daysPast = $this->getDaysPastDue($resident->contract_payment_date_jalali);
             $disabledInfo = $this->isResidentDisabled($resident);
             
-            // فقط اقامتگران فعال و گذشته (1+ روز گذشته)
-            if ($daysPast >= 1 && !$disabledInfo['disabled']) {
+            // فقط اقامتگران فعال و بیش از 2 روز گذشته (2+ روز گذشته)
+            if ($daysPast >= 2 && !$disabledInfo['disabled']) {
                 $pastResidentIds[] = (int)$resident->id;
             }
         }
@@ -229,8 +229,8 @@ class ExpiredToday extends Component
         $this->selectedResidents = $pastResidentIds;
         $this->selectAllPast = true;
         
-        // انتخاب خودکار الگوی "دیرکرد"
-        $this->autoSelectPattern('دیرکرد');
+        // انتخاب خودکار الگوی "اخطار سررسید"
+        $this->autoSelectPattern('اخطار سررسید');
         
         // به‌روزرسانی وضعیت دکمه‌ها
         $this->updateSelectAllState();
@@ -247,6 +247,23 @@ class ExpiredToday extends Component
         // جستجوی الگویی که کلمه کلیدی در عنوانش وجود دارد
         $pattern = $this->patterns->first(function ($p) use ($keyword) {
             return strpos($p->title, $keyword) !== false;
+        });
+        
+        if ($pattern) {
+            $this->selectedPattern = $pattern->id;
+            // بررسی گزارش برای الگوی انتخاب شده
+            $this->checkPatternReport();
+        }
+    }
+
+    /**
+     * انتخاب خودکار الگو بر اساس عنوان دقیق
+     */
+    private function autoSelectExactPattern($exactTitle)
+    {
+        // جستجوی الگویی که عنوانش دقیقاً برابر باشد
+        $pattern = $this->patterns->first(function ($p) use ($exactTitle) {
+            return $p->title === $exactTitle;
         });
         
         if ($pattern) {
@@ -724,7 +741,7 @@ class ExpiredToday extends Component
                 ]);
 
                 // استخراج متغیرها از متن الگو
-                $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentApiData);
+                $variables = $this->extractPatternVariables($pattern->text, $residentData, $residentApiData, $pattern->id);
 
                 // لاگ متغیرها برای دیباگ
                 Log::info('ExpiredToday - Pattern variables extracted', [
@@ -923,7 +940,7 @@ class ExpiredToday extends Component
     /**
      * استخراج و جایگزینی متغیرها در الگو
      */
-    protected function extractPatternVariables($patternText, $residentData, $residentApiData = null)
+    protected function extractPatternVariables($patternText, $residentData, $residentApiData = null, $patternId = null)
     {
         // پیدا کردن تمام متغیرها در الگو (مثل {0}, {1}, {2})
         preg_match_all('/\{(\d+)\}/', $patternText, $matches);
@@ -935,7 +952,74 @@ class ExpiredToday extends Component
         // استفاده از داده‌های API اگر موجود باشد، در غیر این صورت از داده‌های دیتابیس
         $residentDataForVariables = $residentApiData ?? $this->getResidentDataFromDb($residentData);
 
-        // بارگذاری متغیرها از دیتابیس
+        // اگر pattern_id وجود دارد، از متغیرهای اختصاصی آن الگو استفاده می‌کنیم
+        if ($patternId) {
+            $pattern = Pattern::find($patternId);
+            if ($pattern) {
+                $patternVariables = $pattern->getPatternVariablesWithCodes();
+                
+                $result = [];
+                $usedIndices = array_unique(array_map('intval', $matches[1]));
+                sort($usedIndices); // مرتب‌سازی بر اساس ترتیب در الگو
+
+                Log::debug('ExpiredToday - Extracting pattern-specific variables', [
+                    'pattern_text' => $patternText,
+                    'used_indices' => $usedIndices,
+                    'pattern_id' => $patternId,
+                    'pattern_variables_count' => $patternVariables->count(),
+                    'resident_id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
+                ]);
+
+                // پیدا کردن بزرگترین index برای ساخت آرایه کامل
+                $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
+                
+                // ساخت آرایه کامل از 0 تا maxIndex
+                for ($i = 0; $i <= $maxIndex; $i++) {
+                    $code = '{' . $i . '}';
+                    
+                    // منطق خاص برای کد {3} - تعداد روزهای دیرکرد
+                    if ($code === '{3}') {
+                        $daysPast = $this->getDaysPastDue($residentDataForVariables['contract_payment_date_jalali'] ?? null);
+                        
+                        if ($daysPast == 0) {
+                            $result[] = 'امروز';
+                        } elseif ($daysPast == -1) {
+                            $result[] = 'دیروز';
+                        } elseif ($daysPast <= -2) {
+                            $result[] = abs($daysPast) . ' روز';
+                        } else {
+                            $result[] = $daysPast . ' روز';
+                        }
+                    } elseif (isset($patternVariables[$code])) {
+                        $variable = $patternVariables[$code];
+                        $value = $this->getVariableValue($variable, $residentDataForVariables, null);
+                        $result[] = $value;
+                    } else {
+                        // اگر متغیر اختصاصی برای این کد وجود نداشت، از متغیر عمومی استفاده می‌کنیم
+                        $globalVariable = PatternVariable::where('code', $code)
+                            ->where('is_active', true)
+                            ->first();
+                        
+                        if ($globalVariable) {
+                            $value = $this->getVariableValue($globalVariable, $residentDataForVariables, null);
+                            $result[] = $value;
+                        } else {
+                            $result[] = '';
+                        }
+                    }
+                }
+                
+                Log::info('ExpiredToday - Pattern-specific variables extracted', [
+                    'pattern_id' => $patternId,
+                    'result_count' => count($result),
+                    'result' => $result,
+                ]);
+                
+                return $result;
+            }
+        }
+
+        // اگر pattern_id وجود نداشت یا الگو پیدا نشد، از روش قدیمی استفاده می‌کنیم
         $variables = PatternVariable::where('is_active', true)
             ->get()
             ->keyBy('code'); // کلید بر اساس کد (مثل {0}, {1})
@@ -944,13 +1028,13 @@ class ExpiredToday extends Component
         $usedIndices = array_unique(array_map('intval', $matches[1]));
         sort($usedIndices); // مرتب‌سازی بر اساس ترتیب در الگو
 
-        Log::debug('ExpiredToday - Extracting pattern variables', [
+        Log::debug('ExpiredToday - Extracting global variables', [
             'pattern_text' => $patternText,
             'used_indices' => $usedIndices,
             'resident_id' => $residentData['id'] ?? $residentData['resident_id'] ?? null,
         ]);
 
-        Log::info('ExpiredToday - Pattern variables from database', [
+        Log::info('ExpiredToday - Global variables from database', [
             'total_variables' => $variables->count(),
             'variable_codes' => $variables->keys()->toArray(),
             'used_indices' => $usedIndices,
@@ -964,37 +1048,53 @@ class ExpiredToday extends Component
         // حتی اگر در الگو {0}, {2}, {3} باشد، باید آرایه [value0, '', value2, value3] باشد
         for ($i = 0; $i <= $maxIndex; $i++) {
             $code = '{' . $i . '}';
-            $variable = $variables->get($code);
-
-            if ($variable) {
-                $value = $this->getVariableValue($variable, $residentDataForVariables, null);
+            
+            // منطق خاص برای کد {3} - تعداد روزهای دیرکرد
+            if ($code === '{3}') {
+                $daysPast = $this->getDaysPastDue($residentDataForVariables['contract_payment_date_jalali'] ?? null);
                 
-                // اطمینان از اینکه value یک رشته است
-                if (!is_string($value)) {
-                    $value = (string)$value;
+                if ($daysPast == 0) {
+                    $result[] = 'امروز';
+                } elseif ($daysPast == -1) {
+                    $result[] = 'دیروز';
+                } elseif ($daysPast <= -2) {
+                    $result[] = abs($daysPast) . ' روز';
+                } else {
+                    $result[] = $daysPast . ' روز';
                 }
-                
-                Log::info('ExpiredToday - Variable extracted successfully', [
-                    'code' => $code,
-                    'index' => $i,
-                    'table_field' => $variable->table_field,
-                    'variable_type' => $variable->variable_type,
-                    'value' => $value,
-                    'value_length' => strlen($value),
-                ]);
-                
-                $result[] = $value;
             } else {
-                // اگر متغیر در دیتابیس تعریف نشده یا در الگو استفاده نشده، مقدار خالی می‌گذاریم
-                // این برای متغیرهای جا افتاده (مثل {1} در الگوی {0}, {2}, {3}) ضروری است
-                Log::debug('ExpiredToday - Variable not found or not used in pattern', [
-                    'code' => $code,
-                    'index' => $i,
-                    'is_used_in_pattern' => in_array($i, $usedIndices),
-                    'pattern_text' => $patternText,
-                ]);
+                $variable = $variables->get($code);
+
+                if ($variable) {
+                    $value = $this->getVariableValue($variable, $residentDataForVariables, null);
                 
-                $result[] = ''; // مقدار خالی برای متغیرهای جا افتاده
+                    // اطمینان از اینکه value یک رشته است
+                    if (!is_string($value)) {
+                        $value = (string)$value;
+                    }
+                    
+                    Log::info('ExpiredToday - Variable extracted successfully', [
+                        'code' => $code,
+                        'index' => $i,
+                        'table_field' => $variable->table_field,
+                        'variable_type' => $variable->variable_type,
+                        'value' => $value,
+                        'value_length' => strlen($value),
+                    ]);
+                    
+                    $result[] = $value;
+                } else {
+                    // اگر متغیر در دیتابیس تعریف نشده یا در الگو استفاده نشده، مقدار خالی می‌گذاریم
+                    // این برای متغیرهای جا افتاده (مثل {1} در الگوی {0}, {2}, {3}) ضروری است
+                    Log::debug('ExpiredToday - Variable not found or not used in pattern', [
+                        'code' => $code,
+                        'index' => $i,
+                        'is_used_in_pattern' => in_array($i, $usedIndices),
+                        'pattern_text' => $patternText,
+                    ]);
+                    
+                    $result[] = ''; // مقدار خالی برای متغیرهای جا افتاده
+                }
             }
         }
 
@@ -1066,13 +1166,20 @@ class ExpiredToday extends Component
 
     protected function getVariableValue($variable, $residentData, $reportData)
     {
-        $field = $variable->table_field ?? '';
+        // اگر متغیر از نوع اختصاصی است و table_field در pivot دارد، از آن استفاده می‌کنیم
+        if (isset($variable->pivot_table_field)) {
+            $field = $variable->pivot_table_field;
+        } else {
+            $field = $variable->table_field ?? '';
+        }
+        
         $type = $variable->variable_type ?? 'user';
         
         Log::debug('ExpiredToday - Getting variable value', [
             'field' => $field,
             'type' => $type,
             'variable_id' => $variable->id ?? null,
+            'pivot_table_field' => $variable->pivot_table_field ?? null,
         ]);
 
         if ($type === 'user') {

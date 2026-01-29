@@ -633,24 +633,70 @@
                             @endif
                         </div>
 
-                        <!-- Notes - Material Design -->
+                        <!-- پیام الگو با مقداردهی کدها -->
                         <div style="margin-bottom: 24px;">
-                            <label for="notes" style="font-weight: 600; color: #1e293b; margin-bottom: 12px; display: block; font-size: 16px;">
-                                <i class="fas fa-sticky-note" style="margin-left: 8px; color: #f59e0b;"></i>
-                                توضیحات اضافی
+                            <label style="font-weight: 600; color: #1e293b; font-size: 16px;">
+                                <i class="fas fa-envelope me-2" style="color: #667eea;"></i>
+                                پیام الگویی
                             </label>
-                            <div style="position: relative;">
-                                <textarea
-                                    class="form-control"
-                                    id="notes"
-                                    rows="4"
-                                    wire:model="notes"
-                                    placeholder="توضیحات اختیاری..."
-                                    style="border-radius: 12px; border: 2px solid #e5e7eb; padding: 16px; font-size: 14px; transition: all 0.2s; resize: none;"
-                                    onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102,126,234,0.1)'"
-                                    onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
-                                ></textarea>
-                            </div>
+                            
+                            @if(isset($this->patternMessage))
+                                @if($this->patternMessage['success'])
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 12px;">
+                                        <!-- عنوان الگو -->
+                                        <div style="margin-bottom: 12px;">
+                                            <strong style="color: #374151;">عنوان الگو:</strong>
+                                            <span style="color: #667eea; font-weight: 500;">{{ $this->patternMessage['pattern_title'] }}</span>
+                                        </div>
+                                        
+                                        <!-- پیام اصلی -->
+                                        <div style="margin-bottom: 12px;">
+                                            <strong style="color: #374151;">پیام اصلی:</strong>
+                                            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-top: 8px; font-family: monospace; font-size: 0.9rem;">
+                                                {{ $this->patternMessage['original_message'] }}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- متغیرها -->
+                                        @if(!empty($this->patternMessage['variables']))
+                                            <div style="margin-bottom: 12px;">
+                                                <strong style="color: #374151;">متغیرها:</strong>
+                                                <div style="margin-top: 8px;">
+                                                    @foreach($this->patternMessage['variables'] as $variable)
+                                                        <div style="display: flex; justify-content: space-between; align-items-center; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                                                            <span style="color: #64748b; font-size: 0.9rem;">
+                                                                <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{{ $variable['code'] }}</code>
+                                                                → {{ $variable['table'] }}.{{ $variable['field'] }}
+                                                            </span>
+                                                            <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
+                                                                {{ $variable['value'] ?: 'خالی' }}
+                                                            </span>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                        
+                                        <!-- پیام نهایی -->
+                                        <div>
+                                            <strong style="color: #374151;">پیام نهایی (ارسالی):</strong>
+                                            <div style="background: #dcfce7; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-top: 8px; font-size: 1rem; color: #166534;">
+                                                {{ $this->patternMessage['final_message'] }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-top: 12px; color: #92400e;">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        {{ $this->patternMessage['message'] }}
+                                    </div>
+                                @endif
+                            @else
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 12px; text-align: center; color: #64748b;">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    برای مشاهده پیام الگو، ابتدا یک گزارش و اقامت‌گر انتخاب کنید
+                                </div>
+                            @endif
                         </div>
 
                         <!-- نمایش پاسخ دیتابیس -->

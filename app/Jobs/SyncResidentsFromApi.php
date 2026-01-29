@@ -148,6 +148,9 @@ class SyncResidentsFromApi implements ShouldQueue
                     // فیلد notes (JSON)
                     'notes' => $item['notes'] ?? null,
                     
+                    // فیلد delay از API
+                    'delay' => $item['delay'] ?? null,
+                    
                     'last_synced_at' => now(),
                 ];
                 

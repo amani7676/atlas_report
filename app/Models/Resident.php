@@ -75,6 +75,9 @@ class Resident extends Model
         // فیلد notes (JSON)
         'notes',
         
+        // فیلد delay از API
+        'delay',
+        
         'last_synced_at',
     ];
 

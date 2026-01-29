@@ -39,6 +39,7 @@ Route::get('/sms/pattern-group', \App\Livewire\Sms\PatternGroup::class)->name('s
 Route::get('/sms/pattern-test', \App\Livewire\Sms\PatternTest::class)->name('sms.pattern-test');
 Route::get('/sms/auto', \App\Livewire\Sms\Auto::class)->name('sms.auto');
 Route::get('/sms/violation-sms', \App\Livewire\Sms\ViolationSms::class)->name('sms.violation-sms');
+Route::get('/reports/violations', \App\Livewire\Reports\Violations::class)->name('reports.violations');
 Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
 Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
 Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');
@@ -54,6 +55,294 @@ Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.ind
 Route::get('/welcome-messages', \App\Livewire\WelcomeMessages\Index::class)->name('welcome-messages.index');
 Route::get('/welcome-messages/logs', [\App\Http\Controllers\WelcomeMessageController::class, 'logs'])->name('welcome-messages.logs');
 Route::post('/welcome-messages/process', [\App\Http\Controllers\WelcomeMessageController::class, 'process'])->name('welcome-messages.process');
+
+// Test endpoint
+Route::post('/test-sync', function () {
+    return response()->json(['success' => true, 'message' => 'Test endpoint works!']);
+});
+
+// Update API URL endpoint
+Route::get('/update-api-url', function () {
+    try {
+        $settings = \App\Models\Settings::getSettings();
+        $settings->api_url = 'http://127.0.0.1:8000/api/residents';
+        $settings->save();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'API URL updated to: ' . $settings->api_url
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ]);
+    }
+});
+
+// Simple sync endpoint - using settings API URL
+Route::post('/sync-data', function () {
+    try {
+        \Log::info('=== Starting sync using settings API ===');
+        
+        // 1. پاک کردن کل جدول
+        $deletedCount = \App\Models\Resident::count();
+        \App\Models\Resident::query()->delete();
+        \Illuminate\Support\Facades\DB::statement('ALTER TABLE residents AUTO_INCREMENT = 1');
+        \Log::info("Deleted {$deletedCount} residents from database");
+        
+        // 2. دریافت URL از تنظیمات
+        $settings = \App\Models\Settings::getSettings();
+        $apiUrl = $settings->api_url ?? null;
+        
+        if (!$apiUrl) {
+            throw new \Exception("API URL not set in settings. Please configure 'لینک API اقامت‌گران' in settings.");
+        }
+        
+        $primaryApiUrl = $apiUrl;
+        $fallbackApiUrl = 'http://127.0.0.1:8000/api/residents'; // fallback لوکال
+        
+        \Log::info("Primary API URL: {$primaryApiUrl}");
+        \Log::info("Fallback API URL: {$fallbackApiUrl}");
+        
+        // 3. تلاش برای دریافت داده‌ها از API اصلی، سپس از fallback
+        $apiUrl = $primaryApiUrl;
+        $response = null;
+        $httpCode = 0;
+        
+        // تلاش اول با API اصلی
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            \Log::info("Attempt {$attempt}: Trying API URL: {$apiUrl}");
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $apiUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            \Log::info("API Response - HTTP {$httpCode} from {$apiUrl}");
+            
+            if ($httpCode === 200) {
+                \Log::info("API request successful on attempt {$attempt}");
+                break;
+            } else {
+                \Log::warning("API request failed on attempt {$attempt}: HTTP {$httpCode}");
+                
+                // اگر تلاش اول ناموفق بود، از fallback استفاده کن
+                if ($attempt === 1) {
+                    $apiUrl = $fallbackApiUrl;
+                    \Log::info("Switching to fallback API: {$apiUrl}");
+                } else {
+                    // هر دو تلاش ناموفق بودند
+                    throw new \Exception("Both APIs failed. Primary: HTTP {$httpCode} from {$primaryApiUrl}, Fallback: HTTP {$httpCode} from {$fallbackApiUrl}");
+                }
+            }
+        }
+        
+        $residents = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \Exception("JSON decode error: " . json_last_error_msg());
+        }
+        
+        if (empty($residents) || !is_array($residents)) {
+            throw new \Exception("No data received from API");
+        }
+        
+        $residents = array_values($residents);
+        \Log::info("API returned " . count($residents) . " residents");
+        
+        // 4. درج داده‌های جدید
+        $createdCount = 0;
+        foreach ($residents as $item) {
+            if (!isset($item['resident_id'])) {
+                continue;
+            }
+            
+            \App\Models\Resident::create([
+                'resident_id' => $item['resident_id'],
+                'contract_id' => $item['contract_id'] ?? null,
+                'unit_id' => $item['unit_id'] ?? null,
+                'unit_name' => $item['unit_name'] ?? null,
+                'unit_code' => $item['unit_code'] ?? null,
+                'unit_desc' => $item['unit_desc'] ?? null,
+                'room_id' => $item['room_id'] ?? null,
+                'room_name' => $item['room_name'] ?? null,
+                'room_code' => $item['room_code'] ?? null,
+                'bed_id' => $item['bed_id'] ?? null,
+                'bed_name' => $item['bed_name'] ?? null,
+                'bed_code' => $item['bed_code'] ?? null,
+                'contract_payment_date' => $item['contract_payment_date'] ?? null,
+                'contract_payment_date_jalali' => $item['contract_payment_date_jalali'] ?? null,
+                'contract_state' => $item['contract_state'] ?? null,
+                'contract_start_date' => $item['contract_start_date'] ?? null,
+                'contract_start_date_jalali' => $item['contract_start_date_jalali'] ?? null,
+                'resident_full_name' => $item['resident_full_name'] ?? null,
+                'resident_phone' => $item['resident_phone'] ?? null,
+                'resident_age' => $item['resident_age'] ?? null,
+                'resident_job' => $item['resident_job'] ?? null,
+                'resident_referral_source' => $item['resident_referral_source'] ?? null,
+                'resident_form' => $item['resident_form'] ?? false,
+                'resident_document' => $item['resident_document'] ?? false,
+                'resident_rent' => $item['resident_rent'] ?? false,
+                'resident_trust' => $item['resident_trust'] ?? false,
+                'delay' => $item['delay'] ?? 0,
+            ]);
+            
+            $createdCount++;
+        }
+        
+        \Log::info("Created {$createdCount} new residents");
+        
+        // 5. ذخیره cache
+        \Illuminate\Support\Facades\Cache::put('residents_last_sync', [
+            'time' => now()->format('Y-m-d H:i:s'),
+            'synced_count' => $createdCount,
+            'created_count' => $createdCount,
+            'updated_count' => 0,
+            'deleted_count' => $deletedCount,
+            'message' => "دیتابیس از {$apiUrl} جایگزین شد. حذف شده: {$deletedCount}, ایجاد شده: {$createdCount}",
+        ], now()->addDays(7));
+        
+        $totalInDb = \App\Models\Resident::count();
+        
+        return response()->json([
+            'success' => true,
+            'message' => "همگام‌سازی موفق از {$apiUrl}: {$deletedCount} حذف، {$createdCount} ایجاد شد. مجموع: {$totalInDb} رکورد."
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('=== Sync failed ===', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا: ' . $e->getMessage()
+        ], 500);
+    }
+});
+
+// Sync endpoint with live API
+Route::post('/sync-data-live', function () {
+    try {
+        \Log::info('=== Starting sync with LIVE API ===');
+        
+        // 1. پاک کردن کل جدول
+        $deletedCount = \App\Models\Resident::count();
+        \App\Models\Resident::query()->delete();
+        \Illuminate\Support\Facades\DB::statement('ALTER TABLE residents AUTO_INCREMENT = 1');
+        \Log::info("Deleted {$deletedCount} residents from database");
+        
+        // 2. دریافت داده‌ها از API هاست
+        $apiUrl = 'http://atlasdorm.com/api/residents';
+        \Log::info("Fetching data from LIVE API: {$apiUrl}");
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode !== 200) {
+            throw new \Exception("LIVE API request failed: HTTP {$httpCode}");
+        }
+        
+        $residents = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \Exception("JSON decode error: " . json_last_error_msg());
+        }
+        
+        if (empty($residents) || !is_array($residents)) {
+            throw new \Exception("No data received from LIVE API");
+        }
+        
+        $residents = array_values($residents);
+        \Log::info("LIVE API returned " . count($residents) . " residents");
+        
+        // 3. درج داده‌های جدید
+        $createdCount = 0;
+        foreach ($residents as $item) {
+            if (!isset($item['resident_id'])) {
+                continue;
+            }
+            
+            \App\Models\Resident::create([
+                'resident_id' => $item['resident_id'],
+                'contract_id' => $item['contract_id'] ?? null,
+                'unit_id' => $item['unit_id'] ?? null,
+                'unit_name' => $item['unit_name'] ?? null,
+                'unit_code' => $item['unit_code'] ?? null,
+                'unit_desc' => $item['unit_desc'] ?? null,
+                'room_id' => $item['room_id'] ?? null,
+                'room_name' => $item['room_name'] ?? null,
+                'room_code' => $item['room_code'] ?? null,
+                'bed_id' => $item['bed_id'] ?? null,
+                'bed_name' => $item['bed_name'] ?? null,
+                'bed_code' => $item['bed_code'] ?? null,
+                'contract_payment_date' => $item['contract_payment_date'] ?? null,
+                'contract_payment_date_jalali' => $item['contract_payment_date_jalali'] ?? null,
+                'contract_state' => $item['contract_state'] ?? null,
+                'contract_start_date' => $item['contract_start_date'] ?? null,
+                'contract_start_date_jalali' => $item['contract_start_date_jalali'] ?? null,
+                'resident_full_name' => $item['resident_full_name'] ?? null,
+                'resident_phone' => $item['resident_phone'] ?? null,
+                'resident_age' => $item['resident_age'] ?? null,
+                'resident_job' => $item['resident_job'] ?? null,
+                'resident_referral_source' => $item['resident_referral_source'] ?? null,
+                'resident_form' => $item['resident_form'] ?? false,
+                'resident_document' => $item['resident_document'] ?? false,
+                'resident_rent' => $item['resident_rent'] ?? false,
+                'resident_trust' => $item['resident_trust'] ?? false,
+                'delay' => $item['delay'] ?? 0,
+            ]);
+            
+            $createdCount++;
+        }
+        
+        \Log::info("Created {$createdCount} new residents from LIVE API");
+        
+        // 4. ذخیره cache
+        \Illuminate\Support\Facades\Cache::put('residents_last_sync', [
+            'time' => now()->format('Y-m-d H:i:s'),
+            'synced_count' => $createdCount,
+            'created_count' => $createdCount,
+            'updated_count' => 0,
+            'deleted_count' => $deletedCount,
+            'message' => "دیتابیس از API هاست جایگزین شد. حذف شده: {$deletedCount}, ایجاد شده: {$createdCount}",
+        ], now()->addDays(7));
+        
+        $totalInDb = \App\Models\Resident::count();
+        
+        return response()->json([
+            'success' => true,
+            'message' => "همگام‌سازی موفق از API هاست: {$deletedCount} حذف، {$createdCount} ایجاد شد. مجموع: {$totalInDb} رکورد."
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('=== LIVE Sync failed ===', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در همگام‌سازی از API هاست: ' . $e->getMessage()
+        ], 500);
+    }
+});
 
 // API endpoint for syncing residents
 Route::post('/api/residents/sync', function () {

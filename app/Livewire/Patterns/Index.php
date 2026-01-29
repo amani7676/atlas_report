@@ -8,9 +8,11 @@ use App\Models\Blacklist;
 use App\Models\Report;
 use App\Models\Category;
 use App\Models\PatternVariable;
+use App\Models\PatternPatternVariable;
 use App\Services\MelipayamakService;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 
 class Index extends Component
 {
@@ -57,6 +59,15 @@ class Index extends Component
     public $selectedVariables = [];
     public $availableVariables = [];
     public $variableCounter = 0;
+    
+    // Pattern-specific variables
+    public $patternVariables = [];
+    public $showVariableModal = false;
+    public $variableForm = [
+        'pattern_variable_id' => null,
+        'variable_code' => '',
+        'sort_order' => 0,
+    ];
 
     protected $rules = [
         'title' => 'required|string|max:255',
@@ -66,6 +77,13 @@ class Index extends Component
         'status' => 'required|in:pending,approved,rejected',
         'rejection_reason' => 'nullable|string',
         'is_active' => 'boolean',
+        'variableForm.pattern_variable_id' => 'required|exists:pattern_variables,id',
+        'variableForm.variable_code' => 'required|string|regex:/^\{\d+\}$/',
+        'variableForm.sort_order' => 'integer|min:0',
+    ];
+    
+    protected $messages = [
+        'variableForm.variable_code.regex' => 'کد متغیر باید به فرمت {0}, {1}, {2} و ... باشد',
     ];
 
     public function mount()
@@ -77,6 +95,156 @@ class Index extends Component
         
         // بارگذاری متغیرهای موجود
         $this->loadAvailableVariables();
+    }
+    
+    public function loadPatternVariables($patternId = null)
+    {
+        if (!$patternId && $this->editingId) {
+            $patternId = $this->editingId;
+        }
+        
+        if (!$patternId) {
+            $this->patternVariables = [];
+            return;
+        }
+        
+        $this->patternVariables = DB::table('pattern_pattern_variables as ppv')
+            ->join('pattern_variables as pv', 'ppv.pattern_variable_id', '=', 'pv.id')
+            ->where('ppv.pattern_id', $patternId)
+            ->orderBy('ppv.sort_order')
+            ->select([
+                'ppv.id',
+                'ppv.pattern_variable_id',
+                'ppv.variable_code',
+                'ppv.sort_order',
+                'pv.title',
+                'pv.table_field',
+                'pv.table_name',
+                'pv.variable_type',
+                'pv.description'
+            ])
+            ->get()
+            ->toArray();
+    }
+    
+    public function openVariableModal()
+    {
+        if (!$this->editingId) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'ابتدا الگو را ذخیره کنید'
+            ]);
+            return;
+        }
+        
+        $this->resetVariableForm();
+        $this->showVariableModal = true;
+    }
+    
+    public function closeVariableModal()
+    {
+        $this->showVariableModal = false;
+        $this->resetVariableForm();
+    }
+    
+    public function resetVariableForm()
+    {
+        $this->variableForm = [
+            'pattern_variable_id' => null,
+            'variable_code' => '',
+            'sort_order' => 0,
+        ];
+        $this->resetValidation(['variableForm.*']);
+    }
+    
+    public function addVariableToPattern()
+    {
+        $this->validate([
+            'variableForm.pattern_variable_id' => 'required|exists:pattern_variables,id',
+            'variableForm.variable_code' => 'required|string|regex:/^\{\d+\}$/',
+            'variableForm.sort_order' => 'integer|min:0',
+        ]);
+        
+        try {
+            // بررسی تکراری نبودن کد متغیر برای این الگو
+            if (DB::table('pattern_pattern_variables')
+                ->where('pattern_id', $this->editingId)
+                ->where('variable_code', $this->variableForm['variable_code'])
+                ->exists()) {
+                $this->addError('variableForm.variable_code', 'این کد متغیر برای این الگو قبلاً استفاده شده است');
+                return;
+            }
+            
+            DB::table('pattern_pattern_variables')->insert([
+                'pattern_id' => $this->editingId,
+                'pattern_variable_id' => $this->variableForm['pattern_variable_id'],
+                'variable_code' => $this->variableForm['variable_code'],
+                'sort_order' => $this->variableForm['sort_order'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            $this->loadPatternVariables();
+            $this->closeVariableModal();
+            
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'موفقیت!',
+                'text' => 'متغیر با موفقیت به الگو اضافه شد.'
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در افزودن متغیر: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    public function removeVariableFromPattern($id)
+    {
+        try {
+            DB::table('pattern_pattern_variables')->where('id', $id)->delete();
+            $this->loadPatternVariables();
+            
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'موفقیت!',
+                'text' => 'متغیر با موفقیت از الگو حذف شد.'
+            ]);
+        } catch (\Exception $e) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در حذف متغیر: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    public function generateNextVariableCode()
+    {
+        if (!$this->editingId) {
+            return;
+        }
+        
+        // پیدا کردن آخرین کد متغیر برای این الگو
+        $lastVariable = DB::table('pattern_pattern_variables')
+            ->where('pattern_id', $this->editingId)
+            ->orderBy('sort_order', 'desc')
+            ->first();
+            
+        if ($lastVariable) {
+            // استخراج عدد از کد متغیر
+            preg_match('/\{(\d+)\}/', $lastVariable->variable_code, $matches);
+            $lastNumber = isset($matches[1]) ? (int)$matches[1] : -1;
+            $nextNumber = $lastNumber + 1;
+        } else {
+            $nextNumber = 0;
+        }
+        
+        $this->variableForm['variable_code'] = '{' . $nextNumber . '}';
     }
     
     public function loadAvailableVariables()
@@ -250,6 +418,9 @@ class Index extends Component
         $this->isEditing = true;
         $this->showModal = true;
         
+        // بارگذاری متغیرهای اختصاصی این الگو
+        $this->loadPatternVariables($id);
+        
         // استخراج متغیرها از متن
         $this->extractVariablesFromText();
     }
@@ -272,6 +443,7 @@ class Index extends Component
         $this->editingId = null;
         $this->selectedVariables = [];
         $this->variableCounter = 0;
+        $this->patternVariables = []; // پاک کردن متغیرهای اختصاصی
         $this->resetValidation();
     }
     
@@ -285,34 +457,59 @@ class Index extends Component
             $maxIndex = max($indices);
             $this->variableCounter = $maxIndex + 1;
             
-            // تلاش برای پیدا کردن متغیرها از دیتابیس
+            // تلاش برای پیدا کردن متغیرهای اختصاصی این الگو
             $this->selectedVariables = [];
             foreach ($codes as $code) {
-                $variable = PatternVariable::where('code', $code)->first();
-                if ($variable) {
+                $patternVariable = null;
+                
+                // ابتدا در متغیرهای اختصاصی این الگو جستجو می‌کنیم
+                foreach ($this->patternVariables as $pv) {
+                    if ($pv->variable_code === $code) {
+                        $patternVariable = $pv;
+                        break;
+                    }
+                }
+                
+                if ($patternVariable) {
                     preg_match('/\{(\d+)\}/', $code, $codeMatches);
                     $index = isset($codeMatches[1]) ? (int)$codeMatches[1] : 0;
                     
                     $this->selectedVariables[] = [
                         'index' => $index,
-                        'key' => $variable->table_field,
-                        'label' => $variable->title,
-                        'type' => $variable->variable_type,
-                        'code' => $variable->code,
-                        'table_name' => $variable->table_name,
+                        'key' => $patternVariable->table_field,
+                        'label' => $patternVariable->title,
+                        'type' => $patternVariable->variable_type,
+                        'code' => $patternVariable->variable_code,
+                        'table_name' => $patternVariable->table_name,
                     ];
                 } else {
-                    // اگر متغیر در دیتابیس پیدا نشد
-                    preg_match('/\{(\d+)\}/', $code, $codeMatches);
-                    $index = isset($codeMatches[1]) ? (int)$codeMatches[1] : 0;
-                    
-                    $this->selectedVariables[] = [
-                        'index' => $index,
-                        'key' => 'unknown',
-                        'label' => 'متغیر ' . $code,
-                        'type' => 'unknown',
-                        'code' => $code,
-                    ];
+                    // اگر در متغیرهای اختصاصی پیدا نشد، در متغیرهای عمومی جستجو می‌کنیم
+                    $variable = PatternVariable::where('code', $code)->first();
+                    if ($variable) {
+                        preg_match('/\{(\d+)\}/', $code, $codeMatches);
+                        $index = isset($codeMatches[1]) ? (int)$codeMatches[1] : 0;
+                        
+                        $this->selectedVariables[] = [
+                            'index' => $index,
+                            'key' => $variable->table_field,
+                            'label' => $variable->title,
+                            'type' => $variable->variable_type,
+                            'code' => $variable->code,
+                            'table_name' => $variable->table_name,
+                        ];
+                    } else {
+                        // اگر متغیر در دیتابیس پیدا نشد
+                        preg_match('/\{(\d+)\}/', $code, $codeMatches);
+                        $index = isset($codeMatches[1]) ? (int)$codeMatches[1] : 0;
+                        
+                        $this->selectedVariables[] = [
+                            'index' => $index,
+                            'key' => 'unknown',
+                            'label' => 'متغیر ' . $code,
+                            'type' => 'unknown',
+                            'code' => $code,
+                        ];
+                    }
                 }
             }
         }

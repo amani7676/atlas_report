@@ -5,6 +5,7 @@ namespace App\Livewire\Variables;
 use Livewire\Component;
 use App\Models\PatternVariable;
 use App\Models\TableName;
+use App\Models\Pattern;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Http;
@@ -28,30 +29,49 @@ class Index extends Component
     // Form fields
     public $code = '';
     public $title = '';
-    public $table_field = '';
+    public $pattern_code = ''; // تغییر از table_field به pattern_code
     public $table_name = '';
     public $variable_type = 'user';
     public $description = '';
     public $is_active = true;
     public $sort_order = 0;
+    public $pattern_ids = [];
+    public $variable_code = '';
+    
+    // Pattern fields for new modal
+    public $selectedPatterns = [];
+    public $patternTexts = [];
+    public $patternVariables = [];
+    public $variableAssignments = []; // [pattern_id][variable_code] = table_field
     
     // Table fields
     public $availableTableFields = [];
     public $selectedTableField = '';
+    
+    // Pattern fields
+    public $availablePatterns = [];
 
     protected $rules = [
-        'code' => 'required|string|max:50|regex:/^\{\d+\}$/',
         'title' => 'required|string|max:255',
-        'table_field' => 'required|string|max:255',
+        'pattern_code' => 'nullable|string|max:255',
         'table_name' => 'nullable|string|max:255',
         'variable_type' => 'required|in:user,report,general',
         'description' => 'nullable|string',
         'is_active' => 'boolean',
         'sort_order' => 'integer|min:0',
+        'selectedPatterns' => 'required|array|min:1',
+        'selectedPatterns.*' => 'exists:patterns,id',
+        'variableAssignments' => 'required|array',
+        'variableAssignments.*.*' => 'required|string',
     ];
 
     protected $messages = [
-        'code.regex' => 'کد باید به فرمت {0}, {1}, {2} و ... باشد',
+        'title.required' => 'عنوان متغیر الزامی است',
+        'selectedPatterns.required' => 'انتخاب حداقل یک الگو الزامی است',
+        'selectedPatterns.min' => 'انتخاب حداقل یک الگو الزامی است',
+        'selectedPatterns.*.exists' => 'الگوی انتخاب شده معتبر نیست',
+        'variableAssignments.required' => 'تخصیص متغیرها به الگوها الزامی است',
+        'variableAssignments.*.*.required' => 'برای هر کد متغیر باید یک فیلد انتخاب کنید',
     ];
 
     public function mount()
@@ -60,13 +80,16 @@ class Index extends Component
         if (request()->is('variables/create*')) {
             $this->openCreateModal();
         }
+        
+        // بارگذاری الگوهای موجود
+        $this->loadAvailablePatterns();
     }
 
     public function openCreateModal()
     {
         $this->resetForm();
         $this->isEditing = false;
-        $this->loadTableFields(); // بارگذاری فیلدهای جدول
+        $this->loadTableFields();
         $this->showModal = true;
     }
 
@@ -74,17 +97,35 @@ class Index extends Component
     {
         $variable = PatternVariable::findOrFail($id);
         $this->editingId = $id;
-        $this->code = $variable->code;
         $this->title = $variable->title;
-        $this->table_field = $variable->table_field;
+        $this->pattern_code = $variable->pattern_code; // تغییر از table_field به pattern_code
         $this->table_name = $variable->table_name ?? '';
         $this->variable_type = $variable->variable_type;
         $this->description = $variable->description ?? '';
         $this->is_active = $variable->is_active;
         $this->sort_order = $variable->sort_order;
         $this->isEditing = true;
-        $this->loadTableFields(); // بارگذاری فیلدهای جدول
-        $this->selectedTableField = $variable->table_field;
+        $this->loadTableFields();
+        $this->selectedTableField = $variable->pattern_code ?? '';
+        
+        // بارگذاری اتصالات به الگوها
+        $patternConnections = DB::table('pattern_pattern_variables')
+            ->where('pattern_variable_id', $id)
+            ->get();
+            
+        $this->selectedPatterns = $patternConnections->pluck('pattern_id')->toArray();
+        
+        // بارگذاری داده‌های الگوها
+        $this->loadPatternData();
+        
+        // بارگذاری تخصیص‌های موجود
+        foreach ($patternConnections as $connection) {
+            if (isset($this->variableAssignments[$connection->pattern_id])) {
+                // استفاده از فیلد table_field از جدول اتصال که فیلد مربوط به کد متغیر را ذخیره می‌کند
+                $this->variableAssignments[$connection->pattern_id][$connection->variable_code] = $connection->table_field;
+            }
+        }
+        
         $this->showModal = true;
     }
 
@@ -96,18 +137,86 @@ class Index extends Component
 
     public function resetForm()
     {
-        $this->code = '';
         $this->title = '';
-        $this->table_field = '';
+        $this->pattern_code = ''; // تغییر از table_field به pattern_code
         $this->table_name = '';
         $this->variable_type = 'user';
         $this->description = '';
         $this->is_active = true;
         $this->sort_order = 0;
+        $this->selectedPatterns = [];
+        $this->patternTexts = [];
+        $this->patternVariables = [];
+        $this->variableAssignments = [];
         $this->editingId = null;
         $this->availableTableFields = [];
         $this->selectedTableField = '';
         $this->resetValidation();
+    }
+    
+    public function loadAvailablePatterns()
+    {
+        $this->availablePatterns = Pattern::where('is_active', true)
+            ->where('status', 'approved') // فقط الگوهای تایید شده
+            ->orderBy('title')
+            ->get()
+            ->mapWithKeys(function ($pattern) {
+                $label = $pattern->title;
+                if ($pattern->pattern_code) {
+                    $label .= ' (' . $pattern->pattern_code . ')';
+                }
+                return [$pattern->id => $label];
+            })
+            ->toArray();
+    }
+    
+    public function updatedSelectedPatterns()
+    {
+        $this->loadPatternData();
+        
+        // اگر فقط یک الگو انتخاب شده، عنوان متغیر و کد الگو را با نام و کد الگو یکی کن
+        if (count($this->selectedPatterns) === 1) {
+            $patternId = $this->selectedPatterns[0];
+            $pattern = Pattern::find($patternId);
+            if ($pattern) {
+                if (empty($this->title)) {
+                    $this->title = $pattern->title;
+                }
+                if (empty($this->pattern_code)) {
+                    $this->pattern_code = $pattern->pattern_code;
+                }
+            }
+        }
+    }
+    
+    public function loadPatternData()
+    {
+        $this->patternTexts = [];
+        $this->patternVariables = [];
+        $this->variableAssignments = [];
+        
+        foreach ($this->selectedPatterns as $patternId) {
+            $pattern = Pattern::find($patternId);
+            if ($pattern) {
+                $this->patternTexts[$patternId] = $pattern->text;
+                
+                // استخراج متغیرها از متن الگو
+                preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+                $variables = [];
+                if (!empty($matches[0])) {
+                    foreach ($matches[0] as $code) {
+                        $variables[] = $code;
+                    }
+                }
+                $this->patternVariables[$patternId] = $variables;
+                
+                // مقداردهی اولیه variableAssignments
+                $this->variableAssignments[$patternId] = [];
+                foreach ($variables as $code) {
+                    $this->variableAssignments[$patternId][$code] = '';
+                }
+            }
+        }
     }
     
     public function updatedVariableType()
@@ -133,7 +242,7 @@ class Index extends Component
             return;
         }
         
-        // برای هر جدول ثبت شده، فیلدهای آن را می‌خوانیم
+        // برای هر جدول ثبت شده، فیلدهای آن را می‌خوانیم و جداگانه نمایش می‌دهیم
         foreach ($registeredTables as $tableName) {
             $tableNameStr = $tableName->table_name;
             $tableDisplayName = $tableName->name;
@@ -141,38 +250,23 @@ class Index extends Component
             if (Schema::hasTable($tableNameStr)) {
                 try {
                     $columns = Schema::getColumnListing($tableNameStr);
+                    $tableFields = [];
+                    
                     foreach ($columns as $column) {
                         // حذف فیلدهای سیستمی
                         if (!in_array($column, ['id', 'created_at', 'updated_at'])) {
-                            // برای فیلدهای مستقیم جدول
-                            $this->availableTableFields[] = [
+                            $tableFields[] = [
                                 'name' => $column,
-                                'label' => $tableDisplayName . ' - ' . $this->getFieldLabel($column),
+                                'label' => $this->getFieldLabel($column),
                                 'table_name' => $tableNameStr,
                                 'table_display_name' => $tableDisplayName,
                             ];
-                            
-                            // اگر جدول دارای رابطه با جدول دیگر است (مثلاً category_id)، فیلدهای آن را هم اضافه می‌کنیم
-                            // این منطق برای جدول‌های خاص مثل reports که با categories رابطه دارد
-                            if ($tableNameStr === 'reports' && $column === 'category_id' && Schema::hasTable('categories')) {
-                                try {
-                                    $categoryColumns = Schema::getColumnListing('categories');
-                                    foreach ($categoryColumns as $catColumn) {
-                                        if (!in_array($catColumn, ['id', 'created_at', 'updated_at'])) {
-                                            $this->availableTableFields[] = [
-                                                'name' => 'category.' . $catColumn,
-                                                'label' => $tableDisplayName . ' - دسته‌بندی - ' . $this->getFieldLabel($catColumn),
-                                                'table_name' => 'categories',
-                                                'table_display_name' => 'دسته‌بندی‌ها',
-                                            ];
-                                        }
-                                    }
-                                } catch (\Exception $e) {
-                                    // در صورت خطا، ادامه می‌دهیم
-                                }
-                            }
                         }
                     }
+                    
+                    // اضافه کردن فیلدهای این جدول به لیست اصلی
+                    $this->availableTableFields = array_merge($this->availableTableFields, $tableFields);
+                    
                 } catch (\Exception $e) {
                     \Log::error('Error loading table fields', [
                         'table_name' => $tableNameStr,
@@ -374,20 +468,19 @@ class Index extends Component
         }
     }
 
-    public function generateNextCode()
+    public function getPatternCode()
     {
-        // پیدا کردن آخرین کد استفاده شده
-        $lastVariable = PatternVariable::orderBy('sort_order', 'desc')->first();
-        if ($lastVariable) {
-            // استخراج عدد از کد
-            preg_match('/\{(\d+)\}/', $lastVariable->code, $matches);
-            $lastNumber = isset($matches[1]) ? (int)$matches[1] : -1;
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 0;
+        // اگر فقط یک الگو انتخاب شده، کد آن را برمی‌گردان
+        if (count($this->selectedPatterns) === 1) {
+            $patternId = $this->selectedPatterns[0];
+            $pattern = Pattern::find($patternId);
+            if ($pattern) {
+                return $pattern->pattern_code;
+            }
         }
         
-        $this->code = '{' . $nextNumber . '}';
+        // در غیر این صورت، خالی برمی‌گردان
+        return '';
     }
 
     public function createVariable()
@@ -395,22 +488,55 @@ class Index extends Component
         $this->validate();
 
         try {
-            // بررسی تکراری نبودن کد
-            if (PatternVariable::where('code', $this->code)->exists()) {
-                $this->addError('code', 'این کد قبلاً استفاده شده است');
-                return;
-            }
-
-            PatternVariable::create([
-                'code' => $this->code,
+            DB::beginTransaction();
+            
+            // ایجاد متغیر اصلی
+            $variable = PatternVariable::create([
+                'code' => 'auto_generated', // کد خودکار، چون ما از کدهای اختصاصی استفاده می‌کنیم
                 'title' => $this->title,
-                'table_field' => $this->table_field,
+                'pattern_code' => $this->getPatternCode(), // ذخیره کد الگوی اصلی
                 'table_name' => $this->table_name ?: null,
                 'variable_type' => $this->variable_type,
                 'description' => $this->description ?: null,
                 'is_active' => $this->is_active,
                 'sort_order' => $this->sort_order,
             ]);
+
+            // ایجاد اتصالات به الگوها با متغیرهای اختصاصی
+            foreach ($this->selectedPatterns as $patternId) {
+                if (isset($this->variableAssignments[$patternId])) {
+                    foreach ($this->variableAssignments[$patternId] as $variableCode => $tableField) {
+                        if (!empty($tableField)) {
+                            // بررسی تکراری نبودن کد متغیر برای این الگو
+                            if (DB::table('pattern_pattern_variables')
+                                ->where('pattern_id', $patternId)
+                                ->where('variable_code', $variableCode)
+                                ->exists()) {
+                                $this->addError('variableAssignments.' . $patternId . '.' . $variableCode, "کد متغیر {$variableCode} برای این الگو قبلاً استفاده شده است");
+                                DB::rollBack();
+                                return;
+                            }
+                            
+                            // پیدا کردن آخرین sort_order برای این الگو
+                            $lastSortOrder = DB::table('pattern_pattern_variables')
+                                ->where('pattern_id', $patternId)
+                                ->max('sort_order') ?? 0;
+                            
+                            DB::table('pattern_pattern_variables')->insert([
+                                'pattern_id' => $patternId,
+                                'pattern_variable_id' => $variable->id,
+                                'variable_code' => $variableCode,
+                                'table_field' => $tableField, // ذخیره فیلد جدول در کد متغیر
+                                'sort_order' => $lastSortOrder + 1,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            DB::commit();
 
             $this->dispatch('showAlert', [
                 'type' => 'success',
@@ -420,6 +546,7 @@ class Index extends Component
 
             $this->closeModal();
         } catch (\Exception $e) {
+            DB::rollBack();
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'title' => 'خطا!',
@@ -433,24 +560,62 @@ class Index extends Component
         $this->validate();
 
         try {
+            DB::beginTransaction();
+            
             $variable = PatternVariable::findOrFail($this->editingId);
             
-            // بررسی تکراری نبودن کد (به جز خودش)
-            if (PatternVariable::where('code', $this->code)->where('id', '!=', $this->editingId)->exists()) {
-                $this->addError('code', 'این کد قبلاً استفاده شده است');
-                return;
-            }
-
+            // به‌روزرسانی متغیر اصلی
             $variable->update([
-                'code' => $this->code,
                 'title' => $this->title,
-                'table_field' => $this->table_field,
+                'pattern_code' => $this->getPatternCode(), // ذخیره کد الگوی اصلی
                 'table_name' => $this->table_name ?: null,
                 'variable_type' => $this->variable_type,
                 'description' => $this->description ?: null,
                 'is_active' => $this->is_active,
                 'sort_order' => $this->sort_order,
             ]);
+
+            // حذف اتصالات قبلی به الگوها
+            DB::table('pattern_pattern_variables')
+                ->where('pattern_variable_id', $this->editingId)
+                ->delete();
+
+            // ایجاد اتصالات جدید به الگوها با متغیرهای اختصاصی
+            foreach ($this->selectedPatterns as $patternId) {
+                if (isset($this->variableAssignments[$patternId])) {
+                    foreach ($this->variableAssignments[$patternId] as $variableCode => $tableField) {
+                        if (!empty($tableField)) {
+                            // بررسی تکراری نبودن کد متغیر برای این الگو
+                            if (DB::table('pattern_pattern_variables')
+                                ->where('pattern_id', $patternId)
+                                ->where('variable_code', $variableCode)
+                                ->where('pattern_variable_id', '!=', $this->editingId)
+                                ->exists()) {
+                                $this->addError('variableAssignments.' . $patternId . '.' . $variableCode, "کد متغیر {$variableCode} برای این الگو قبلاً استفاده شده است");
+                                DB::rollBack();
+                                return;
+                            }
+                            
+                            // پیدا کردن آخرین sort_order برای این الگو
+                            $lastSortOrder = DB::table('pattern_pattern_variables')
+                                ->where('pattern_id', $patternId)
+                                ->max('sort_order') ?? 0;
+                            
+                            DB::table('pattern_pattern_variables')->insert([
+                                'pattern_id' => $patternId,
+                                'pattern_variable_id' => $this->editingId,
+                                'variable_code' => $variableCode,
+                                'table_field' => $tableField, // ذخیره فیلد جدول در کد متغیر
+                                'sort_order' => $lastSortOrder + 1,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            DB::commit();
 
             $this->dispatch('showAlert', [
                 'type' => 'success',
@@ -460,6 +625,7 @@ class Index extends Component
 
             $this->closeModal();
         } catch (\Exception $e) {
+            DB::rollBack();
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'title' => 'خطا!',
@@ -471,8 +637,18 @@ class Index extends Component
     public function deleteVariable($id)
     {
         try {
+            DB::beginTransaction();
+            
+            // حذف اتصالات به الگوها
+            DB::table('pattern_pattern_variables')
+                ->where('pattern_variable_id', $id)
+                ->delete();
+            
+            // حذف متغیر اصلی
             $variable = PatternVariable::findOrFail($id);
             $variable->delete();
+
+            DB::commit();
 
             $this->dispatch('showAlert', [
                 'type' => 'success',
@@ -480,6 +656,7 @@ class Index extends Component
                 'text' => 'متغیر با موفقیت حذف شد.'
             ]);
         } catch (\Exception $e) {
+            DB::rollBack();
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'title' => 'خطا!',

@@ -9,7 +9,7 @@ class PatternVariable extends Model
     protected $fillable = [
         'code',
         'title',
-        'table_field',
+        'pattern_code', // تغییر از table_field به pattern_code
         'table_name',
         'variable_type',
         'description',
@@ -20,4 +20,11 @@ class PatternVariable extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+    
+    public function patterns()
+    {
+        return $this->belongsToMany(Pattern::class, 'pattern_pattern_variables')
+            ->withPivot('variable_code', 'table_field', 'sort_order')
+            ->withTimestamps();
+    }
 }

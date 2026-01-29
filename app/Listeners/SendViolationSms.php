@@ -128,6 +128,9 @@ class SendViolationSms
                     'report_id' => $report->id,
                     'report_title' => $report->title,
                     'resident_report_id' => $residentReport->id,
+                    'pattern_exists' => $pattern ? 'yes' : 'no',
+                    'pattern_code_exists' => ($pattern && $pattern->pattern_code) ? 'yes' : 'no',
+                    'pattern_code' => $pattern->pattern_code ?? 'NULL',
                     'active_patterns_count' => $report->activePatterns()
                         ->where('patterns.is_active', true)
                         ->whereNotNull('patterns.pattern_code')
@@ -222,6 +225,15 @@ class SendViolationSms
                 ->whereIn('status', ['sent', 'pending']) // بررسی هم sent و هم pending
                 ->first();
             
+            Log::info('Checking existing SMS', [
+                'report_id' => $report->id,
+                'pattern_id' => $pattern->id,
+                'resident_id' => $residentReport->resident_id,
+                'existing_sms_found' => $existingSms ? 'yes' : 'no',
+                'existing_sms_id' => $existingSms->id ?? null,
+                'existing_sms_status' => $existingSms->status ?? null,
+            ]);
+            
             if ($existingSms) {
                 Log::info('SendViolationSms listener skipped - SMS already exists for this report and pattern', [
                     'resident_report_id' => $residentReport->id,
@@ -236,6 +248,12 @@ class SendViolationSms
             $lockKey = 'sms_send_' . $residentReport->id . '_' . $pattern->id;
             $lock = \Illuminate\Support\Facades\Cache::lock($lockKey, 30); // 30 ثانیه
             
+            Log::info('Attempting to acquire lock', [
+                'lock_key' => $lockKey,
+                'resident_report_id' => $residentReport->id,
+                'pattern_id' => $pattern->id,
+            ]);
+            
             if (!$lock->get()) {
                 Log::warning('SendViolationSms listener skipped - Lock acquired by another process', [
                     'resident_report_id' => $residentReport->id,
@@ -244,6 +262,12 @@ class SendViolationSms
                 ]);
                 return;
             }
+            
+            Log::info('Lock acquired successfully', [
+                'lock_key' => $lockKey,
+                'resident_report_id' => $residentReport->id,
+                'pattern_id' => $pattern->id,
+            ]);
             
             try {
                 // بررسی دوباره بعد از گرفتن lock (double-check)
@@ -394,34 +418,80 @@ class SendViolationSms
             'type' => $report->type ?? 'violation',
         ];
 
-        // بارگذاری متغیرها از دیتابیس
-        $variables = PatternVariable::where('is_active', true)
-            ->get()
-            ->keyBy('code'); // کلید بر اساس کد (مثل {0}, {1})
-
+        // بر اساس سیستم جدید:
+        // 1. بریم جدول pattern_variables ببین با کدام کد الگویی یکی هست
+        // 2. از اون طریق رو جدول pattern_pattern_variables کد ها رو پیدا کن
+        // 3. ببین چه فیلد برای اون کد ذخیره شده
+        // 4. اون از جدولی که در جدول pattern_variables در فیلد table_name گذاشتیم پیدا کن و جایگذاری کن
+        
+        $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
+            ->where('is_active', true)
+            ->first();
+        
+        Log::info('SendViolationSms - Pattern variable found', [
+            'pattern_id' => $pattern->id,
+            'pattern_code' => $pattern->pattern_code,
+            'pattern_variable_id' => $patternVariable->id ?? null,
+            'table_name' => $patternVariable->table_name ?? null,
+        ]);
+        
+        if (!$patternVariable) {
+            Log::error('SendViolationSms - No pattern variable found', [
+                'pattern_code' => $pattern->pattern_code,
+            ]);
+            return [];
+        }
+        
         $result = [];
         $usedIndices = array_unique(array_map('intval', $matches[1]));
-        sort($usedIndices); // مرتب‌سازی بر اساس ترتیب در الگو
+        sort($usedIndices);
 
         Log::debug('SendViolationSms - Extracting pattern variables', [
             'pattern_text' => $pattern->text,
             'used_indices' => $usedIndices,
             'resident_id' => $resident->id ?? $resident->resident_id ?? null,
             'report_id' => $report->id ?? null,
+            'pattern_id' => $pattern->id,
         ]);
 
-        Log::info('SendViolationSms - Pattern variables from database', [
-            'total_variables' => $variables->count(),
-            'variable_codes' => $variables->keys()->toArray(),
-            'used_indices' => $usedIndices,
-        ]);
-
+        // برای هر کد در پیام:
         foreach ($usedIndices as $index) {
             $code = '{' . $index . '}';
-            $variable = $variables->get($code);
-
-            if ($variable) {
-                $value = $this->getVariableValue($variable, $residentData, $reportData);
+            
+            Log::debug('SendViolationSms - Processing variable', [
+                'code' => $code,
+                'index' => $index,
+                'pattern_variable_id' => $patternVariable->id,
+            ]);
+            
+            // 2. از طریق متغیر بریم جدول pattern_pattern_variables کد رو پیدا کن
+            $pivotData = DB::table('pattern_pattern_variables')
+                ->where('pattern_id', $pattern->id)
+                ->where('variable_code', $code)
+                ->first();
+            
+            if ($pivotData && $pivotData->table_field) {
+                // 3. فیلد مربوط به این کد رو پیدا کردیم
+                $tableField = $pivotData->table_field;
+                $tableName = $patternVariable->table_name; // 4. جدول اصلی از pattern_variables
+                
+                Log::debug('SendViolationSms - Found pivot data', [
+                    'code' => $code,
+                    'table_field' => $tableField,
+                    'table_name' => $tableName,
+                    'pivot_id' => $pivotData->id,
+                ]);
+                
+                // 4. از جدول مشخص شده مقدار رو پیدا کن و جایگذاری کن
+                $value = $this->getVariableValueFromTable($tableName, $tableField, $resident, $report);
+                
+                Log::debug('SendViolationSms - Variable value extracted', [
+                    'code' => $code,
+                    'table_name' => $tableName,
+                    'table_field' => $tableField,
+                    'value' => $value,
+                    'value_length' => strlen($value),
+                ]);
                 
                 // اطمینان از اینکه value یک رشته است
                 if (!is_string($value)) {
@@ -433,8 +503,8 @@ class SendViolationSms
                     Log::warning('SendViolationSms - Variable value is empty', [
                         'code' => $code,
                         'index' => $index,
-                        'table_field' => $variable->table_field,
-                        'variable_type' => $variable->variable_type,
+                        'table_name' => $tableName,
+                        'table_field' => $tableField,
                     ]);
                     $value = ''; // مقدار خالی - API باید آن را قبول کند
                 }
@@ -442,21 +512,21 @@ class SendViolationSms
                 Log::info('SendViolationSms - Variable extracted successfully', [
                     'code' => $code,
                     'index' => $index,
-                    'table_field' => $variable->table_field,
-                    'variable_type' => $variable->variable_type,
+                    'table_name' => $tableName,
+                    'table_field' => $tableField,
                     'value' => $value,
                     'value_length' => strlen($value),
                 ]);
                 $result[] = $value;
             } else {
-                // اگر متغیر در دیتابیس پیدا نشد، مقدار خالی
-                Log::error('SendViolationSms - Variable not found in database', [
+                // اگر کد در جدول pivot پیدا نشد
+                Log::error('SendViolationSms - Variable code not found in pivot table', [
                     'code' => $code,
                     'index' => $index,
-                    'pattern_text' => $pattern->text,
-                    'available_variables' => $variables->keys()->toArray(),
+                    'pattern_id' => $pattern->id,
+                    'pattern_variable_id' => $patternVariable->id,
                 ]);
-                $result[] = ''; // مقدار خالی برای متغیرهای پیدا نشده
+                $result[] = ''; // مقدار خالی برای کدهای پیدا نشده
             }
         }
 
@@ -557,11 +627,177 @@ class SendViolationSms
     }
 
     /**
+     * استخراج مقدار متغیر از جدول مشخص شده
+     * بر اساس سیستم جدید: از جدولی که در pattern_variables.table_name مشخص شده
+     */
+    private function getVariableValueFromTable($tableName, $tableField, $resident, $report)
+    {
+        if (empty($tableName) || empty($tableField)) {
+            return '';
+        }
+
+        Log::debug('SendViolationSms - Getting value from table', [
+            'table_name' => $tableName,
+            'table_field' => $tableField,
+            'resident_id' => $resident->id ?? $resident->resident_id ?? null,
+        ]);
+
+        switch ($tableName) {
+            case 'residents':
+                return $this->getResidentFieldValue($tableField, $resident);
+            case 'reports':
+                return $this->getReportFieldValue($tableField, $report);
+            case 'units':
+                return $this->getUnitFieldValue($tableField, $resident);
+            case 'rooms':
+                return $this->getRoomFieldValue($tableField, $resident);
+            case 'beds':
+                return $this->getBedFieldValue($tableField, $resident);
+            default:
+                Log::warning('SendViolationSms - Unknown table name', [
+                    'table_name' => $tableName,
+                    'table_field' => $tableField,
+                ]);
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول residents
+     */
+    private function getResidentFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'resident_full_name':
+            case 'full_name':
+            case 'name':
+                return $resident->resident_full_name ?? $resident->full_name ?? '';
+            case 'resident_phone':
+            case 'phone':
+                return $resident->resident_phone ?? $resident->phone ?? '';
+            case 'contract_payment_date_jalali':
+            case 'payment_date_jalali':
+                return $resident->contract_payment_date_jalali ?? $resident->payment_date_jalali ?? '';
+            case 'room_name':
+                return $resident->room_name ?? '';
+            case 'bed_name':
+                return $resident->bed_name ?? '';
+            case 'unit_name':
+                return $resident->unit_name ?? '';
+            default:
+                return $resident->$field ?? '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول reports
+     */
+    private function getReportFieldValue($field, $report)
+    {
+        switch ($field) {
+            case 'title':
+                return $report->title ?? '';
+            case 'description':
+                return $report->description ?? '';
+            case 'category_name':
+                return $report->category->name ?? '';
+            case 'negative_score':
+                return (string)($report->negative_score ?? '');
+            case 'type':
+                return $report->type ?? '';
+            default:
+                return $report->$field ?? '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول units
+     */
+    private function getUnitFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->unit_name ?? '';
+            case 'id':
+                return (string)($resident->unit_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول rooms
+     */
+    private function getRoomFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->room_name ?? '';
+            case 'id':
+                return (string)($resident->room_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * دریافت مقدار از جدول beds
+     */
+    private function getBedFieldValue($field, $resident)
+    {
+        switch ($field) {
+            case 'name':
+                return $resident->bed_name ?? '';
+            case 'id':
+                return (string)($resident->bed_id ?? '');
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * استخراج مقدار متغیر بر اساس نام فیلد
+     */
+    private function getVariableValueByField($tableField, $residentData, $reportData)
+    {
+        if (empty($tableField)) {
+            return '';
+        }
+
+        // اگر فیلد با پیشوندهای خاص شروع می‌شود
+        if (strpos($tableField, 'resident_') === 0) {
+            $key = substr($tableField, 9); // حذف پیشوند resident_
+            return $residentData['resident'][$key] ?? '';
+        } elseif (strpos($tableField, 'unit_') === 0) {
+            $key = substr($tableField, 5); // حذف پیشوند unit_
+            return $residentData['unit'][$key] ?? '';
+        } elseif (strpos($tableField, 'room_') === 0) {
+            $key = substr($tableField, 5); // حذف پیشوند room_
+            return $residentData['room'][$key] ?? '';
+        } elseif (strpos($tableField, 'bed_') === 0) {
+            $key = substr($tableField, 4); // حذف پیشوند bed_
+            return $residentData['bed'][$key] ?? '';
+        } elseif (strpos($tableField, 'report_') === 0) {
+            $key = substr($tableField, 7); // حذف پیشوند report_
+            return $reportData[$key] ?? '';
+        } else {
+            // اگر پیشوند خاصی ندارد، از resident استفاده می‌کنیم
+            return $residentData['resident'][$tableField] ?? '';
+        }
+    }
+
+    /**
      * دریافت مقدار متغیر - مشابه PatternManual و ExpiredToday
      */
     protected function getVariableValue($variable, $residentData, $reportData)
     {
-        $field = $variable->table_field ?? '';
+        // اگر متغیر از نوع اختصاصی است و table_field در pivot دارد، از آن استفاده می‌کنیم
+        if (isset($variable->pivot_table_field)) {
+            $field = $variable->pivot_table_field;
+        } else {
+            $field = $variable->table_field ?? '';
+        }
+        
         $type = $variable->variable_type ?? 'user';
 
         if ($type === 'user') {

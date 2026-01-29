@@ -46,7 +46,42 @@
 
         /* استایل‌های زیبا برای جدول گزارش‌ها */
         .table tbody tr {
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* استایل‌های ویژه برای سه جدول اول */
+        .stats-tables .card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .stats-tables .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+
+        .stats-tables .card-header {
+            border-bottom: 2px solid #e9ecef;
+            font-weight: 500;
+        }
+
+        .stats-tables .table th {
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .stats-tables .badge {
+            font-weight: 500;
+            padding: 0.35em 0.65em;
         }
         
         .table tbody tr:hover:not(.selected-row) {
@@ -84,15 +119,15 @@
         }
 
         .table thead th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #f8f9fa;
+            color: #495057;
             font-weight: 600;
             border: none;
             padding: 12px 15px;
         }
 
         .table thead th:hover {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            background: #e9ecef;
         }
 
         .table tbody td {
@@ -283,11 +318,11 @@
 
 
         <!-- بخش جدول‌های اقامت‌گران -->
-        <div class="row mb-3">
+        <div class="row mb-3 stats-tables">
             <!-- جدول اقامت‌گران با تخلف‌های تکرارای یکسان -->
             <div class="col-12 col-md-6 mb-3">
                 <div class="card h-100">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
                         <h6 class="mb-0">
                             <i class="fas fa-redo me-2"></i>
                             اقامت‌گران با تخلف‌های تکرارای یکسان
@@ -371,7 +406,7 @@
             <!-- جدول اقامت‌گران با تعداد گزارش بالا -->
             <div class="col-12 col-md-6 mb-3">
                 <div class="card h-100">
-                    <div class="card-header bg-info text-white">
+                    <div class="card-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
                         <h6 class="mb-0">
                             <i class="fas fa-file-alt me-2"></i>
                             اقامت‌گران با تعداد گزارش بالا
@@ -454,10 +489,10 @@
         </div>
 
         <!-- بخش اقامت‌گران برتر -->
-        <div class="row mb-3">
+        <div class="row mb-3 stats-tables">
             <div class="col-12 col-md-6">
                 <div class="card h-100">
-                    <div class="card-header bg-danger text-dark">
+                    <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
                         <h6 class="mb-0"><i class="fas fa-user me-2"></i>اقامت‌گران برتر (بیشترین گزارش)</h6>
                     </div>
                     <div class="card-body">
@@ -699,13 +734,13 @@
                                 <?php $counter_number++; ?>
                                 <tr style="transition: all 0.2s ease;">
                                     <td style="width: 1%; text-align: center; vertical-align: middle;">
-                                        <span class="badge rounded-pill" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 13px; padding: 6px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        <span class="badge rounded-pill bg-primary" style="font-size: 13px; padding: 6px 12px;">
                                             {{ $counter_number }}
                                         </span>
                                     </td>
                                     <td style="vertical-align: middle;">
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #6c757d; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
                                                 {{ mb_substr($report->resident_name ?? 'ن', 0, 1) }}
                                             </div>
                                             <div>
