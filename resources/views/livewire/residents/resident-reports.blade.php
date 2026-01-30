@@ -769,20 +769,33 @@
                                         </div>
                                     </td>
                                     <td style="vertical-align: middle;">
-                                        <div style="padding: 8px; background: #f8f9fa; border-radius: 6px; border-right: 3px solid #3b82f6;">
-                                            <strong style="font-size: 14px; color: #1f2937; display: block; margin-bottom: 5px;">
-                                                {{ $report->report->title ?? 'گزارش حذف شده' }}
-                                            </strong>
-                                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
-                                                <span class="badge" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; padding: 3px 8px; font-size: 11px;">
-                                                    <i class="fas fa-tag"></i> {{ $report->report->category->name ?? 'بدون دسته' }}
-                                                </span>
+                                        <div style="display: flex; align-items: start; gap: 12px;">
+                                            <!-- کارت گزارش -->
+                                            <div style="flex: 1; padding: 8px; background: #f8f9fa; border-radius: 6px; border-right: 3px solid #3b82f6;">
+                                                <strong style="font-size: 14px; color: #1f2937; display: block; margin-bottom: 5px;">
+                                                    {{ $report->report->title ?? 'گزارش حذف شده' }}
+                                                </strong>
+                                                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                                                    <span class="badge" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; padding: 3px 8px; font-size: 11px;">
+                                                        <i class="fas fa-tag"></i> {{ $report->report->category->name ?? 'بدون دسته' }}
+                                                    </span>
+                                                </div>
+                                                @if ($report->notes)
+                                                    <div style="margin-top: 5px; padding: 5px; background: white; border-radius: 4px; border: 1px solid #e5e7eb;">
+                                                        <small style="color: #6b7280; font-size: 11px;">
+                                                            <i class="fas fa-sticky-note"></i> {{ Str::limit($report->notes, 50) }}
+                                                        </small>
+                                                    </div>
+                                                @endif
                                             </div>
-                                            @if ($report->notes)
-                                                <div style="margin-top: 5px; padding: 5px; background: white; border-radius: 4px; border: 1px solid #e5e7eb;">
-                                                    <small style="color: #6b7280; font-size: 11px;">
-                                                        <i class="fas fa-sticky-note"></i> {{ Str::limit($report->notes, 50) }}
-                                                    </small>
+                                            
+                                            <!-- توضیحات در کنار -->
+                                            @if ($report->description)
+                                                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 8px 12px; border-radius: 8px; border: 1px solid #fbbf24; max-width: 200px; min-width: 120px;">
+                                                    <div style="font-size: 12px; color: #92400e; line-height: 1.4;">
+                                                        <i class="fas fa-comment-alt" style="margin-left: 4px; color: #f59e0b;"></i>
+                                                        {{ Str::limit($report->description, 80) }}
+                                                    </div>
                                                 </div>
                                             @endif
                                         </div>
@@ -854,9 +867,18 @@
 
                                                         @if ($report->notes)
                                                             <div class="mt-3">
-                                                                <strong>توضیحات:</strong>
+                                                                <strong>یادداشت‌ها:</strong>
                                                                 <div class="alert alert-light mt-2">
                                                                     {{ $report->notes }}
+                                                                </div>
+                                                            </div>
+                                                        @endif
+
+                                                        @if ($report->description)
+                                                            <div class="mt-3">
+                                                                <strong>توضیحات گزارش:</strong>
+                                                                <div class="alert alert-warning mt-2" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #fbbf24;">
+                                                                    {{ $report->description }}
                                                                 </div>
                                                             </div>
                                                         @endif
@@ -1214,6 +1236,11 @@
                                     </div>
                                 @endif
                                 <div class="d-flex gap-2 flex-wrap">
+                                    @if($selectedResidentData)
+                                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createReportModal">
+                                            <i class="fas fa-plus me-1"></i> ثبت گزارش جدید
+                                        </button>
+                                    @endif
                                     @if(!$showGrantForm)
                                         <button type="button" wire:click="openGrantForm" class="btn btn-success">
                                             <i class="fas fa-gift me-1"></i> ثبت بخشودگی
@@ -1461,6 +1488,26 @@
                     <button type="button" class="btn btn-secondary" wire:click="closeResidentModal">
                         <i class="fas fa-times me-1"></i>بستن
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- مدال ثبت گزارش جدید -->
+    @if($selectedResidentData)
+    <div class="modal fade" id="createReportModal" tabindex="-1" aria-labelledby="createReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="createReportModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        ثبت گزارش جدید برای {{ $selectedResidentData->resident_full_name ?? 'نامشخص' }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @livewire('residents.create-resident-report', ['residentId' => $selectedResidentData->resident_id])
                 </div>
             </div>
         </div>

@@ -633,6 +633,21 @@
                             @endif
                         </div>
 
+                        <!-- توضیحات گزارش -->
+                        <div style="margin-bottom: 24px;">
+                            <label style="font-weight: 600; color: #1e293b; font-size: 16px;">
+                                <i class="fas fa-comment me-2" style="color: #667eea;"></i>
+                                توضیحات گزارش
+                            </label>
+                            <textarea 
+                                wire:model="description" 
+                                style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical; background: white; transition: all 0.2s;" 
+                                placeholder="توضیحات مربوط به این گزارش را وارد کنید..."
+                                onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102,126,234,0.1)'"
+                                onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"
+                            ></textarea>
+                        </div>
+
                         <!-- پیام الگو با مقداردهی کدها -->
                         <div style="margin-bottom: 24px;">
                             <label style="font-weight: 600; color: #1e293b; font-size: 16px;">

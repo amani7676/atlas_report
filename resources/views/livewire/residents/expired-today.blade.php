@@ -396,9 +396,11 @@
                                     $selectedPatternObj = \App\Models\Pattern::find($selectedPattern);
                                 @endphp
                                 @if($selectedPatternObj)
-                                    <div class="mt-2 p-2 bg-light rounded" style="font-size: 12px;">
-                                        <strong>پیش‌نمایش:</strong><br>
-                                        {{ \Illuminate\Support\Str::limit($selectedPatternObj->text, 100) }}
+                                    <div class="mt-2 p-3 bg-light rounded" style="font-size: 12px; border: 1px solid #dee2e6;">
+                                        <strong><i class="fas fa-eye"></i> متن پیام:</strong>
+                                        <div class="mt-2 p-2 bg-white rounded border" style="min-height: 60px;">
+                                            <small class="text-muted">{{ $selectedPatternObj->text }}</small>
+                                        </div>
                                     </div>
                                 @endif
                             @endif
@@ -847,6 +849,21 @@
                     </div>
 
                     <!-- اقامت‌گر فعلی (فقط در حین ارسال) -->
+                    <!-- پیش‌نمایش پیام -->
+                    @if($previewMessage)
+                    <div class="alert alert-info mb-3">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-eye me-2 mt-1"></i>
+                            <div style="width: 100%;">
+                                <strong>پیش‌نمایش پیام برای اولین گیرنده:</strong>
+                                <div class="mt-2 p-2 bg-light rounded" style="border: 1px solid #dee2e6;">
+                                    <small class="text-muted">{{ $previewMessage }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
                     @if(($sendingProgress['current'] ?? null) && !($sendingProgress['completed'] ?? false))
                     <div class="alert alert-info mb-3">
                         <div class="d-flex align-items-center">

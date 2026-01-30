@@ -35,6 +35,7 @@ class Units extends Component
     public $selectedReportId = null; // گزارش انتخاب شده (مقدار تکی)
     public $filteredReports = []; // گزارش‌های فیلتر شده بر اساس دسته‌بندی
     public $notes = '';
+    public $description = '';
     public $expandedUnits = [];
     public $reportModalLoading = false;
     public $lastSubmittedReports = []; // آخرین گزارش‌های ثبت شده
@@ -545,6 +546,7 @@ class Units extends Component
                     'bed_id' => $this->currentResident['bed_id'] ?? null,
                     'bed_name' => $this->currentResident['bed_name'] ?? null,
                     'notes' => $this->notes,
+                    'description' => $this->description ?? null,
                 ]);
 
                 // ارسال مستقیم پیامک الگویی (با استفاده از متد SendByBaseNumber)
@@ -1248,6 +1250,7 @@ class Units extends Component
         $this->selectedReportId = null;
         $this->filteredReports = [];
         $this->notes = '';
+        $this->description = '';
         $this->currentResident = null;
         $this->currentRoom = null;
         $this->reportModalLoading = false;

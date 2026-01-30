@@ -2311,17 +2311,20 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // نمایش پیام موفقیت
-                showToast('success', 'همگام‌سازی موفق', data.message);
                 // مخفی کردن آلارم
                 document.getElementById('sync-alarm').style.display = 'none';
+                // رفرش صفحه بعد از 1 ثانیه
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
             } else {
-                showToast('error', 'خطا', data.message);
+                // فقط در صورت خطا، پیام ساده نمایش بده
+                alert('خطا: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showToast('error', 'خطا', 'خطا در همگام‌سازی داده‌ها');
+            alert('خطا در همگام‌سازی داده‌ها');
         })
         .finally(() => {
             // بازگشت به حالت اولیه
@@ -2336,20 +2339,6 @@
         document.getElementById('sync-alarm').style.display = 'none';
     }
 
-    // تابع نمایش Toast (اگر وجود نداشت)
-    function showToast(type, title, message) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: type === 'success' ? 'success' : 'error',
-                title: title,
-                text: message,
-                timer: 3000,
-                showConfirmButton: false
-            });
-        } else {
-            alert(title + ': ' + message);
-        }
-    }
     </script>
 </body>
 

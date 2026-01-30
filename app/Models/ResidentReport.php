@@ -18,6 +18,7 @@ class ResidentReport extends Model
         'room_id',
         'bed_id',
         'notes',
+        'description',
         'has_been_sent',
         'is_checked'
     ];

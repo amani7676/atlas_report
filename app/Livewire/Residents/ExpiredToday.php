@@ -36,6 +36,16 @@ class ExpiredToday extends Component
         return $hasSelection && $hasPattern;
     }
     
+    // Computed property برای پیش‌نمایش پیام
+    public function getPatternPreviewProperty()
+    {
+        if (!$this->selectedPattern || empty($this->selectedResidents)) {
+            return null;
+        }
+        
+        return $this->generatePreviewMessage();
+    }
+    
     public function mount()
     {
         // اطمینان از اینکه selectedResidents همیشه یک array خالی است
@@ -74,6 +84,7 @@ class ExpiredToday extends Component
     public $selectedPattern = null;
     public $patterns = [];
     public $patternReportWarning = null; // آلارم برای عدم وجود گزارش
+    public $previewMessage = ''; // پیش‌نمایش پیام
     
     // Sending progress
     public $isSending = false;
@@ -532,6 +543,55 @@ class ExpiredToday extends Component
     }
 
     /**
+     * ایجاد پیش‌نمایش پیام برای اولین کاربر
+     */
+    public function generatePreviewMessage()
+    {
+        if (!$this->selectedPattern || empty($this->selectedResidents)) {
+            return 'لطفاً الگو و کاربران را انتخاب کنید.';
+        }
+        
+        $pattern = Pattern::find($this->selectedPattern);
+        if (!$pattern) {
+            return 'الگو یافت نشد.';
+        }
+        
+        // گرفتن اولین کاربر برای پیش‌نمایش
+        $firstResidentId = $this->selectedResidents[0];
+        $resident = \App\Models\Resident::find($firstResidentId);
+        
+        if (!$resident) {
+            return 'کاربر یافت نشد.';
+        }
+        
+        // دریافت داده‌های کاربر
+        $residentData = $this->getResidentDataFromDb($resident);
+        
+        // جایگذاری متغیرها
+        $variables = $this->extractPatternVariables($pattern->pattern_text, $residentData, null, $pattern->id);
+        
+        // جایگذاری متغیرها در متن الگو
+        $message = $pattern->pattern_text;
+        for ($i = 0; $i < count($variables); $i++) {
+            $message = str_replace('{' . $i . '}', $variables[$i] ?? '', $message);
+        }
+        
+        return $message;
+    }
+    
+    /**
+     * پیش‌نمایش ساده برای نمایش در Blade
+     */
+    public function getPatternPreview()
+    {
+        if (!$this->selectedPattern || empty($this->selectedResidents)) {
+            return null;
+        }
+        
+        return $this->generatePreviewMessage();
+    }
+
+    /**
      * شروع فرآیند ارسال - فقط مدال را نمایش می‌دهد
      */
     public function startSending()
@@ -541,6 +601,9 @@ class ExpiredToday extends Component
             return;
         }
 
+        // ایجاد پیش‌نمایش پیام برای اولین کاربر
+        $this->previewMessage = $this->generatePreviewMessage();
+        
         // Reset progress و نمایش مدال - باید قبل از هر کار دیگری باشد
         $this->isSending = true;
         $this->isCancelled = false;
@@ -977,19 +1040,10 @@ class ExpiredToday extends Component
                 for ($i = 0; $i <= $maxIndex; $i++) {
                     $code = '{' . $i . '}';
                     
-                    // منطق خاص برای کد {3} - تعداد روزهای دیرکرد
+                    // منطق خاص برای کد {3} - مقدار مستقیم delay از دیتابیس
                     if ($code === '{3}') {
-                        $daysPast = $this->getDaysPastDue($residentDataForVariables['contract_payment_date_jalali'] ?? null);
-                        
-                        if ($daysPast == 0) {
-                            $result[] = 'امروز';
-                        } elseif ($daysPast == -1) {
-                            $result[] = 'دیروز';
-                        } elseif ($daysPast <= -2) {
-                            $result[] = abs($daysPast) . ' روز';
-                        } else {
-                            $result[] = $daysPast . ' روز';
-                        }
+                        $delay = $residentDataForVariables['delay'] ?? 0;
+                        $result[] = $delay;
                     } elseif (isset($patternVariables[$code])) {
                         $variable = $patternVariables[$code];
                         $value = $this->getVariableValue($variable, $residentDataForVariables, null);
@@ -1049,19 +1103,10 @@ class ExpiredToday extends Component
         for ($i = 0; $i <= $maxIndex; $i++) {
             $code = '{' . $i . '}';
             
-            // منطق خاص برای کد {3} - تعداد روزهای دیرکرد
+            // منطق خاص برای کد {3} - مقدار مستقیم delay از دیتابیس
             if ($code === '{3}') {
-                $daysPast = $this->getDaysPastDue($residentDataForVariables['contract_payment_date_jalali'] ?? null);
-                
-                if ($daysPast == 0) {
-                    $result[] = 'امروز';
-                } elseif ($daysPast == -1) {
-                    $result[] = 'دیروز';
-                } elseif ($daysPast <= -2) {
-                    $result[] = abs($daysPast) . ' روز';
-                } else {
-                    $result[] = $daysPast . ' روز';
-                }
+                $delay = $residentDataForVariables['delay'] ?? 0;
+                $result[] = $delay;
             } else {
                 $variable = $variables->get($code);
 
