@@ -124,6 +124,20 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'failed_jobs',
+        'prune_hours' => 1, // حذف خودکار بعد از 1 ساعت
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Immediate Job Cleanup
+    |--------------------------------------------------------------------------
+    |
+    | Configure immediate cleanup of jobs after processing.
+    | This prevents jobs table from growing indefinitely.
+    |
+    */
+
+    'after_commit' => true, // اجرای job بعد از commit
+    'delete_after' => true, // حذف فوری بعد از اجرا
 
 ];
