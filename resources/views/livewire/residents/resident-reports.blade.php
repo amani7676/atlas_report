@@ -268,51 +268,34 @@
 
     <div class="container-fluid py-3">
         <!-- بخش جستجوی اقامت‌گر در بالای صفحه -->
-        <div class="card mb-3">
-            <div class="card-header bg-info text-white">
-                <h6 class="mb-0"><i class="fas fa-search me-2"></i>جستجوی اقامت‌گر</h6>
-            </div>
-            <div class="card-body">
-                <!-- فیلد جستجو -->
-                <div class="position-relative">
-                    <input type="text" wire:model.live.debounce.300ms="residentSearch" class="form-control"
-                        placeholder="نام اقامت‌گر را وارد کنید...">
-                    @if (!$showResidentModal && $residentSearch && count($residentsList) > 0)
-                        <div class="position-absolute w-100 bg-white border border-top-0 rounded-bottom shadow-lg"
-                            style="z-index: 10; max-height: 200px; overflow-y: auto;">
-                            @foreach ($residentsList as $resident)
-                                <a href="#" wire:click="selectResident('{{ $resident }}')"
-                                    class="d-block p-2 text-decoration-none hover-bg-light"
-                                    style="cursor: pointer; transition: background-color 0.2s;">
-                                    <i class="fas fa-user me-2 text-primary"></i>{{ $resident }}
-                                </a>
-                            @endforeach
+        <div class="row mb-4">
+            <div class="col-4 mx-auto">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="fas fa-search me-2"></i>جستجوی اقامت‌گر</h6>
+                    </div>
+                    <div class="card-body">
+                        <!-- فیلد جستجو -->
+                        <div class="position-relative">
+                            <input type="text" wire:model.live.debounce.300ms="residentSearch" class="form-control" placeholder="نام اقامت‌گر را وارد کنید...">
+                            @if (!$showResidentModal && $residentSearch && count($residentsList) > 0)
+                                <div class="position-absolute w-100 bg-white border border-top-0 rounded-bottom shadow-lg"
+                                    style="z-index: 10; max-height: 200px; overflow-y: auto;">
+                                    @foreach ($residentsList as $resident)
+                                        <a href="#" wire:click="selectResident('{{ $resident }}')"
+                                            class="d-block p-2 text-decoration-none hover-bg-light"
+                                            style="cursor: pointer; transition: background-color 0.2s;">
+                                            <i class="fas fa-user me-2 text-primary"></i>{{ $resident }}
+                                        </a>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
-                    @endif
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- بخش هدر و آمار کلی -->
-        <div class="card mb-3">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    گزارش‌های تخلفی اقامت‌گران
-                </h5>
-                <div class="d-flex flex-column flex-md-row">
-                    {{-- نمایش مجموع نمرات منفی و تعداد کل گزارش‌ها --}}
-                    <span class="badge bg-warning text-dark mb-1 mb-md-0 me-md-2">
-                        <i class="fas fa-chart-line me-1"></i>
-                        مجموع نمرات منفی: {{ $totalScore }}
-                    </span>
-                    <span class="badge bg-info">
-                        <i class="fas fa-file-alt me-1"></i>
-                        {{ $totalReportsCount }} گزارش
-                    </span>
-                </div>
-            </div>
-        </div>
 
         <!-- بخش کارت‌های آماری -->
 
