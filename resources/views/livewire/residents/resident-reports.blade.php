@@ -546,7 +546,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center py-4">
+                                            <td colspan="8" class="text-center py-4">
                                                 <p class="text-muted mb-0">اقامت‌گری یافت نشد</p>
                                             </td>
                                         </tr>
@@ -708,6 +708,7 @@
                                     @endif
                                 </th>
                                 <th>نمره منفی</th>
+                                <th>توضیحات</th>
                                 <th>عملیات</th>
                             </tr>
                         </thead>
@@ -802,6 +803,23 @@
                                         </span>
                                     </td>
                                     <td style="vertical-align: middle;">
+                                        <div style="max-width: 200px; word-wrap: break-word;">
+                                            @if(!empty($report->description))
+                                                <div style="padding: 6px; background: #fef3c7; border-radius: 6px; border: 1px solid #fbbf24; font-size: 12px; color: #92400e; line-height: 1.4;">
+                                                    <i class="fas fa-comment-alt" style="margin-right: 4px; color: #f59e0b;"></i>
+                                                    {{ Str::limit($report->description, 80) }}
+                                                    @if(strlen($report->description) > 80)
+                                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1" data-bs-toggle="tooltip" title="{{ $report->description }}">
+                                                            <i class="fas fa-ellipsis-h"></i>
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td style="vertical-align: middle;">
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-danger" style="border-radius: 6px 0 0 6px;"
                                                 onclick="confirmDeleteReport({{ $report->id }})" title="حذف گزارش">
@@ -885,7 +903,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center py-4">
+                                    <td colspan="8" class="text-center py-4">
                                         <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
                                         <p class="text-muted">هیچ گزارشی یافت نشد</p>
                                         @if ($search || array_filter($filters))

@@ -197,40 +197,50 @@
             @endif
 
             <div class="api-key-card">
+                <!-- Debug info -->
+                <div style="background: #f0f0f0; padding: 10px; margin-bottom: 16px; border-radius: 4px;">
+                    <small>Debug: showingAddForm = {{ $showingAddForm ? 'TRUE' : 'FALSE' }}</small>
+                </div>
+                
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h2 style="color: #1f2937; margin: 0;">لیست API Key ها</h2>
-                    <button wire:click="showAddForm" class="btn btn-success">افزودن API Key جدید</button>
+                    <button wire:click="showAddForm" class="btn btn-success" onclick="console.log('Button clicked!')">افزودن API Key جدید</button>
                 </div>
 
-                @if ($showAddForm)
-                    <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #3b82f6;">
-                        <h3 style="margin-top: 0; color: #1f2937;">افزودن API Key جدید</h3>
-                        <form wire:submit.prevent="addKey">
-                            <div class="input-group">
-                                <label>نام کلید:</label>
-                                <input type="text" wire:model="newKeyName" placeholder="مثال: console_api_key" required>
-                                @error('newKeyName') <span style="color: #ef4444; font-size: 12px;">{{ $message }}</span> @enderror
+                @if ($showingAddForm)
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+                        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0; color: #1f2937; font-size: 18px;">افزودن API Key جدید</h3>
+                                <button type="button" wire:click="cancelAdd" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
                             </div>
-                            <div class="input-group">
-                                <label>مقدار API Key:</label>
-                                <textarea wire:model="newKeyValue" placeholder="مقدار API Key را وارد کنید" required></textarea>
-                                @error('newKeyValue') <span style="color: #ef4444; font-size: 12px;">{{ $message }}</span> @enderror
-                            </div>
-                            <div class="input-group">
-                                <label>توضیحات:</label>
-                                <textarea wire:model="newDescription" placeholder="توضیحات اختیاری"></textarea>
-                            </div>
-                            <div class="input-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" wire:model="newIsActive">
-                                    فعال
-                                </label>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button type="submit" class="btn btn-success">ذخیره</button>
-                                <button type="button" wire:click="cancelAdd" class="btn btn-secondary">لغو</button>
-                            </div>
-                        </form>
+                            <form wire:submit.prevent="addKey">
+                                <div class="input-group">
+                                    <label>نام کاربری:</label>
+                                    <input type="text" wire:model="newUsername" placeholder="نام کاربری را وارد کنید" required>
+                                    @error('newUsername') <span style="color: #ef4444; font-size: 12px;">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="input-group">
+                                    <label>API Key:</label>
+                                    <input type="text" wire:model="newApiKey" placeholder="API Key را وارد کنید" required>
+                                    @error('newApiKey') <span style="color: #ef4444; font-size: 12px;">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="input-group">
+                                    <label>توضیحات:</label>
+                                    <textarea wire:model="newDescription" placeholder="توضیحات اختیاری"></textarea>
+                                </div>
+                                <div class="input-group">
+                                    <label style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" wire:model="newIsActive">
+                                        فعال
+                                    </label>
+                                </div>
+                                <div style="display: flex; gap: 8px; margin-top: 20px;">
+                                    <button type="submit" class="btn btn-success">ذخیره</button>
+                                    <button type="button" wire:click="cancelAdd" class="btn btn-secondary">لغو</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 @endif
 
@@ -285,7 +295,14 @@
                                         <td><strong>{{ $key['key_name'] }}</strong></td>
                                         <td>
                                             <div class="key-value">
-                                                {{ Str::limit($key['key_value'], 50) }}
+                                                @php
+                                                    $keyData = json_decode($key['key_value'], true);
+                                                    if ($keyData && isset($keyData['username'])) {
+                                                        echo 'Username: ' . e($keyData['username']) . '<br>API Key: ' . e(substr($keyData['api_key'], 0, 20)) . '...';
+                                                    } else {
+                                                        echo e(Str::limit($key['key_value'], 50));
+                                                    }
+                                                @endphp
                                             </div>
                                         </td>
                                         <td>{{ $key['description'] ?? '-' }}</td>

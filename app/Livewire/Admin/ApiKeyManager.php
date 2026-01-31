@@ -16,9 +16,9 @@ class ApiKeyManager extends Component
     public $editKeyValue = '';
     public $editDescription = '';
     public $editIsActive = true;
-    public $showAddForm = false;
-    public $newKeyName = '';
-    public $newKeyValue = '';
+    public $showingAddForm = false;
+    public $newUsername = '';
+    public $newApiKey = '';
     public $newDescription = '';
     public $newIsActive = true;
     public $message = '';
@@ -28,8 +28,8 @@ class ApiKeyManager extends Component
         'editKeyName' => 'required|string|max:255',
         'editKeyValue' => 'required|string',
         'editDescription' => 'nullable|string',
-        'newKeyName' => 'required|string|max:255|unique:api_keys,key_name',
-        'newKeyValue' => 'required|string',
+        'newUsername' => 'required|string',
+        'newApiKey' => 'required|string',
         'newDescription' => 'nullable|string',
     ];
 
@@ -147,27 +147,34 @@ class ApiKeyManager extends Component
 
     public function showAddForm()
     {
-        $this->showAddForm = true;
+        $this->showingAddForm = true;
         $this->resetAddForm();
+        // Debug: log to check if method is called
+        Log::info('showAddForm called, showingAddForm property: ' . $this->showingAddForm);
+        // Force Livewire to update
+        $this->dispatch('refresh-component');
     }
 
     public function cancelAdd()
     {
-        $this->showAddForm = false;
+        $this->showingAddForm = false;
         $this->resetAddForm();
     }
 
     public function addKey()
     {
         $this->validate([
-            'newKeyName' => 'required|string|max:255|unique:api_keys,key_name',
-            'newKeyValue' => 'required|string',
+            'newUsername' => 'required|string',
+            'newApiKey' => 'required|string',
             'newDescription' => 'nullable|string',
         ]);
 
         ApiKey::create([
-            'key_name' => $this->newKeyName,
-            'key_value' => $this->newKeyValue,
+            'key_name' => 'main_api',
+            'key_value' => json_encode([
+                'username' => $this->newUsername,
+                'api_key' => $this->newApiKey
+            ]),
             'description' => $this->newDescription,
             'is_active' => $this->newIsActive,
         ]);
@@ -188,8 +195,8 @@ class ApiKeyManager extends Component
 
     public function resetAddForm()
     {
-        $this->newKeyName = '';
-        $this->newKeyValue = '';
+        $this->newUsername = '';
+        $this->newApiKey = '';
         $this->newDescription = '';
         $this->newIsActive = true;
     }
@@ -199,7 +206,7 @@ class ApiKeyManager extends Component
         $this->resetEditForm();
         $this->resetAddForm();
         $this->editingKey = null;
-        $this->showAddForm = false;
+        $this->showingAddForm = false;
     }
 
     public function render()

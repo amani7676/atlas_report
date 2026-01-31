@@ -118,7 +118,8 @@ class Violations extends Component
                 report_id,
                 reports.title as report_title,
                 COUNT(*) as violation_count,
-                SUM(reports.negative_score) as total_score
+                SUM(reports.negative_score) as total_score,
+                MAX(resident_reports.description) as last_description
             ')
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->where('reports.negative_score', '>', 0)
@@ -215,6 +216,7 @@ class Violations extends Component
         $query = ResidentReport::with(['resident', 'report'])
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->where('reports.negative_score', '>', 0)
+            ->select('resident_reports.*', 'reports.title as report_title', 'reports.negative_score as violation_score')
             ->orderBy('resident_reports.created_at', 'desc');
 
         // فیلتر جستجو

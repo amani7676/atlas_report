@@ -407,6 +407,7 @@
                                             <th>گزارش</th>
                                             <th class="text-center">تعداد</th>
                                             <th class="text-center">امتیاز</th>
+                                            <th>توضیحات</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -420,10 +421,19 @@
                                                 <td class="text-center">
                                                     <span class="badge bg-warning">{{ $violation->total_score }}</span>
                                                 </td>
+                                                <td>
+                                                    <div style="max-width: 150px; word-wrap: break-word;">
+                                                        @if(!empty($violation->last_description))
+                                                            <small class="text-muted">{{ Str::limit($violation->last_description, 50) }}</small>
+                                                        @else
+                                                            <small class="text-muted">-</small>
+                                                        @endif
+                                                    </div>
+                                                </td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="4" class="text-center text-muted">موردی یافت نشد</td>
+                                                <td colspan="5" class="text-center text-muted">موردی یافت نشد</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -522,6 +532,7 @@
                         <th>اقامت‌گر</th>
                         <th>گزارش</th>
                         <th>امتیاز تخلف</th>
+                        <th>توضیحات گزارش</th>
                         <th>تاریخ ثبت</th>
                     </tr>
                 </thead>
@@ -540,11 +551,25 @@
                             <td>
                                 <span class="badge bg-danger">{{ $report->report->negative_score }}</span>
                             </td>
+                            <td>
+                                <div style="max-width: 200px; word-wrap: break-word;">
+                                    @if(!empty($report->description))
+                                        <span class="text-muted">{{ Str::limit($report->description, 100) }}</span>
+                                        @if(strlen($report->description) > 100)
+                                            <button type="button" class="btn btn-sm btn-link p-0" data-bs-toggle="tooltip" title="{{ $report->description }}">
+                                                <i class="fas fa-ellipsis-h"></i>
+                                            </button>
+                                        @endif
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </div>
+                            </td>
                             <td>{{ jalaliDate($report->created_at, 'Y/m/d H:i:s') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted">گزارشی یافت نشد</td>
+                            <td colspan="5" class="text-center text-muted">گزارشی یافت نشد</td>
                         </tr>
                     @endforelse
                 </tbody>
