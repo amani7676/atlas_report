@@ -159,9 +159,6 @@ return new class extends Migration
             // === فیلد notes (JSON) ===
             $table->json('notes')->nullable();
             
-            // === فیلد delay ===
-            $table->integer('delay')->nullable()->comment('تأخیر پرداخت');
-            
             // زمان آخرین همگام‌سازی
             $table->timestamp('last_synced_at')->nullable();
             

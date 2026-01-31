@@ -2257,7 +2257,7 @@
     @livewireScripts
     
     <!-- Persistent Alarm - Method 2: Simple HTML with AJAX -->
-    <div id="sync-alarm" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(238, 90, 82, 0.3); min-width: 320px; max-width: 400px; display: none;">
+    <div id="sync-alarm" style="position: fixed; top: 20px; right: calc(var(--sidebar-width) + 20px); z-index: 10000; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(238, 90, 82, 0.3); min-width: 320px; max-width: 400px; display: none;">
         <div style="display: flex; align-items: flex-start; gap: 15px;">
             <div style="flex-shrink: 0; font-size: 24px;">
                 <i class="fas fa-exclamation-triangle"></i>

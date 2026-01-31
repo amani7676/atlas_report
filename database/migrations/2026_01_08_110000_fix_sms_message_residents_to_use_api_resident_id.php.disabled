@@ -12,10 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sms_message_residents', function (Blueprint $table) {
-            // حذف foreign key constraint قبلی
-            $table->dropForeign(['resident_id']);
-            
-            // تغییر نوع ستون resident_id به integer برای ذخیره ID از API
+            // تغییر توضیح ستون resident_id برای مشخص شدن اینکه این ID از API است
             $table->integer('resident_id')->nullable()->comment('ID اقامتگر از API (نه ID جدول residents)')->change();
         });
     }
@@ -26,14 +23,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('sms_message_residents', function (Blueprint $table) {
-            // بازگرداندن به حالت قبلی با foreign key
-            $table->unsignedBigInteger('resident_id')->nullable()->comment('ID اقامتگر از API')->change();
-            
-            // ایجاد مجدد foreign key constraint
-            $table->foreign('resident_id')
-                ->references('id')
-                ->on('residents')
-                ->onDelete('set null');
+            // بازگرداندن به حالت قبلی
+            $table->integer('resident_id')->nullable()->comment('ID اقامتگر از API')->change();
         });
     }
 };

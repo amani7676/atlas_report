@@ -89,78 +89,60 @@ return new class extends Migration
         // Drop کردن جدول قدیمی
         Schema::dropIfExists('residents');
         
-        // ایجاد جدول جدید با تمام فیلدهای دقیق API
+        // ایجاد جدول جدید با تمام فیلدهای API
+        // توجه: فیلدها دقیقاً مثل API هستند - بدون تغییر نام
         Schema::create('residents', function (Blueprint $table) {
             $table->id();
+            $table->integer('resident_id')->unique()->comment('شناسه اقامت‌گر از API (resident.id)');
             
-            // === فیلدهای اصلی ===
-            $table->integer('resident_id')->unique()->comment('شناسه اقامت‌گر');
-            $table->integer('contract_id')->nullable()->comment('شناسه قرارداد');
+            // === فیلدهای resident از API (دقیقاً مثل API) ===
+            // تمام فیلدهای موجود در $resident از API
+            $table->string('full_name')->nullable()->comment('نام کامل از API');
+            $table->string('name')->nullable()->comment('نام از API');
+            $table->string('phone')->nullable()->comment('تلفن از API');
+            $table->string('national_id')->nullable()->comment('کد ملی از API');
+            $table->string('national_code')->nullable()->comment('کد ملی (نام دیگر) از API');
+            $table->string('email')->nullable()->comment('ایمیل از API');
+            $table->date('birth_date')->nullable()->comment('تاریخ تولد از API (birth_date یا birthday)');
+            $table->string('gender')->nullable()->comment('جنسیت از API');
+            $table->text('address')->nullable()->comment('آدرس از API');
+            $table->string('postal_code')->nullable()->comment('کد پستی از API');
+            $table->string('city')->nullable()->comment('شهر از API');
+            $table->string('province')->nullable()->comment('استان از API');
+            $table->string('country')->nullable()->comment('کشور از API');
+            $table->text('notes')->nullable()->comment('یادداشت از API');
+            $table->boolean('is_active')->nullable()->default(true)->comment('فعال/غیرفعال از API (is_active یا active)');
+            $table->timestamp('registered_at')->nullable()->comment('تاریخ ثبت از API (registered_at یا created_at)');
             
-            // === فیلدهای unit (دقیقاً مثل API) ===
-            $table->integer('unit_id')->nullable();
-            $table->string('unit_name')->nullable();
-            $table->string('unit_code')->nullable();
-            $table->text('unit_desc')->nullable();
-            $table->timestamp('unit_created_at')->nullable();
-            $table->timestamp('unit_updated_at')->nullable();
+            // === فیلدهای contract از API (دقیقاً مثل API - از $contract) ===
+            // تمام فیلدهای موجود در $contract از API - بدون prefix
+            $table->date('start_date')->nullable()->comment('تاریخ شروع قرارداد از API (contract.start_date یا resident.start_date)');
+            $table->date('end_date')->nullable()->comment('تاریخ پایان قرارداد از API (contract.end_date یا resident.end_date)');
+            $table->date('expiry_date')->nullable()->comment('تاریخ انقضای قرارداد از API (contract.expiry_date یا resident.expiry_date)');
+            $table->decimal('amount', 15, 2)->nullable()->comment('مبلغ قرارداد از API (contract.amount یا resident.amount)');
+            $table->string('contract_type')->nullable()->comment('نوع قرارداد از API (contract.type یا resident.contract_type)');
+            $table->text('contract_notes')->nullable()->comment('یادداشت قرارداد از API (contract.notes)');
+            $table->boolean('contract_is_active')->nullable()->default(true)->comment('وضعیت قرارداد از API (contract.is_active یا contract.active)');
             
-            // === فیلدهای room (دقیقاً مثل API) ===
-            $table->integer('room_id')->nullable();
-            $table->string('room_name')->nullable();
-            $table->string('room_code')->nullable();
-            $table->integer('room_unit_id')->nullable();
-            $table->integer('room_bed_count')->nullable();
-            $table->text('room_desc')->nullable();
-            $table->string('room_type')->nullable();
-            $table->timestamp('room_created_at')->nullable();
-            $table->timestamp('room_updated_at')->nullable();
+            // === فیلدهای unit از API (دقیقاً مثل API - از $unitData) ===
+            // تمام فیلدهای موجود در $unitData از API
+            $table->integer('unit_id')->nullable()->comment('شناسه واحد از API (unit.id)');
+            $table->string('unit_name')->nullable()->comment('نام واحد از API (unit.name)');
+            $table->string('unit_code')->nullable()->comment('کد واحد از API (unit.code)');
             
-            // === فیلدهای bed (دقیقاً مثل API) ===
-            $table->integer('bed_id')->nullable();
-            $table->string('bed_name')->nullable();
-            $table->string('bed_code')->nullable();
-            $table->integer('bed_room_id')->nullable();
-            $table->string('bed_state_ratio_resident')->nullable();
-            $table->string('bed_state')->nullable();
-            $table->text('bed_desc')->nullable();
-            $table->timestamp('bed_created_at')->nullable();
-            $table->timestamp('bed_updated_at')->nullable();
+            // === فیلدهای room از API (دقیقاً مثل API - از $roomData) ===
+            // تمام فیلدهای موجود در $roomData از API
+            $table->integer('room_id')->nullable()->comment('شناسه اتاق از API (room.id)');
+            $table->string('room_name')->nullable()->comment('نام اتاق از API (room.name)');
             
-            // === فیلدهای contract (دقیقاً مثل API) ===
-            $table->integer('contract_resident_id')->nullable();
-            $table->timestamp('contract_payment_date')->nullable();
-            $table->string('contract_payment_date_jalali')->nullable();
-            $table->integer('contract_bed_id')->nullable();
-            $table->string('contract_state')->nullable();
-            $table->timestamp('contract_start_date')->nullable();
-            $table->string('contract_start_date_jalali')->nullable();
-            $table->timestamp('contract_end_date')->nullable();
-            $table->string('contract_end_date_jalali')->nullable();
-            $table->timestamp('contract_created_at')->nullable();
-            $table->timestamp('contract_updated_at')->nullable();
-            $table->timestamp('contract_deleted_at')->nullable();
+            // === فیلدهای bed از API (دقیقاً مثل API - از $bedData) ===
+            // تمام فیلدهای موجود در $bedData از API
+            $table->integer('bed_id')->nullable()->comment('شناسه تخت از API (bed.id)');
+            $table->string('bed_name')->nullable()->comment('نام تخت از API (bed.name)');
             
-            // === فیلدهای resident (دقیقاً مثل API) ===
-            $table->string('resident_full_name')->nullable();
-            $table->string('resident_phone')->nullable();
-            $table->integer('resident_age')->nullable();
-            $table->date('resident_birth_date')->nullable();
-            $table->string('resident_job')->nullable();
-            $table->string('resident_referral_source')->nullable();
-            $table->boolean('resident_form')->nullable();
-            $table->boolean('resident_document')->nullable();
-            $table->boolean('resident_rent')->nullable();
-            $table->boolean('resident_trust')->nullable();
-            $table->timestamp('resident_created_at')->nullable();
-            $table->timestamp('resident_updated_at')->nullable();
-            $table->timestamp('resident_deleted_at')->nullable();
-            
-            // === فیلد notes (JSON) ===
-            $table->json('notes')->nullable();
-            
-            // === فیلد delay ===
-            $table->integer('delay')->nullable()->comment('تأخیر پرداخت');
+            // === فیلد JSON برای ذخیره تمام فیلدهای اضافی از API ===
+            // این فیلد شامل تمام فیلدهایی است که در API هستند اما به صورت column تعریف نشده‌اند
+            $table->json('api_data')->nullable()->comment('تمام داده‌های خام از API (resident, contract, unit, room, bed با تمام فیلدهایشان)');
             
             // زمان آخرین همگام‌سازی
             $table->timestamp('last_synced_at')->nullable();
@@ -169,15 +151,15 @@ return new class extends Migration
             
             // ایندکس‌ها
             $table->index('resident_id');
-            $table->index('contract_id');
+            $table->index('full_name');
+            $table->index('phone');
+            $table->index('national_id');
             $table->index('unit_id');
             $table->index('room_id');
             $table->index('bed_id');
-            $table->index('resident_full_name');
-            $table->index('resident_phone');
-            $table->index('contract_start_date');
-            $table->index('contract_end_date');
-            $table->index('contract_payment_date');
+            $table->index('start_date');
+            $table->index('end_date');
+            $table->index('expiry_date');
             $table->index('last_synced_at');
         });
         

@@ -83,6 +83,7 @@ class Dashboard extends Component
             
             $deletedReports = 0;
             $deletedMessages = 0;
+            $deletedJobs = 0;
             
             // 1. حذف گزارش‌هایی که resident_id ندارند (null)
             $deletedNullReports = ResidentReport::whereNull('resident_id')->delete();
@@ -112,13 +113,22 @@ class Dashboard extends Component
                 $deletedMessages += $deletedOrphanMessages;
             }
             
+            // 6. خالی کردن جدول jobs
+            try {
+                $deletedJobs = \DB::table('jobs')->count();
+                \DB::table('jobs')->truncate();
+            } catch (\Exception $e) {
+                \Log::warning('Could not truncate jobs table: ' . $e->getMessage());
+                $deletedJobs = 0;
+            }
+            
             // بارگذاری مجدد داده‌ها
             $this->loadData();
             
             // نمایش پیام موفقیت
             $message = "پاک‌سازی با موفقیت انجام شد.";
-            if ($deletedReports > 0 || $deletedMessages > 0) {
-                $message .= " {$deletedReports} گزارش و {$deletedMessages} پیام حذف شدند.";
+            if ($deletedReports > 0 || $deletedMessages > 0 || $deletedJobs > 0) {
+                $message .= " {$deletedReports} گزارش و {$deletedMessages} پیام و {$deletedJobs} job حذف شدند.";
                 if ($deletedNullReports > 0) {
                     $message .= " ({$deletedNullReports} گزارش بدون resident_id)";
                 }

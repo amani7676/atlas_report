@@ -1,0 +1,55 @@
+<div class="d-flex flex-column gap-2">
+    <!-- آمار وضعیت -->
+    <div class="d-flex gap-3 justify-content-center">
+        <div class="text-center">
+            <small class="text-muted">تعداد اقامت‌گران</small>
+            <div class="fw-bold text-primary">{{ \App\Models\Resident::count() }}</div>
+        </div>
+        <div class="text-center">
+            <small class="text-muted">گزارش‌های تخلفی</small>
+            <div class="fw-bold text-warning">{{ \App\Models\ResidentReport::count() }}</div>
+        </div>
+        <div class="text-center">
+            <small class="text-muted">پیام‌ها</small>
+            <div class="fw-bold text-info">{{ \App\Models\SmsMessageResident::count() }}</div>
+        </div>
+        <div class="text-center">
+            <small class="text-muted">Jobs در صف</small>
+            <div class="fw-bold text-danger">{{ \Illuminate\Support\Facades\DB::table('jobs')->count() }}</div>
+        </div>
+    </div>
+    
+    <!-- گزینه بازنشانی داده‌ها -->
+    <div class="mb-2">
+        <label class="form-check">
+            <input type="checkbox" class="form-check-input" wire:model.live="resetData" id="resetData">
+            <label class="form-check-label" for="resetData">
+                <small class="text-muted">
+                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                    حذف تمام داده‌های قدیمی و شماره‌گذاری مجدد از 1
+                </small>
+            </label>
+        </label>
+    </div>
+    
+    <!-- دکمه همگام‌سازی -->
+    <button 
+        wire:click="syncResidents" 
+        wire:loading.attr="disabled"
+        class="btn {{ ($resetData ?? false) ? 'btn-danger' : 'btn-primary' }}"
+        style="display: flex; align-items: center; gap: 8px;"
+        @if(($syncing ?? false)) disabled @endif
+    >
+        <i class="fas fa-sync-alt" wire:loading.class="fa-spin"></i>
+        <span wire:loading.remove>
+            {{ ($resetData ?? false) ? 'بازنشانی و همگام‌سازی' : 'همگام‌سازی اطلاعات' }}
+        </span>
+        <span wire:loading>در حال همگام‌سازی...</span>
+    </button>
+    
+    @if($syncMessage ?? false)
+        <div class="mt-2">
+            <small class="text-info">{{ $syncMessage }}</small>
+        </div>
+    @endif
+</div>
