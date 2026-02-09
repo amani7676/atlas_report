@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('pattern_variables')->nullable()->after('is_pattern')->comment('متغیرهای ارسال شده برای الگو (با ; جدا شده)');
         });
     }
+    //فثسف
 
     /**
      * Reverse the migrations.
