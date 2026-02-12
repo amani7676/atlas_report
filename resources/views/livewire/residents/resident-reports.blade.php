@@ -303,7 +303,7 @@
         <!-- بخش جدول‌های اقامت‌گران -->
         <div class="row mb-3 stats-tables">
             <!-- جدول اقامت‌گران با تخلف‌های تکرارای یکسان -->
-            <div class="col-12 col-md-6 mb-3">
+            <div class="col-12 col-md-4 mb-3">
                 <div class="card h-100">
                     <div class="card-header" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
                         <h6 class="mb-0">
@@ -387,7 +387,7 @@
             </div>
 
             <!-- جدول اقامت‌گران با تعداد گزارش بالا -->
-            <div class="col-12 col-md-6 mb-3">
+            <div class="col-12 col-md-4 mb-3">
                 <div class="card h-100">
                     <div class="card-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
                         <h6 class="mb-0">
@@ -469,11 +469,9 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- بخش اقامت‌گران برتر -->
-        <div class="row mb-3 stats-tables">
-            <div class="col-12 col-md-6">
+            <!-- جدول اقامت‌گران برتر -->
+            <div class="col-12 col-md-4 mb-3">
                 <div class="card h-100">
                     <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
                         <h6 class="mb-0"><i class="fas fa-user me-2"></i>اقامت‌گران برتر (بیشترین گزارش)</h6>
@@ -559,9 +557,23 @@
             </div>
         </div>
 
-        <!-- بخش جستجو و فیلترهای اصلی -->
+        <!-- بخش جستجو و فیلترها و جدول گزارش‌ها -->
         <div class="card mb-3" id="reports-list-section">
-            <div class="card-header bg-light">
+            <div class="card-header bg-light" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#mainContentCollapse" aria-expanded="false" aria-controls="mainContentCollapse">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        جستجو، فیلترها و گزارش‌های تخلفی
+                        <i class="fas fa-chevron-down ms-2" id="mainContentIcon"></i>
+                    </h6>
+                    <div>
+                        <span class="badge bg-primary me-1">{{ count($reports) }} گزارش</span>
+                        <span class="badge bg-info">{{ $reports->total() }} مجموع</span>
+                    </div>
+                </div>
+            </div>
+            <div class="collapse" id="mainContentCollapse">
+                <!-- بخش جستجو و فیلترهای اصلی -->
                 @if($filterByResidentName)
                     <div class="alert alert-info mb-2 py-2">
                         <div class="d-flex justify-content-between align-items-center">
@@ -655,8 +667,6 @@
                         </div>
                     </div>
                 @endif
-            </div>
-        </div>
 
         <!-- بخش عملیات گروهی -->
         @if (count($selectedReports) > 0)
@@ -681,11 +691,10 @@
             </div>
         @endif
 
-        <!-- جدول اصلی گزارش‌های تخلفی -->
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                <!-- جدول اصلی گزارش‌های تخلفی -->
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th>شماره</th>
@@ -966,6 +975,9 @@
                     </nav>
                 </div>
             @endif
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1046,6 +1058,22 @@
                     }
                 }, 100);
             });
+        });
+
+        // تابع برای چرخش آیکون chevron هنگام باز/بسته شدن dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            // گوش دادن به رویدادهای Bootstrap collapse
+            const mainContentCollapse = document.getElementById('mainContentCollapse');
+            
+            if (mainContentCollapse) {
+                mainContentCollapse.addEventListener('show.bs.collapse', function () {
+                    document.getElementById('mainContentIcon').style.transform = 'rotate(180deg)';
+                });
+                
+                mainContentCollapse.addEventListener('hide.bs.collapse', function () {
+                    document.getElementById('mainContentIcon').style.transform = 'rotate(0deg)';
+                });
+            }
         });
     </script>
 
