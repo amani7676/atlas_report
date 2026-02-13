@@ -26,10 +26,10 @@ Schedule::call(function () {
     if (!$lastSyncTime || $now->diffInMinutes($lastSyncTime) >= $refreshInterval) {
         \Artisan::call('residents:sync');
         \Illuminate\Support\Facades\Cache::put('residents_last_sync_time', $now, now()->addDays(1));
-        \Log::info('Residents sync executed via scheduler', [
-            'refresh_interval' => $refreshInterval,
-            'last_sync_time' => $lastSyncTime?->format('Y-m-d H:i:s'),
-        ]);
+        // \Log::info('Residents sync executed via scheduler', [
+        //     'refresh_interval' => $refreshInterval,
+        //     'last_sync_time' => $lastSyncTime?->format('Y-m-d H:i:s'),
+        // ]);
     }
 })->name('residents-auto-sync')
   ->everyMinute()
@@ -58,10 +58,10 @@ Schedule::call(function () {
     if (!$lastRun || $now->diffInMinutes($lastRun) >= $interval) {
         \Artisan::call('welcome:process');
         \Illuminate\Support\Facades\Cache::put('welcome_messages_last_run', $now, now()->addDays(1));
-        \Log::info('Welcome messages processed via scheduler', [
-            'interval' => $interval,
-            'last_run' => $lastRun?->format('Y-m-d H:i:s'),
-        ]);
+        // \Log::info('Welcome messages processed via scheduler', [
+        //     'interval' => $interval,
+        //     'last_run' => $lastRun?->format('Y-m-d H:i:s'),
+        // ]);
     }
 })->name('welcome-messages-auto-process')
   ->everyMinute()

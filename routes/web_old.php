@@ -83,7 +83,7 @@ Route::get('/update-api-url', function () {
 // Simple sync endpoint - using settings API URL
 Route::post('/sync-data', function () {
     try {
-        \Log::info('=== Starting sync using settings API ===');
+        // \Log::info('=== Starting sync using settings API ===');
         
         // اجرای Job همگام‌سازی اصلاح شده
         $job = new \App\Jobs\SyncResidentsFromApi();
@@ -96,10 +96,10 @@ Route::post('/sync-data', function () {
             ? $lastSyncedResident->last_synced_at->format('Y-m-d H:i:s') 
             : 'نامشخص';
         
-        \Log::info("Sync completed successfully", [
-            'total_in_db' => $totalInDb,
-            'last_sync_time' => $lastSyncTime
-        ]);
+        // \Log::info("Sync completed successfully", [
+        //     'total_in_db' => $totalInDb,
+        //     'last_sync_time' => $lastSyncTime
+        // ]);
         
         return response()->json([
             'success' => true,
@@ -111,10 +111,10 @@ Route::post('/sync-data', function () {
         ]);
         
     } catch (\Exception $e) {
-        \Log::error('=== Sync failed ===', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+        // \Log::error('=== Sync failed ===', [
+        //     'error' => $e->getMessage(),
+        //     'trace' => $e->getTraceAsString()
+        // ]);
         
         return response()->json([
             'success' => false,
@@ -126,7 +126,7 @@ Route::post('/sync-data', function () {
 // Sync endpoint with live API
         
         $residents = array_values($residents);
-        \Log::info("API returned " . count($residents) . " residents");
+        // \Log::info("API returned " . count($residents) . " residents");
         
         // 4. درج داده‌های جدید
         $createdCount = 0;
@@ -168,7 +168,7 @@ Route::post('/sync-data', function () {
             $createdCount++;
         }
         
-        \Log::info("Created {$createdCount} new residents");
+        // \Log::info("Created {$createdCount} new residents");
         
         // 5. ذخیره cache
         \Illuminate\Support\Facades\Cache::put('residents_last_sync', [
@@ -188,10 +188,10 @@ Route::post('/sync-data', function () {
         ]);
         
     } catch (\Exception $e) {
-        \Log::error('=== Sync failed ===', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+        // \Log::error('=== Sync failed ===', [
+        //     'error' => $e->getMessage(),
+        //     'trace' => $e->getTraceAsString()
+        // ]);
         
         return response()->json([
             'success' => false,
@@ -203,17 +203,17 @@ Route::post('/sync-data', function () {
 // Sync endpoint with live API
 Route::post('/sync-data-live', function () {
     try {
-        \Log::info('=== Starting sync with LIVE API ===');
+        // \Log::info('=== Starting sync with LIVE API ===');
         
         // 1. پاک کردن کل جدول
         $deletedCount = \App\Models\Resident::count();
         \App\Models\Resident::query()->delete();
         \Illuminate\Support\Facades\DB::statement('ALTER TABLE residents AUTO_INCREMENT = 1');
-        \Log::info("Deleted {$deletedCount} residents from database");
+        // \Log::info("Deleted {$deletedCount} residents from database");
         
         // 2. دریافت داده‌ها از API هاست
         $apiUrl = 'http://atlasdorm.com/api/residents';
-        \Log::info("Fetching data from LIVE API: {$apiUrl}");
+        // \Log::info("Fetching data from LIVE API: {$apiUrl}");
         
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $apiUrl);
@@ -241,7 +241,7 @@ Route::post('/sync-data-live', function () {
         }
         
         $residents = array_values($residents);
-        \Log::info("LIVE API returned " . count($residents) . " residents");
+        // \Log::info("LIVE API returned " . count($residents) . " residents");
         
         // 3. درج داده‌های جدید
         $createdCount = 0;
@@ -283,7 +283,7 @@ Route::post('/sync-data-live', function () {
             $createdCount++;
         }
         
-        \Log::info("Created {$createdCount} new residents from LIVE API");
+        // \Log::info("Created {$createdCount} new residents from LIVE API");
         
         // 4. ذخیره cache
         \Illuminate\Support\Facades\Cache::put('residents_last_sync', [
@@ -303,10 +303,10 @@ Route::post('/sync-data-live', function () {
         ]);
         
     } catch (\Exception $e) {
-        \Log::error('=== LIVE Sync failed ===', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+        // \Log::error('=== LIVE Sync failed ===', [
+        //     'error' => $e->getMessage(),
+        //     'trace' => $e->getTraceAsString()
+        // ]);
         
         return response()->json([
             'success' => false,
@@ -344,10 +344,10 @@ Route::post('/api/residents/sync', function () {
             ]
         ]);
     } catch (\Exception $e) {
-        \Illuminate\Support\Facades\Log::error('Error syncing residents from API route', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
+        // \Illuminate\Support\Facades\Log::error('Error syncing residents from API route', [
+        //     'error' => $e->getMessage(),
+        //     'trace' => $e->getTraceAsString(),
+        // ]);
         
         return response()->json([
             'success' => false,
@@ -415,9 +415,9 @@ Route::get('/api/residents/last-sync', function () {
             ]);
         }
     } catch (\Exception $e) {
-        \Illuminate\Support\Facades\Log::error('Error getting last sync from database', [
-            'error' => $e->getMessage()
-        ]);
+        // \Illuminate\Support\Facades\Log::error('Error getting last sync from database', [
+        //     'error' => $e->getMessage()
+        // ]);
     }
     
     // اگر هیچ داده‌ای پیدا نشد

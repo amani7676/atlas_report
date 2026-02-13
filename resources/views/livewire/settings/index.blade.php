@@ -54,11 +54,11 @@
                 @enderror
             </div>
 
-            <!-- بخش تنظیمات گزارش تخلفات -->
+            <!-- بخش تنظیمات کارت‌ها -->
             <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
                 <h3 style="margin-bottom: 20px; color: #333;">
-                    <i class="fas fa-exclamation-triangle" style="margin-left: 8px; color: #dc3545;"></i>
-                    تنظیمات گزارش تخلفات
+                    <i class="fas fa-id-card" style="margin-left: 8px; color: #ffc107;"></i>
+                    تنظیمات سیستم کارت‌ها
                 </h3>
 
                 <!-- تعداد گزارش یکسان -->
@@ -84,62 +84,6 @@
                         </span> 
                     @enderror
                 </div>
-
-                <!-- تعداد گزارش برای نمایش اقامت‌گران برتر -->
-                <div style="margin-bottom: 25px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
-                        <i class="fas fa-chart-line" style="margin-left: 5px;"></i>
-                        تعداد گزارش برای نمایش اقامت‌گران برتر <span style="color: red;">*</span>
-                    </label>
-                    <input
-                        type="number"
-                        wire:model="count_violation"
-                        class="form-control"
-                        placeholder="مثال: 5"
-                        min="1"
-                        style="width: 100%; max-width: 400px;"
-                    >
-                    <small style="color: #666; margin-top: 5px; display: block;">
-                        تعداد گزارش که باید برای نمایش در "اقامت‌گران با تعداد گزارش بالا" استفاده شود.
-                    </small>
-                    @error('count_violation') 
-                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
-                        </span> 
-                    @enderror
-                </div>
-
-                <!-- مجموع نمرات منفی برای نمایش اقامت‌گران برتر -->
-                <div style="margin-bottom: 25px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
-                        <i class="fas fa-star" style="margin-left: 5px;"></i>
-                        مجموع نمرات منفی برای نمایش اقامت‌گران برتر <span style="color: red;">*</span>
-                    </label>
-                    <input
-                        type="number"
-                        wire:model="max_violation"
-                        class="form-control"
-                        placeholder="مثال: 10"
-                        min="1"
-                        style="width: 100%; max-width: 400px;"
-                    >
-                    <small style="color: #666; margin-top: 5px; display: block;">
-                        مجموع نمرات منفی که باید برای نمایش در "اقامت‌گران برتر (بیشترین گزارش)" استفاده شود.
-                    </small>
-                    @error('max_violation') 
-                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
-                        </span> 
-                    @enderror
-                </div>
-            </div>
-
-            <!-- بخش تنظیمات کارت‌ها -->
-            <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
-                <h3 style="margin-bottom: 20px; color: #333;">
-                    <i class="fas fa-id-card" style="margin-left: 8px; color: #ffc107;"></i>
-                    تنظیمات سیستم کارت‌ها
-                </h3>
 
                 <!-- امتیاز کارت زرد -->
                 <div style="margin-bottom: 25px;">

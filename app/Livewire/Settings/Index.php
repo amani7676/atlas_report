@@ -12,8 +12,6 @@ class Index extends Component
     public $sms_delay_before_start = 2; // تاخیر قبل از شروع ارسال (ثانیه)
     public $sms_delay_between_messages = 200; // تاخیر بین هر پیامک (میلی‌ثانیه)
     public $repeat_violation = 3; // تعداد گزارش یکسان برای نمایش
-    public $count_violation = 5; // تعداد گزارش برای نمایش اقامت‌گران برتر
-    public $max_violation = 10; // مجموع نمرات منفی برای نمایش اقامت‌گران برتر
     public $yellow_card_threshold = 15; // امتیاز برای کارت زرد
     public $red_card_threshold = 25; // امتیاز برای کارت قرمز
 
@@ -25,8 +23,6 @@ class Index extends Component
             'sms_delay_before_start' => 'required|integer|min:0|max:60',
             'sms_delay_between_messages' => 'required|integer|min:0|max:5000',
             'repeat_violation' => 'required|integer|min:1',
-            'count_violation' => 'required|integer|min:1',
-            'max_violation' => 'required|integer|min:1',
             'yellow_card_threshold' => 'required|integer|min:1',
             'red_card_threshold' => 'required|integer|min:1',
         ];
@@ -42,12 +38,6 @@ class Index extends Component
         'repeat_violation.required' => 'تعداد گزارش یکسان الزامی است.',
         'repeat_violation.integer' => 'تعداد گزارش یکسان باید عدد باشد.',
         'repeat_violation.min' => 'تعداد گزارش یکسان باید حداقل 1 باشد.',
-        'count_violation.required' => 'تعداد گزارش برای نمایش اقامت‌گران برتر الزامی است.',
-        'count_violation.integer' => 'تعداد گزارش باید عدد باشد.',
-        'count_violation.min' => 'تعداد گزارش باید حداقل 1 باشد.',
-        'max_violation.required' => 'مجموع نمرات منفی الزامی است.',
-        'max_violation.integer' => 'مجموع نمرات منفی باید عدد باشد.',
-        'max_violation.min' => 'مجموع نمرات منفی باید حداقل 1 باشد.',
         'yellow_card_threshold.required' => 'امتیاز کارت زرد الزامی است.',
         'yellow_card_threshold.integer' => 'امتیاز کارت زرد باید عدد باشد.',
         'yellow_card_threshold.min' => 'امتیاز کارت زرد باید حداقل 1 باشد.',
@@ -76,12 +66,6 @@ class Index extends Component
         $repeatViolation = \App\Models\Constant::where('key', 'repeat_violation')->first();
         $this->repeat_violation = $repeatViolation ? (int)$repeatViolation->value : 3;
         
-        $countViolation = \App\Models\Constant::where('key', 'count_violation')->first();
-        $this->count_violation = $countViolation ? (int)$countViolation->value : 5;
-        
-        $maxViolation = \App\Models\Constant::where('key', 'max_violation')->first();
-        $this->max_violation = $maxViolation ? (int)$maxViolation->value : 10;
-        
         // بارگذاری تنظیمات کارت‌ها از constants
         $yellowCard = \App\Models\Constant::where('key', 'yellow_card_threshold')->first();
         $this->yellow_card_threshold = $yellowCard ? (int)$yellowCard->value : 15;
@@ -105,16 +89,6 @@ class Index extends Component
         \App\Models\Constant::updateOrCreate(
             ['key' => 'repeat_violation'],
             ['value' => (string)$this->repeat_violation, 'type' => 'number', 'description' => 'تعداد گزارش یکسان برای نمایش در اقامت‌گران با تخلف‌های تکرارای یکسان']
-        );
-        
-        \App\Models\Constant::updateOrCreate(
-            ['key' => 'count_violation'],
-            ['value' => (string)$this->count_violation, 'type' => 'number', 'description' => 'تعداد گزارش برای نمایش در اقامت‌گران با تعداد گزارش بالا']
-        );
-        
-        \App\Models\Constant::updateOrCreate(
-            ['key' => 'max_violation'],
-            ['value' => (string)$this->max_violation, 'type' => 'number', 'description' => 'مجموع نمرات منفی برای نمایش در اقامت‌گران برتر']
         );
         
         // ذخیره تنظیمات کارت‌ها در constants

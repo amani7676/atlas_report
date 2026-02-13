@@ -783,10 +783,10 @@ class ResidentReports extends Component
             // بستن فرم
             $this->closeGrantForm();
         } catch (\Exception $e) {
-            \Log::error('Error saving grant', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            // \Log::error('Error saving grant', [
+//     'error' => $e->getMessage(),
+//     'trace' => $e->getTraceAsString(),
+// ]);
 
             $this->dispatch('showAlert', [
                 'type' => 'error',
@@ -814,10 +814,10 @@ class ResidentReports extends Component
             // بارگذاری مجدد بخشودگی‌ها
             $this->loadResidentGrants($this->selectedResident);
         } catch (\Exception $e) {
-            \Log::error('Error deleting grant', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            // \Log::error('Error deleting grant', [
+//     'error' => $e->getMessage(),
+//     'trace' => $e->getTraceAsString(),
+// ]);
 
             $this->dispatch('showAlert', [
                 'type' => 'error',
@@ -1023,10 +1023,10 @@ class ResidentReports extends Component
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Error toggling checked status', [
-                'report_id' => $reportId,
-                'error' => $e->getMessage()
-            ]);
+            // \Log::error('Error toggling checked status', [
+//     'report_id' => $reportId,
+//     'error' => $e->getMessage()
+// ]);
         }
     }
 
@@ -1127,10 +1127,10 @@ class ResidentReports extends Component
             }
 
         } catch (\Exception $e) {
-            \Log::error('Error checking all reports', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            // \Log::error('Error checking all reports', [
+//     'error' => $e->getMessage(),
+//     'trace' => $e->getTraceAsString(),
+// ]);
 
             $this->dispatch('showAlert', [
                 'type' => 'error',
@@ -1210,10 +1210,10 @@ class ResidentReports extends Component
             // بارگذاری مجدد بخشودگی‌ها
             $this->loadResidentGrants($this->selectedResident);
         } catch (\Exception $e) {
-            \Log::error('Error unchecking all reports', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            // \Log::error('Error unchecking all reports', [
+//     'error' => $e->getMessage(),
+//     'trace' => $e->getTraceAsString(),
+// ]);
 
             $this->dispatch('showAlert', [
                 'type' => 'error',
@@ -1297,6 +1297,10 @@ class ResidentReports extends Component
         $yellowThreshold = $this->yellowCardThreshold;
         $redThreshold = $this->redCardThreshold;
         
+        // دریافت تنظیم تعداد گزارش یکسان
+        $repeatViolationSetting = \App\Models\Constant::where('key', 'repeat_violation')->first();
+        $repeatViolationThreshold = $repeatViolationSetting ? (int)$repeatViolationSetting->value : 3;
+        
         // دریافت اقامت‌گرانی که کارت تأیید شده ندارند
         $approvedResidentIds = \App\Models\ResidentCard::where('card_status', 'approved')
             ->pluck('resident_id')
@@ -1322,10 +1326,11 @@ class ResidentReports extends Component
             ->get();
 
         // Debug: نمایش اطلاعات برای اشکال‌زدایی
-        \Log::info('Yellow Threshold: ' . $yellowThreshold);
-        \Log::info('Red Threshold: ' . $redThreshold);
-        \Log::info('Approved resident IDs: ' . implode(', ', $approvedResidentIds));
-        \Log::info('Residents with high scores count: ' . $residentsWithScores->count());
+        // \Log::info('Yellow Threshold: ' . $yellowThreshold);
+        // \Log::info('Red Threshold: ' . $redThreshold);
+        // \Log::info('Repeat Violation Threshold: ' . $repeatViolationThreshold);
+        // \Log::info('Approved resident IDs: ' . implode(', ', $approvedResidentIds));
+        // \Log::info('Residents with high scores count: ' . $residentsWithScores->count());
         
         $pendingCards = [];
         
@@ -1353,12 +1358,60 @@ class ResidentReports extends Component
             ];
         }
         
+        // اضافه کردن اقامت‌گرانی که تعداد گزارش‌های یکسان آن‌ها به آستانه می‌رسد
+        // حتی اگر امتیازشان به کارت زرد نرسیده باشد
+        $repeatViolationResidents = $this->getResidentsWithRepeatViolations($approvedResidentIds, $repeatViolationThreshold, $pendingCards);
+        
+        foreach ($repeatViolationResidents as $resident) {
+            $pendingCards[] = (object)[
+                'id' => 'repeat_violation_' . $resident->resident_id,
+                'resident_id' => $resident->resident_id,
+                'resident_name' => $resident->resident_name,
+                'total_score' => $resident->total_score,
+                'card_type' => 'yellow', // همیشه کارت زرد برای گزارش‌های تکراری
+                'first_violation' => $resident->first_violation,
+                'approved_at' => null,
+                'reason' => 'repeat_violation' // دلیل نمایش کارت
+            ];
+        }
+        
         // Debug: نمایش کارت‌های ساخته شده
-        \Log::info('Pending cards created: ' . count($pendingCards));
-        \Log::info('Yellow cards: ' . collect($pendingCards)->where('card_type', 'yellow')->count());
-        \Log::info('Red cards: ' . collect($pendingCards)->where('card_type', 'red')->count());
+        // \Log::info('Pending cards created: ' . count($pendingCards));
+        // \Log::info('Yellow cards: ' . collect($pendingCards)->where('card_type', 'yellow')->count());
+        // \Log::info('Red cards: ' . collect($pendingCards)->where('card_type', 'red')->count());
         
         return collect($pendingCards);
+    }
+
+    /**
+     * دریافت اقامت‌گرانی که تعداد گزارش‌های یکسان آن‌ها به آستانه می‌رسد
+     */
+    private function getResidentsWithRepeatViolations($approvedResidentIds, $threshold, $existingCards)
+    {
+        // دریافت شناسه‌های اقامت‌گرانی که قبلاً کارت دارند
+        $existingResidentIds = collect($existingCards)->pluck('resident_id')->toArray();
+        
+        // دریافت اقامت‌گرانی که گزارش‌های تکراری دارند
+        $repeatResidents = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
+            ->where('reports.category_id', 1) // فقط دسته‌بندی تخلف
+            ->where('reports.negative_score', '>', 0) // فقط گزارش‌های با امتیاز منفی
+            ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال (غیر چک شده)
+            ->whereNotIn('residents.resident_id', $approvedResidentIds) // حذف اقامت‌گران با کارت تأیید شده
+            ->whereNotIn('residents.resident_id', $existingResidentIds) // حذف اقامت‌گرانی که قبلاً کارت دارند
+            ->selectRaw('
+                residents.resident_id,
+                residents.resident_full_name as resident_name,
+                SUM(reports.negative_score) as total_score,
+                COUNT(resident_reports.id) as violation_count,
+                MIN(resident_reports.created_at) as first_violation
+            ')
+            ->groupBy('residents.resident_id', 'residents.resident_full_name')
+            ->havingRaw('COUNT(resident_reports.id) >= ?', [$threshold])
+            ->orderBy('violation_count', 'desc')
+            ->get();
+        
+        return $repeatResidents;
     }
 
     /**
@@ -1689,7 +1742,7 @@ class ResidentReports extends Component
         ];
         
         // نمایش در لاگ برای دیباگ
-        \Log::info('Card Test Data:', $data);
+        // \Log::info('Card Test Data:', $data);
         
         $this->dispatch('showAlert', [
             'type' => 'info',

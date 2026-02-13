@@ -85,13 +85,13 @@ Route::get('/update-api-url', function () {
 // Simple sync endpoint - using settings API URL
 Route::post('/sync-data', function () {
     try {
-        \Log::info('=== Starting sync using settings API ===');
+        // \Log::info('=== Starting sync using settings API ===');
         
         // 1. پاک کردن کل جدول
         $deletedCount = \App\Models\Resident::count();
         \App\Models\Resident::query()->delete();
         \Illuminate\Support\Facades\DB::statement('ALTER TABLE residents AUTO_INCREMENT = 1');
-        \Log::info("Deleted {$deletedCount} residents from database");
+        // \Log::info("Deleted {$deletedCount} residents from database");
         
         // 2. دریافت URL از تنظیمات
         $settings = \App\Models\Settings::getSettings();
@@ -104,8 +104,8 @@ Route::post('/sync-data', function () {
         $primaryApiUrl = $apiUrl;
         $fallbackApiUrl = 'http://127.0.0.1:8000/api/residents'; // fallback لوکال
         
-        \Log::info("Primary API URL: {$primaryApiUrl}");
-        \Log::info("Fallback API URL: {$fallbackApiUrl}");
+        // \Log::info("Primary API URL: {$primaryApiUrl}");
+        // \Log::info("Fallback API URL: {$fallbackApiUrl}");
         
         // 3. تلاش برای دریافت داده‌ها از API اصلی، سپس از fallback
         $apiUrl = $primaryApiUrl;
@@ -114,7 +114,7 @@ Route::post('/sync-data', function () {
         
         // تلاش اول با API اصلی
         for ($attempt = 1; $attempt <= 2; $attempt++) {
-            \Log::info("Attempt {$attempt}: Trying API URL: {$apiUrl}");
+            // \Log::info("Attempt {$attempt}: Trying API URL: {$apiUrl}");
             
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $apiUrl);
@@ -128,18 +128,18 @@ Route::post('/sync-data', function () {
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
             
-            \Log::info("API Response - HTTP {$httpCode} from {$apiUrl}");
+            // \Log::info("API Response - HTTP {$httpCode} from {$apiUrl}");
             
             if ($httpCode === 200) {
-                \Log::info("API request successful on attempt {$attempt}");
+                // \Log::info("API request successful on attempt {$attempt}");
                 break;
             } else {
-                \Log::warning("API request failed on attempt {$attempt}: HTTP {$httpCode}");
+                // \Log::warning("API request failed on attempt {$attempt}: HTTP {$httpCode}");
                 
                 // اگر تلاش اول ناموفق بود، از fallback استفاده کن
                 if ($attempt === 1) {
                     $apiUrl = $fallbackApiUrl;
-                    \Log::info("Switching to fallback API: {$apiUrl}");
+                    // \Log::info("Switching to fallback API: {$apiUrl}");
                 } else {
                     // هر دو تلاش ناموفق بودند
                     throw new \Exception("Both APIs failed. Primary: HTTP {$httpCode} from {$primaryApiUrl}, Fallback: HTTP {$httpCode} from {$fallbackApiUrl}");
@@ -157,7 +157,7 @@ Route::post('/sync-data', function () {
         }
         
         $residents = array_values($residents);
-        \Log::info("API returned " . count($residents) . " residents");
+        // \Log::info("API returned " . count($residents) . " residents");
         
         // 4. درج داده‌های جدید
         $createdCount = 0;
@@ -199,7 +199,7 @@ Route::post('/sync-data', function () {
             $createdCount++;
         }
         
-        \Log::info("Created {$createdCount} new residents");
+        // \Log::info("Created {$createdCount} new residents");
         
         // 5. ذخیره cache
         \Illuminate\Support\Facades\Cache::put('residents_last_sync', [

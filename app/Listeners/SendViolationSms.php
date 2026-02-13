@@ -11,6 +11,7 @@ use App\Models\ResidentReport;
 use App\Models\SmsMessageResident;
 use App\Services\MelipayamakService;
 use App\Services\ResidentService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 
