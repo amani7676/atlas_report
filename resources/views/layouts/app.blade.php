@@ -1425,7 +1425,7 @@
 
                 <!-- اقامت‌گران -->
                 <div class="menu-section">اقامت‌گران</div>
-                <li class="menu-item has-submenu {{ request()->is('residents*') || request()->is('resident-reports*') || request()->is('sms/violation-sms') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('residents*') || request()->is('resident-reports*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-users"></i>
                         <span>اقامت‌گران</span>
@@ -1455,62 +1455,10 @@
                                 <span>ارسال گروهی پیامک</span>
                             </a>
                         </li>
-                        <li>
-                            <a href="/sms/violation-sms" class="{{ request()->is('sms/violation-sms') ? 'active' : '' }}">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>پیامک‌های ارسال شده</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/welcome-messages" class="{{ request()->is('welcome-messages*') ? 'active' : '' }}">
-                                <i class="fas fa-heart"></i>
-                                <span>پیام‌های خوش‌آمدگویی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/admin/card-thresholds" class="{{ request()->is('admin/card-thresholds') ? 'active' : '' }}">
-                                <i class="fas fa-id-card"></i>
-                                <span>تنظیمات کارت‌ها</span>
-                            </a>
-                        </li>
-                    </ul>
+                                            </ul>
                 </li>
 
-                <!-- پیام‌های الگویی -->
-                <div class="menu-section">پیام‌های الگویی</div>
-                <li class="menu-item has-submenu {{ request()->is('sms/pattern*') || request()->is('blacklists*') ? 'open' : '' }}">
-                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
-                        <i class="fas fa-file-code"></i>
-                        <span>پیام‌های الگویی</span>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="/sms/pattern-manual" class="{{ request()->is('sms/pattern-manual') ? 'active' : '' }}">
-                                <i class="fas fa-user"></i>
-                                <span>ارسال الگویی دستی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/pattern-group" class="{{ request()->is('sms/pattern-group') ? 'active' : '' }}">
-                                <i class="fas fa-users"></i>
-                                <span>ارسال الگویی گروهی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/pattern-test" class="{{ request()->is('sms/pattern-test') ? 'active' : '' }}">
-                                <i class="fas fa-vial"></i>
-                                <span>تست ارسال الگویی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/blacklists" class="{{ request()->is('blacklists*') ? 'active' : '' }}">
-                                <i class="fas fa-ban"></i>
-                                <span>لیست‌های سیاه</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
+                
                 <!-- سایر -->
                 <div class="menu-section">سایر</div>
                 <li class="menu-item has-submenu {{ request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') || request()->is('settings*') || request()->is('patterns*') || request()->is('variables*') || request()->is('api-keys*') || request()->is('admin/card-thresholds*') ? 'open' : '' }}">
@@ -1564,58 +1512,8 @@
                     </ul>
                 </li>
 
-                <!-- پیام‌های ساده -->
-                <div class="menu-section">پیام‌های ساده</div>
-                <li class="menu-item has-submenu {{ request()->is('sms*') && !request()->is('sms/pattern*') && !request()->is('patterns*') && !request()->is('variables*') && !request()->is('blacklists*') && !request()->is('constants*') && !request()->is('sms/auto*') && !request()->is('sms/violation-sms') ? 'open' : '' }}">
-                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
-                        <i class="fas fa-sms"></i>
-                        <span>پیام‌های ساده</span>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="/sms" class="{{ request()->is('sms') && !request()->is('sms/manual') && !request()->is('sms/group') && !request()->is('sms/sent') && !request()->is('sms/pattern*') && !request()->is('sms/auto*') && !request()->is('sms/violation-sms') ? 'active' : '' }}">
-                                <i class="fas fa-sms"></i>
-                                <span>مدیریت پیام‌های SMS</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/manual" class="{{ request()->is('sms/manual') ? 'active' : '' }}">
-                                <i class="fas fa-user"></i>
-                                <span>ارسال SMS دستی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/group" class="{{ request()->is('sms/group') ? 'active' : '' }}">
-                                <i class="fas fa-users"></i>
-                                <span>ارسال SMS گروهی</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/sms/sent" class="{{ request()->is('sms/sent') ? 'active' : '' }}">
-                                <i class="fas fa-history"></i>
-                                <span>پیام‌های ارسال شده</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
-                <!-- ارسال خودکار -->
-                <div class="menu-section">ارسال خودکار</div>
-                <li class="menu-item has-submenu {{ request()->is('sms/auto*') ? 'open' : '' }}">
-                    <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
-                        <i class="fas fa-robot"></i>
-                        <span>ارسال خودکار</span>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="/sms/auto" class="{{ request()->is('sms/auto') ? 'active' : '' }}">
-                                <i class="fas fa-cog"></i>
-                                <span>مدیریت ارسال خودکار</span>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
+                
+                
             </ul>
         </nav>
 
@@ -2034,18 +1932,8 @@
                 window.refreshTimeout = null;
             }
 
-            @php
-                try {
-                    $settings = \App\Models\Settings::getSettings();
-                    $refreshInterval = $settings->refresh_interval ?? 5;
-                } catch (\Exception $e) {
-                    $refreshInterval = 5; // مقدار پیش‌فرض در صورت خطا
-                }
-            @endphp
-            
-            const refreshInterval = {{ $refreshInterval }};
-            const timerElement = document.getElementById('timer-text');
-            const timerContainer = document.getElementById('refresh-timer');
+                        
+            // رفرش خودکار غیرفعال شده است
             
             // تابع برای راه‌اندازی مجدد تایمر (برای استفاده در event listener)
             window.restartTimer = function() {

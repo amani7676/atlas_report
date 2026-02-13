@@ -28,19 +28,6 @@ Route::get('/resident-reports', ResidentReports::class)->name('residents.reports
 Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports');
 Route::get('/residents/expired-today', ExpiredToday::class)->name('residents.expired-today');
 Route::get('/residents/group-sms', \App\Livewire\Residents\GroupSms::class)->name('residents.group-sms');
-Route::get('/admin/card-thresholds', CardThresholds::class)->name('admin.card-thresholds');
-// پیام‌های ساده
-Route::get('/sms', \App\Livewire\Sms\Index::class)->name('sms.index');
-Route::get('/sms/manual', \App\Livewire\Sms\Manual::class)->name('sms.manual');
-Route::get('/sms/group', \App\Livewire\Sms\Group::class)->name('sms.group');
-Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent');
-
-// پیام‌های الگویی
-Route::get('/sms/pattern-manual', \App\Livewire\Sms\PatternManual::class)->name('sms.pattern-manual');
-Route::get('/sms/pattern-group', \App\Livewire\Sms\PatternGroup::class)->name('sms.pattern-group');
-Route::get('/sms/pattern-test', \App\Livewire\Sms\PatternTest::class)->name('sms.pattern-test');
-Route::get('/sms/auto', \App\Livewire\Sms\Auto::class)->name('sms.auto');
-Route::get('/sms/violation-sms', \App\Livewire\Sms\ViolationSms::class)->name('sms.violation-sms');
 Route::get('/reports/violations', \App\Livewire\Reports\Violations::class)->name('reports.violations');
 Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
 Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
@@ -52,11 +39,8 @@ Route::get('/api-keys', \App\Livewire\Admin\ApiKeyManager::class)->name('api-key
 Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index');
 Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index');
 Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.index');
+Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent');
 
-// پیام‌های خوش‌آمدگویی
-Route::get('/welcome-messages', \App\Livewire\WelcomeMessages\Index::class)->name('welcome-messages.index');
-Route::get('/welcome-messages/logs', [\App\Http\Controllers\WelcomeMessageController::class, 'logs'])->name('welcome-messages.logs');
-Route::post('/welcome-messages/process', [\App\Http\Controllers\WelcomeMessageController::class, 'process'])->name('welcome-messages.process');
 
 // Test endpoint
 Route::post('/test-sync', function () {
@@ -390,15 +374,12 @@ Route::post('/api/residents/sync', function () {
 // API endpoint for sync status (برای بررسی اینکه آیا sync انجام شده یا نه)
 Route::get('/api/residents/sync-status', function () {
     $lastSyncTime = \Illuminate\Support\Facades\Cache::get('residents_last_sync_time');
-    $settings = \App\Models\Settings::getSettings();
-    $refreshInterval = $settings->refresh_interval ?? 5;
     
     if ($lastSyncTime) {
         $lastSync = \Illuminate\Support\Facades\Cache::get('residents_last_sync');
         return response()->json([
             'synced' => true,
             'last_sync_time' => $lastSyncTime->format('Y-m-d H:i:s'),
-            'refresh_interval' => $refreshInterval,
             'synced_count' => $lastSync['synced_count'] ?? 0,
             'created_count' => $lastSync['created_count'] ?? 0,
             'updated_count' => $lastSync['updated_count'] ?? 0,
@@ -408,7 +389,6 @@ Route::get('/api/residents/sync-status', function () {
     return response()->json([
         'synced' => false,
         'last_sync_time' => null,
-        'refresh_interval' => $refreshInterval,
     ]);
 });
 

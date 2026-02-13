@@ -18,7 +18,6 @@ class SettingsSeeder extends Seeder
         
         if (!$settings) {
             Settings::create([
-                'refresh_interval' => 5, // 5 دقیقه
                 'api_url' => 'http://atlas2.test/api/residents',
             ]);
             

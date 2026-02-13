@@ -7,7 +7,6 @@ use App\Models\Settings;
 
 class Index extends Component
 {
-    public $refresh_interval = 5;
     public $api_url = '';
     public $sms_delay_before_start = 2; // تاخیر قبل از شروع ارسال (ثانیه)
     public $sms_delay_between_messages = 200; // تاخیر بین هر پیامک (میلی‌ثانیه)
@@ -18,7 +17,6 @@ class Index extends Component
     protected function rules()
     {
         return [
-            'refresh_interval' => 'required|integer|min:0|max:1440',
             'api_url' => 'required|url',
             'sms_delay_before_start' => 'required|integer|min:0|max:60',
             'sms_delay_between_messages' => 'required|integer|min:0|max:5000',
@@ -29,10 +27,6 @@ class Index extends Component
     }
 
     protected $messages = [
-        'refresh_interval.required' => 'میزان رفرش صفحه الزامی است.',
-        'refresh_interval.integer' => 'میزان رفرش باید عدد باشد.',
-        'refresh_interval.min' => 'میزان رفرش نمی‌تواند منفی باشد. برای غیرفعال کردن رفرش خودکار، مقدار 0 را وارد کنید.',
-        'refresh_interval.max' => 'میزان رفرش نمی‌تواند بیشتر از 1440 دقیقه (24 ساعت) باشد.',
         'api_url.required' => 'لینک API الزامی است.',
         'api_url.url' => 'لینک API باید یک URL معتبر باشد.',
         'repeat_violation.required' => 'تعداد گزارش یکسان الزامی است.',
@@ -57,7 +51,6 @@ class Index extends Component
     public function mount()
     {
         $settings = Settings::getSettings();
-        $this->refresh_interval = $settings->refresh_interval ?? 5;
         $this->api_url = $settings->api_url ?? 'http://atlas2.test/api/residents';
         $this->sms_delay_before_start = $settings->sms_delay_before_start ?? 2;
         $this->sms_delay_between_messages = $settings->sms_delay_between_messages ?? 200;
@@ -79,7 +72,6 @@ class Index extends Component
         $this->validate();
 
         Settings::updateSettings([
-            'refresh_interval' => $this->refresh_interval,
             'api_url' => $this->api_url,
             'sms_delay_before_start' => $this->sms_delay_before_start,
             'sms_delay_between_messages' => $this->sms_delay_between_messages,
