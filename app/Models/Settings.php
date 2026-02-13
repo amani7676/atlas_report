@@ -11,6 +11,8 @@ class Settings extends Model
         'api_url',
         'sms_delay_before_start',
         'sms_delay_between_messages',
+        'sms_username',
+        'sms_password',
     ];
 
     protected $casts = [

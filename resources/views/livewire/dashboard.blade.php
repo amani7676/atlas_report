@@ -55,14 +55,38 @@
             <div class="stats-number">{{ $failedMessages }}</div>
             <div class="stats-label">پیام‌های ناموفق</div>
         </div>
+
+        <div class="stats-card" style="background: linear-gradient(135deg, #4ecdc4, #44a3aa);">
+            <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+            <div class="stats-number">{{ $deliveryStats['delivered'] ?? 0 }}</div>
+            <div class="stats-label">پیام‌های تحویل شده</div>
+        </div>
+
+        <div class="stats-card" style="background: linear-gradient(135deg, #f7b731, #f5a623);">
+            <i class="fas fa-clock" style="font-size: 24px;"></i>
+            <div class="stats-number">{{ $deliveryStats['delivery_pending'] ?? 0 }}</div>
+            <div class="stats-label">در انتظار دلیوری</div>
+        </div>
     </div>
 
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3 style="margin: 0;">آخرین پیام‌های ارسال شده</h3>
-            <a href="{{ route('sms.sent') }}" style="color: #007bff; text-decoration: none; font-size: 14px;">
-                مشاهده همه <i class="fas fa-arrow-left"></i>
-            </a>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                @if($lastDeliveryCheck)
+                    <span style="color: #666; font-size: 12px;">
+                        آخرین بررسی دلیوری: {{ jalaliDate($lastDeliveryCheck, 'Y/m/d H:i') }}
+                    </span>
+                @endif
+                <button wire:click="updateDeliveryStatus" wire:loading.attr="disabled" class="btn btn-info btn-sm" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-sync" wire:loading.class="fa-spin"></i>
+                    <span wire:loading.remove>بررسی وضعیت دلیوری</span>
+                    <span wire:loading>در حال بررسی...</span>
+                </button>
+                <a href="{{ route('sms.sent') }}" style="color: #007bff; text-decoration: none; font-size: 14px;">
+                    مشاهده همه <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
         </div>
 
         @if($recentSentMessages->count() > 0)
@@ -72,7 +96,8 @@
                         <tr>
                             <th>نام اقامت‌گر</th>
                             <th>متن پیام</th>
-                            <th>وضعیت</th>
+                            <th>وضعیت ارسال</th>
+                            <th>وضعیت دلیوری</th>
                             <th>تاریخ</th>
                         </tr>
                     </thead>
@@ -90,6 +115,10 @@
                                         <span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
                                             <i class="fas fa-check"></i> ارسال شده
                                         </span>
+                                    @elseif($message->status == 'delivered')
+                                        <span style="background: #d1ecf1; color: #0c5460; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                            <i class="fas fa-check-double"></i> تحویل شده
+                                        </span>
                                     @elseif($message->status == 'failed')
                                         <span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
                                             <i class="fas fa-times"></i> ناموفق
@@ -97,6 +126,31 @@
                                     @else
                                         <span style="background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
                                             <i class="fas fa-clock"></i> در انتظار
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($message->delivery_checked)
+                                        @if($message->delivery_status == 1)
+                                            <span style="background: #d1ecf1; color: #0c5460; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                <i class="fas fa-check-double"></i> رسیده به گوشی
+                                            </span>
+                                        @elseif($message->delivery_status == 0)
+                                            <span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                <i class="fas fa-check"></i> رسیده به مخابرات
+                                            </span>
+                                        @elseif(in_array($message->delivery_status, [2, 3, 5, 16, 35]))
+                                            <span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                <i class="fas fa-times"></i> تحویل نشد
+                                            </span>
+                                        @else
+                                            <span style="background: #e2e3e5; color: #383d41; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                کد: {{ $message->delivery_status ?? 'نامشخص' }}
+                                            </span>
+                                        @endif
+                                    @else
+                                        <span style="background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                            <i class="fas fa-clock"></i> بررسی نشده
                                         </span>
                                     @endif
                                 </td>

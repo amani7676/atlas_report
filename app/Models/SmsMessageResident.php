@@ -24,14 +24,19 @@ class SmsMessageResident extends Model
         'error_message',
         'response_code',
         'rec_id',
+        'delivery_status',
+        'delivery_checked',
+        'delivery_checked_at',
         'api_response',
         'raw_response',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'delivery_checked_at' => 'datetime',
         'api_response' => 'array',
         'is_pattern' => 'boolean',
+        'delivery_checked' => 'boolean',
     ];
     
     public function pattern()

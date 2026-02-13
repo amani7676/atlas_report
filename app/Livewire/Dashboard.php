@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\Category;
 use App\Models\SmsMessageResident;
 use App\Models\ResidentReport;
+use App\Services\SmsDeliveryService;
 
 class Dashboard extends Component
 {
@@ -17,6 +18,8 @@ class Dashboard extends Component
     public $totalSentMessages;
     public $failedMessages;
     public $orphanedRecordsCount = 0;
+    public $deliveryStats = [];
+    public $lastDeliveryCheck = null;
 
     public function mount()
     {
@@ -41,6 +44,14 @@ class Dashboard extends Component
         // آمار پیام‌ها
         $this->totalSentMessages = SmsMessageResident::count();
         $this->failedMessages = SmsMessageResident::where('status', 'failed')->count();
+        
+        // دریافت آمار وضعیت دلیوری
+        $deliveryService = new SmsDeliveryService();
+        $this->deliveryStats = $deliveryService->getDeliveryStats();
+        
+        // دریافت آخرین زمان بررسی دلیوری
+        $lastCheck = \App\Models\Constant::where('key', 'last_delivery_check')->first();
+        $this->lastDeliveryCheck = $lastCheck ? $lastCheck->value : null;
         
         // شمارش رکوردهای یتیم
         $this->countOrphanedRecords();
@@ -155,6 +166,41 @@ class Dashboard extends Component
                 'type' => 'error',
                 'title' => 'خطا!',
                 'text' => 'خطا در پاک‌سازی: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    public function updateDeliveryStatus()
+    {
+        try {
+            $deliveryService = new SmsDeliveryService();
+            $result = $deliveryService->updateDeliveryStatus();
+            
+            // ذخیره آخرین زمان بررسی
+            \App\Models\Constant::updateOrCreate(
+                ['key' => 'last_delivery_check'],
+                ['value' => now()->format('Y-m-d H:i:s')]
+            );
+            
+            // بارگذاری مجدد داده‌ها
+            $this->loadData();
+            
+            $this->dispatch('showAlert', [
+                'type' => $result['success'] ? 'success' : 'error',
+                'title' => $result['success'] ? 'موفقیت!' : 'خطا!',
+                'text' => $result['message']
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error in updateDeliveryStatus', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'text' => 'خطا در به‌روزرسانی وضعیت دلیوری: ' . $e->getMessage()
             ]);
         }
     }
