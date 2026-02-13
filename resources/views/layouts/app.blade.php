@@ -1467,6 +1467,12 @@
                                 <span>پیام‌های خوش‌آمدگویی</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="/admin/card-thresholds" class="{{ request()->is('admin/card-thresholds') ? 'active' : '' }}">
+                                <i class="fas fa-id-card"></i>
+                                <span>تنظیمات کارت‌ها</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
@@ -1507,7 +1513,7 @@
 
                 <!-- سایر -->
                 <div class="menu-section">سایر</div>
-                <li class="menu-item has-submenu {{ request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') || request()->is('settings*') || request()->is('patterns*') || request()->is('variables*') || request()->is('api-keys*') ? 'open' : '' }}">
+                <li class="menu-item has-submenu {{ request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') || request()->is('settings*') || request()->is('patterns*') || request()->is('variables*') || request()->is('api-keys*') || request()->is('admin/card-thresholds*') ? 'open' : '' }}">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-cogs"></i>
                         <span>سایر</span>

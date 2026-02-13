@@ -54,64 +54,6 @@
                 @enderror
             </div>
 
-            <!-- بخش تنظیمات ارسال پیامک -->
-            <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
-                <h3 style="margin-bottom: 20px; color: #333;">
-                    <i class="fas fa-paper-plane" style="margin-left: 8px; color: #28a745;"></i>
-                    تنظیمات ارسال پیامک
-                </h3>
-
-                <!-- تاخیر قبل از شروع ارسال -->
-                <div style="margin-bottom: 25px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
-                        <i class="fas fa-clock" style="margin-left: 5px;"></i>
-                        تاخیر قبل از شروع ارسال (ثانیه) <span style="color: red;">*</span>
-                    </label>
-                    <input
-                        type="number"
-                        wire:model="sms_delay_before_start"
-                        class="form-control"
-                        placeholder="مثال: 2"
-                        min="0"
-                        max="60"
-                        style="width: 100%; max-width: 400px;"
-                    >
-                    <small style="color: #666; margin-top: 5px; display: block;">
-                        مدت زمان تاخیر قبل از شروع ارسال پیامک‌ها (به ثانیه). پیش‌فرض: 2 ثانیه.
-                    </small>
-                    @error('sms_delay_before_start') 
-                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
-                        </span> 
-                    @enderror
-                </div>
-
-                <!-- تاخیر بین هر پیامک -->
-                <div style="margin-bottom: 25px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
-                        <i class="fas fa-hourglass-half" style="margin-left: 5px;"></i>
-                        تاخیر بین هر پیامک (میلی‌ثانیه) <span style="color: red;">*</span>
-                    </label>
-                    <input
-                        type="number"
-                        wire:model="sms_delay_between_messages"
-                        class="form-control"
-                        placeholder="مثال: 200"
-                        min="0"
-                        max="5000"
-                        style="width: 100%; max-width: 400px;"
-                    >
-                    <small style="color: #666; margin-top: 5px; display: block;">
-                        مدت زمان تاخیر بین ارسال هر پیامک (به میلی‌ثانیه). پیش‌فرض: 200 میلی‌ثانیه (0.2 ثانیه).
-                    </small>
-                    @error('sms_delay_between_messages') 
-                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
-                        </span> 
-                    @enderror
-                </div>
-            </div>
-
             <!-- بخش تنظیمات گزارش تخلفات -->
             <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
                 <h3 style="margin-bottom: 20px; color: #333;">
@@ -185,6 +127,62 @@
                         مجموع نمرات منفی که باید برای نمایش در "اقامت‌گران برتر (بیشترین گزارش)" استفاده شود.
                     </small>
                     @error('max_violation') 
+                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
+                            {{ $message }}
+                        </span> 
+                    @enderror
+                </div>
+            </div>
+
+            <!-- بخش تنظیمات کارت‌ها -->
+            <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
+                <h3 style="margin-bottom: 20px; color: #333;">
+                    <i class="fas fa-id-card" style="margin-left: 8px; color: #ffc107;"></i>
+                    تنظیمات سیستم کارت‌ها
+                </h3>
+
+                <!-- امتیاز کارت زرد -->
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                        <i class="fas fa-square" style="margin-left: 5px; color: #ffc107;"></i>
+                        امتیاز برای کارت زرد <span style="color: red;">*</span>
+                    </label>
+                    <input
+                        type="number"
+                        wire:model="yellow_card_threshold"
+                        class="form-control"
+                        placeholder="مثال: 15"
+                        min="1"
+                        style="width: 100%; max-width: 400px;"
+                    >
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        مجموع امتیاز تخلفات که برای دریافت کارت زرد لازم است. پیش‌فرض: 15 امتیاز.
+                    </small>
+                    @error('yellow_card_threshold') 
+                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
+                            {{ $message }}
+                        </span> 
+                    @enderror
+                </div>
+
+                <!-- امتیاز کارت قرمز -->
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                        <i class="fas fa-square" style="margin-left: 5px; color: #dc3545;"></i>
+                        امتیاز برای کارت قرمز <span style="color: red;">*</span>
+                    </label>
+                    <input
+                        type="number"
+                        wire:model="red_card_threshold"
+                        class="form-control"
+                        placeholder="مثال: 25"
+                        min="1"
+                        style="width: 100%; max-width: 400px;"
+                    >
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        مجموع امتیاز تخلفات که برای دریافت کارت قرمز لازم است. پیش‌فرض: 25 امتیاز.
+                    </small>
+                    @error('red_card_threshold') 
                         <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
                             {{ $message }}
                         </span> 

@@ -262,295 +262,314 @@
             /* بهبود نمایش فیلترها */
             .form-select-sm, .form-control-sm {
                 font-size: 0.75rem;
+
+                /* بهبود نمایش مودال در موبایل */
+                .modal-dialog {
+                    margin: 0.5rem;
+                    max-width: calc(100% - 1rem);
+                }
+
+                /* بهبود نمایش جستجو در موبایل */
+                .input-group-sm {
+                    width: 100% !important;
+                }
+
+                /* تنظیمات عملیات گروهی در موبایل */
+                .alert {
+                    padding: 0.5rem;
+                    font-size: 0.8rem;
+                }
+
+                /* بهبود نمایش بخش جستجوی اقامت‌گر */
+                .position-absolute {
+                    z-index: 1000;
+                }
+            }
+
+            /* استایل‌های خاص برای گوشی‌های کوچکتر */
+            @media (max-width: 480px) {
+                /* کاهش بیشتر اندازه فونت‌ها */
+                .card-body {
+                    padding: 0.5rem;
+                }
+
+                h5 {
+                    font-size: 0.9rem;
+                }
             }
         }
     </style>
 
     <div class="container-fluid py-3">
-        <!-- بخش جستجوی اقامت‌گر در بالای صفحه -->
-        <div class="row mb-4">
-            <div class="col-4 mx-auto">
+        <!-- بخش مدیریت کارت‌ها -->
+        <div class="row mb-3">
+            <div class="col-12">
                 <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0"><i class="fas fa-search me-2"></i>جستجوی اقامت‌گر</h6>
+                    <div class="card-header" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white;">
+                        <h6 class="mb-0 d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-id-card me-2"></i>
+                                مدیریت کارت‌های انضباطی
+                            </div>
+                        </h6>
                     </div>
                     <div class="card-body">
-                        <!-- فیلد جستجو -->
-                        <div class="position-relative">
-                            <input type="text" wire:model.live.debounce.300ms="residentSearch" class="form-control" placeholder="نام اقامت‌گر را وارد کنید...">
-                            @if (!$showResidentModal && $residentSearch && count($residentsList) > 0)
-                                <div class="position-absolute w-100 bg-white border border-top-0 rounded-bottom shadow-lg"
-                                    style="z-index: 10; max-height: 200px; overflow-y: auto;">
-                                    @foreach ($residentsList as $resident)
-                                        <a href="#" wire:click="selectResident('{{ $resident }}')"
-                                            class="d-block p-2 text-decoration-none hover-bg-light"
-                                            style="cursor: pointer; transition: background-color 0.2s;">
-                                            <i class="fas fa-user me-2 text-primary"></i>{{ $resident }}
-                                        </a>
-                                    @endforeach
+                        <div class="row">
+                            <!-- کادر کارت‌های زرد -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6 class="mb-0 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div style="display: inline-block; background: black; border-radius: 50%; padding: 4px; margin-left: 8px;">
+                                                    <img src="{{ asset('icons/yellow-card-icon.webp') }}" alt="کارت زرد" style="width: 35px; height: 27px;">
+                                                </div>
+                                                کارت‌های زرد
+                                                <span class="badge bg-dark ms-2">{{ $this->pendingYellowCardsCount + $this->approvedYellowCardsCount }}</span>
+                                            </div>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <!-- تب‌های داخل کارت زرد -->
+                                        <ul class="nav nav-tabs" id="yellowCardTabs" role="tablist">
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link active" id="yellow-pending-tab" data-bs-toggle="tab" data-bs-target="#yellow-pending" type="button" role="tab">
+                                                    <i class="fas fa-clock me-2"></i>
+                                                    بررسی نشده ({{ $this->pendingYellowCardsCount }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link" id="yellow-approved-tab" data-bs-toggle="tab" data-bs-target="#yellow-approved" type="button" role="tab">
+                                                    <i class="fas fa-check-circle me-2"></i>
+                                                    بررسی شده ({{ $this->approvedYellowCardsCount }})
+                                                </button>
+                                            </li>
+                                        </ul>
+
+                                        <!-- محتوای تب‌های زرد -->
+                                        <div class="tab-content" id="yellowCardTabsContent">
+                                            <!-- کارت‌های زرد بررسی نشده -->
+                                            <div class="tab-pane fade show active" id="yellow-pending" role="tabpanel">
+                                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                                    <table class="table table-sm table-hover">
+                                                        <thead class="table-light sticky-top">
+                                                            <tr>
+                                                                <th>اقامت‌گر</th>
+                                                                <th>امتیاز</th>
+                                                                <th>عملیات</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($this->pendingYellowCards ?? [] as $card)
+                                                                <tr>
+                                                                    <td>
+                                                                        <a href="#" 
+                                                                           wire:click.prevent="selectResident('{{ $card->resident_name }}')"
+                                                                           class="text-decoration-none fw-bold"
+                                                                           style="cursor: pointer;">
+                                                                            {{ $card->resident_name }}
+                                                                        </a>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge bg-warning text-dark">{{ $card->current_score ?? 0 }}</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <button wire:click="approveCard({{ $card->resident_id }})" 
+                                                                                class="btn btn-sm btn-success">
+                                                                            <i class="fas fa-check"></i> تایید
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            @empty
+                                                                <tr>
+                                                                    <td colspan="3" class="text-center text-muted py-3">
+                                                                        کارت زرد بررسی نشده‌ای وجود ندارد
+                                                                    </td>
+                                                                </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <!-- کارت‌های زرد بررسی شده -->
+                                            <div class="tab-pane fade" id="yellow-approved" role="tabpanel">
+                                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                                    <table class="table table-sm table-hover">
+                                                        <thead class="table-light sticky-top">
+                                                            <tr>
+                                                                <th>اقامت‌گر</th>
+                                                                <th>امتیاز</th>
+                                                                <th>تاریخ تایید</th>
+                                                                <th>عملیات</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($this->approvedYellowCards ?? [] as $card)
+                                                                <tr>
+                                                                    <td>
+                                                                        <a href="#" 
+                                                                           wire:click.prevent="selectResident('{{ $card->resident_name }}')"
+                                                                           class="text-decoration-none fw-bold"
+                                                                           style="cursor: pointer;">
+                                                                            {{ $card->resident_name }}
+                                                                        </a>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge bg-warning text-dark">{{ $card->current_score ?? 0 }}</span>
+                                                                    </td>
+                                                                    <td>{{ jalaliDate($card->approved_at, 'Y/m/d') }}</td>
+                                                                    <td>
+                                                                        <button wire:click="deleteCard({{ $card->id }})" 
+                                                                                class="btn btn-sm btn-danger"
+                                                                                onclick="return confirm('آیا از حذف این کارت اطمینان دارید؟')">
+                                                                            <i class="fas fa-trash"></i> حذف
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            @empty
+                                                                <tr>
+                                                                    <td colspan="4" class="text-center text-muted py-3">
+                                                                        کارت زرد تأیید شده‌ای وجود ندارد
+                                                                    </td>
+                                                                </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            </div>
 
+                            <!-- کادر کارت‌های قرمز -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-danger">
+                                    <div class="card-header bg-danger text-white">
+                                        <h6 class="mb-0 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div style="display: inline-block; background: black; border-radius: 50%; padding: 4px; margin-left: 8px;">
+                                                    <img src="{{ asset('icons/red-card-icon.webp') }}" alt="کارت قرمز" style="width: 35px; height: 27px;">
+                                                </div>
+                                                کارت‌های قرمز
+                                                <span class="badge bg-light text-dark ms-2">{{ $this->pendingRedCardsCount + $this->approvedRedCardsCount }}</span>
+                                            </div>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <!-- تب‌های داخل کارت قرمز -->
+                                        <ul class="nav nav-tabs" id="redCardTabs" role="tablist">
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link active" id="red-pending-tab" data-bs-toggle="tab" data-bs-target="#red-pending" type="button" role="tab">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    بررسی نشده ({{ $this->pendingRedCardsCount }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link" id="red-approved-tab" data-bs-toggle="tab" data-bs-target="#red-approved" type="button" role="tab">
+                                                    <i class="fas fa-check-circle me-2"></i>
+                                                    بررسی شده ({{ $this->approvedRedCardsCount }})
+                                                </button>
+                                            </li>
+                                        </ul>
 
-        <!-- بخش کارت‌های آماری -->
+                                        <!-- محتوای تب‌های قرمز -->
+                                        <div class="tab-content" id="redCardTabsContent">
+                                            <!-- کارت‌های قرمز بررسی نشده -->
+                                            <div class="tab-pane fade show active" id="red-pending" role="tabpanel">
+                                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                                    <table class="table table-sm table-hover">
+                                                        <thead class="table-light sticky-top">
+                                                            <tr>
+                                                                <th>اقامت‌گر</th>
+                                                                <th>امتیاز</th>
+                                                                <th>عملیات</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($this->pendingRedCards ?? [] as $card)
+                                                                <tr>
+                                                                    <td>
+                                                                        <a href="#" 
+                                                                           wire:click.prevent="selectResident('{{ $card->resident_name }}')"
+                                                                           class="text-decoration-none fw-bold"
+                                                                           style="cursor: pointer;">
+                                                                            {{ $card->resident_name }}
+                                                                        </a>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge bg-danger">{{ $card->current_score ?? 0 }}</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <button wire:click="approveCard({{ $card->resident_id }})" 
+                                                                                class="btn btn-sm btn-success">
+                                                                            <i class="fas fa-check"></i> تایید
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            @empty
+                                                                <tr>
+                                                                    <td colspan="3" class="text-center text-muted py-3">
+                                                                        کارت قرمز بررسی نشده‌ای وجود ندارد
+                                                                    </td>
+                                                                </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
 
-
-        <!-- بخش جدول‌های اقامت‌گران -->
-        <div class="row mb-3 stats-tables">
-            <!-- جدول اقامت‌گران با تخلف‌های تکرارای یکسان -->
-            <div class="col-12 col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-header" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
-                        <h6 class="mb-0">
-                            <i class="fas fa-redo me-2"></i>
-                            اقامت‌گران با تخلف‌های تکرارای یکسان
-                            <span class="badge bg-light text-dark ms-2">{{ $repeatViolationResidentsCount }}</span>
-                        </h6>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th width="5%">#</th>
-                                        <th>اقامت‌گر</th>
-                                        <th>نوع تخلف</th>
-                                        <th>تعداد تکرار</th>
-                                        <th>موقعیت</th>
-                                        <th>بخشودگی</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($repeatViolationResidents as $index => $resident)
-                                        <tr>
-                                            <td>
-                                                <span class="badge rounded-pill bg-primary">{{ $index + 1 }}</span>
-                                            </td>
-                                            <td>
-                                                @if(!empty($resident->resident_name))
-                                                    <a href="#"
-                                                       wire:click.prevent="filterByResident('{{ $resident->resident_name }}', {{ $resident->report_id }})"
-                                                       class="text-decoration-none text-primary fw-bold"
-                                                       style="cursor: pointer;"
-                                                       title="مشاهده تخلف‌های تکرارای این اقامت‌گر">
-                                                        <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
-                                                    </a>
-                                                @else
-                                                    <span class="text-muted">نامشخص</span>
-                                                @endif
-                                                @if($resident->phone)
-                                                    <br><small class="text-muted">{{ $resident->phone }}</small>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-info">{{ $resident->report_name ?? 'نامشخص' }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-danger">{{ $resident->repeat_count }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-secondary mb-1">{{ $resident->unit_name ?? 'واحد نامشخص' }}</span>
-                                                <br>
-                                                <small class="text-muted">اتاق: {{ $resident->room_name ?? 'نامشخص' }}</small>
-                                            </td>
-                                            <td>
-                                                @if(isset($resident->grants_total_count) && $resident->grants_total_count > 0)
-                                                    <span class="badge bg-success">{{ $resident->grants_count ?? 0 }} فعال</span>
-                                                    @if(($resident->grants_total_count ?? 0) > ($resident->grants_count ?? 0))
-                                                        <span class="badge bg-secondary ms-1">{{ ($resident->grants_total_count ?? 0) - ($resident->grants_count ?? 0) }} غیرفعال</span>
-                                                    @endif
-                                                    <br>
-                                                    <small class="text-muted">کل: {{ $resident->grants_total_count ?? 0 }} مورد | مجموع: {{ number_format($resident->grants_total ?? 0, 0) }}</small>
-                                                @else
-                                                    <span class="text-muted">-</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="text-center py-4 text-muted">
-                                                <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
-                                                <p class="mb-0">هیچ اقامت‌گری با تخلف تکرارای یکسان یافت نشد.</p>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- جدول اقامت‌گران با تعداد گزارش بالا -->
-            <div class="col-12 col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
-                        <h6 class="mb-0">
-                            <i class="fas fa-file-alt me-2"></i>
-                            اقامت‌گران با تعداد گزارش بالا
-                            <span class="badge bg-light text-dark ms-2">{{ $countViolationResidentsCount }}</span>
-                        </h6>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th width="5%">#</th>
-                                        <th>اقامت‌گر</th>
-                                        <th>تعداد گزارش</th>
-                                        <th>مجموع نمرات</th>
-                                        <th>موقعیت</th>
-                                        <th>بخشودگی</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($countViolationResidents as $index => $resident)
-                                        <tr>
-                                            <td>
-                                                <span class="badge rounded-pill bg-info">{{ $index + 1 }}</span>
-                                            </td>
-                                            <td>
-                                                @if(!empty($resident->resident_name))
-                                                    <a href="#"
-                                                       wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
-                                                       class="text-decoration-none text-info fw-bold"
-                                                       style="cursor: pointer;"
-                                                       title="مشاهده همه تخلف‌های این اقامت‌گر">
-                                                        <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
-                                                    </a>
-                                                @else
-                                                    <span class="text-muted">نامشخص</span>
-                                                @endif
-                                                @if($resident->phone)
-                                                    <br><small class="text-muted">{{ $resident->phone }}</small>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-primary">{{ $resident->report_count }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-danger">{{ $resident->total_score }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-secondary mb-1">{{ $resident->unit_name ?? 'واحد نامشخص' }}</span>
-                                                <br>
-                                                <small class="text-muted">اتاق: {{ $resident->room_name ?? 'نامشخص' }}</small>
-                                            </td>
-                                            <td>
-                                                @if(isset($resident->grants_total_count) && $resident->grants_total_count > 0)
-                                                    <span class="badge bg-success">{{ $resident->grants_count ?? 0 }} فعال</span>
-                                                    @if(($resident->grants_total_count ?? 0) > ($resident->grants_count ?? 0))
-                                                        <span class="badge bg-secondary ms-1">{{ ($resident->grants_total_count ?? 0) - ($resident->grants_count ?? 0) }} غیرفعال</span>
-                                                    @endif
-                                                    <br>
-                                                    <small class="text-muted">کل: {{ $resident->grants_total_count ?? 0 }} مورد | مجموع: {{ number_format($resident->grants_total ?? 0, 0) }}</small>
-                                                @else
-                                                    <span class="text-muted">-</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="text-center py-4 text-muted">
-                                                <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
-                                                <p class="mb-0">هیچ اقامت‌گری با تعداد گزارش بالا یافت نشد.</p>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- جدول اقامت‌گران برتر -->
-            <div class="col-12 col-md-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
-                        <h6 class="mb-0"><i class="fas fa-user me-2"></i>اقامت‌گران برتر (بیشترین گزارش)</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
-                            <table class="table table-sm table-hover">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th width="5%">#</th>
-                                        <th>اقامت‌گر</th>
-                                        <th>تلفن</th>
-                                        <th>موقعیت</th>
-                                        <th>تعداد گزارش</th>
-                                        <th>مجموع نمرات</th>
-                                        <th>بخشودگی</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php $counter = 1; ?>
-                                    @forelse ($topResidents as $resident)
-                                        <tr>
-                                            <td>
-                                                <span
-                                                    class="badge rounded-pill bg-danger">{{ $counter++ }}</span>
-                                            </td>
-                                            <td>
-                                                @if(!empty($resident->resident_name))
-                                                    <a href="#"
-                                                       wire:click.prevent="filterByResident('{{ $resident->resident_name }}')"
-                                                       class="text-decoration-none text-danger fw-bold"
-                                                       style="cursor: pointer;"
-                                                       title="مشاهده همه تخلف‌های این اقامت‌گر">
-                                                        <i class="fas fa-link me-1"></i>{{ $resident->resident_name }}
-                                                    </a>
-                                                @else
-                                                    <span class="text-muted">نامشخص</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                {{ $resident->phone ?? 'ثبت نشده' }}
-                                            </td>
-                                            <td>
-                                                <span
-                                                    class="badge bg-primary mb-1">{{ $resident->unit_name ?? 'واحد نامشخص' }}</span>
-                                                <br>
-                                                <small>
-                                                    اتاق: {{ $resident->room_name ?? 'نامشخص' }}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-primary">{{ $resident->report_count }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-danger">{{ $resident->total_score }}</span>
-                                                <small class="d-block text-muted mt-1">(مجموع تخلف)</small>
-                                            </td>
-                                            <td>
-                                                @if(isset($resident->grants_total_count) && $resident->grants_total_count > 0)
-                                                    <span class="badge bg-success">{{ $resident->grants_count ?? 0 }} فعال</span>
-                                                    @if(($resident->grants_total_count ?? 0) > ($resident->grants_count ?? 0))
-                                                        <span class="badge bg-secondary ms-1">{{ ($resident->grants_total_count ?? 0) - ($resident->grants_count ?? 0) }} غیرفعال</span>
-                                                    @endif
-                                                    <br>
-                                                    <small class="text-muted">کل: {{ $resident->grants_total_count ?? 0 }} مورد | مجموع: {{ number_format($resident->grants_total ?? 0, 0) }}</small>
-                                                @else
-                                                    <span class="text-muted">-</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="8" class="text-center py-4">
-                                                <p class="text-muted mb-0">اقامت‌گری یافت نشد</p>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
+                                            <!-- کارت‌های قرمز بررسی شده -->
+                                            <div class="tab-pane fade" id="red-approved" role="tabpanel">
+                                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                                    <table class="table table-sm table-hover">
+                                                        <thead class="table-light sticky-top">
+                                                            <tr>
+                                                                <th>اقامت‌گر</th>
+                                                                <th>امتیاز</th>
+                                                                <th>تاریخ تایید</th>
+                                                                <th>عملیات</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($this->approvedRedCards ?? [] as $card)
+                                                                <tr>
+                                                                    <td>
+                                                                        <a href="#" 
+                                                                           wire:click.prevent="selectResident('{{ $card->resident_name }}')"
+                                                                           class="text-decoration-none fw-bold"
+                                                                           style="cursor: pointer;">
+                                                                            {{ $card->resident_name }}
+                                                                        </a>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge bg-danger">{{ $card->total_score }}</span>
+                                                                    </td>
+                                                                    <td>{{ jalaliDate($card->approved_at, 'Y/m/d') }}</td>
+                                                                    <td>
+                                                                        <button wire:click="deleteCard({{ $card->id }})" 
+                                                                                class="btn btn-sm btn-danger"
+                                                                                onclick="return confirm('آیا از حذف این کارت اطمینان دارید؟')">
+                                                                            <i class="fas fa-trash"></i> حذف
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            @empty
+                                                                <tr>
+                                                                    <td colspan="4" class="text-center text-muted py-3">
+                                                                        کارت قرمز تأیید شده‌ای وجود ندارد
+                                                                    </td>
+                                                                </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -559,12 +578,12 @@
 
         <!-- بخش جستجو و فیلترها و جدول گزارش‌ها -->
         <div class="card mb-3" id="reports-list-section">
-            <div class="card-header bg-light" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#mainContentCollapse" aria-expanded="false" aria-controls="mainContentCollapse">
+            <div class="card-header bg-light" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#mainContentCollapse" aria-expanded="true" aria-controls="mainContentCollapse">
                 <div class="d-flex justify-content-between align-items-center">
                     <h6 class="mb-0">
                         <i class="fas fa-list me-2"></i>
                         جستجو، فیلترها و گزارش‌های تخلفی
-                        <i class="fas fa-chevron-down ms-2" id="mainContentIcon"></i>
+                        <i class="fas fa-chevron-up ms-2" id="mainContentIcon"></i>
                     </h6>
                     <div>
                         <span class="badge bg-primary me-1">{{ count($reports) }} گزارش</span>
@@ -572,7 +591,7 @@
                     </div>
                 </div>
             </div>
-            <div class="collapse" id="mainContentCollapse">
+            <div class="collapse show" id="mainContentCollapse">
                 <!-- بخش جستجو و فیلترهای اصلی -->
                 @if($filterByResidentName)
                     <div class="alert alert-info mb-2 py-2">
@@ -599,7 +618,7 @@
                                 <i class="fas fa-search"></i>
                             </span>
                             <input type="text" wire:model.live.debounce.300ms="search" class="form-control"
-                                placeholder="جستجو در گزارش‌ها...">
+                                placeholder="جستجو در گزارش‌ها، نام اقامت‌گر...">
                         </div>
 
                         <select wire:model.live="perPage" class="form-select form-select-sm">
@@ -737,7 +756,17 @@
                                                 {{ mb_substr($report->resident_name ?? 'ن', 0, 1) }}
                                             </div>
                                             <div>
-                                                <strong style="font-size: 14px; color: #1f2937; display: block; margin-bottom: 3px;">{{ $report->resident_name ?? 'نامشخص' }}</strong>
+                                                @if(!empty($report->resident_name))
+                                                    <a href="#" 
+                                                       wire:click.prevent="selectResident('{{ $report->resident_name }}')"
+                                                       class="text-decoration-none fw-bold"
+                                                       style="cursor: pointer; color: #1f2937; font-size: 14px; display: block; margin-bottom: 3px;"
+                                                       title="مشاهده جزئیات اقامت‌گر">
+                                                        {{ $report->resident_name }}
+                                                    </a>
+                                                @else
+                                                    <strong style="font-size: 14px; color: #1f2937; display: block; margin-bottom: 3px;">نامشخص</strong>
+                                                @endif
                                                 @if ($report->resident_id)
                                                     <small style="color: #6b7280; font-size: 11px;">
                                                         <i class="fas fa-id-card"></i> ID: {{ $report->resident_id }}
@@ -829,15 +858,15 @@
                                         </div>
                                     </td>
                                     <td style="vertical-align: middle;">
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-danger" style="border-radius: 6px 0 0 6px;"
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-outline-danger btn-sm"
                                                 onclick="confirmDeleteReport({{ $report->id }})" title="حذف گزارش">
                                                 <i class="fas fa-trash"></i>
                                             </button>
-                                            <button type="button" class="btn btn-outline-info" style="border-radius: 0 6px 6px 0;"
-                                                onclick="return openReportModal({{ $report->id }});"
-                                                title="مشاهده جزئیات">
-                                                <i class="fas fa-eye"></i>
+                                            <button wire:click="toggleReportStatus({{ $report->id }})" 
+                                                    class="btn {{ $report->is_checked ? 'btn-secondary' : 'btn-success' }} btn-sm"
+                                                    title="{{ $report->is_checked ? 'غیرفعال کردن' : 'فعال کردن' }} وضعیت">
+                                                <i class="fas {{ $report->is_checked ? 'fa-times' : 'fa-check' }}"></i>
                                             </button>
                                         </div>
 

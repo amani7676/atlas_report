@@ -111,6 +111,11 @@ class ResidentReport extends Model
         return $this->belongsTo(Report::class);
     }
     
+    public function resident(): BelongsTo
+    {
+        return $this->belongsTo(Resident::class, 'resident_id', 'resident_id');
+    }
+    
     /**
      * دریافت اطلاعات اقامت‌گر بر اساس resident_id
      */

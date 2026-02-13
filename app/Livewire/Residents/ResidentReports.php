@@ -3,15 +3,19 @@
 namespace App\Livewire\Residents;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use App\Models\ResidentReport;
+use App\Models\Resident;
 use App\Models\Report;
+use App\Models\Unit;
+use App\Models\ResidentGrant;
 use App\Models\Category;
 use App\Models\Constant;
-use App\Models\Resident;
-use Livewire\WithPagination;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str; // اضافه شده
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 class ResidentReports extends Component
 {
@@ -54,6 +58,20 @@ class ResidentReports extends Component
     public $grantDate = '';
     public $selectedResidentGrants = [];
     public $grantCheckError = null; // پیام خطا برای چک نشدن همه گزارش‌ها
+    
+    // پراپرتی‌های سیستم کارت‌ها
+    public $pendingCards = [];
+    public $approvedCards = [];
+    public $pendingCardsCount = 0;
+    public $approvedCardsCount = 0;
+    
+    // پراپرتی‌های کارت‌های اقامت‌گران
+    public $residentCards = [];
+    public $residentCardsCount = 0;
+    
+    // پراپرتی‌های کارت‌های بررسی نشده (اقامت‌گرانی که به آستانه رسیده‌اند)
+    public $pendingThresholdCards = [];
+    public $pendingThresholdCardsCount = 0;
 
     // Propertyهای computed
     public function getTotalScoreProperty()
@@ -349,52 +367,72 @@ class ResidentReports extends Component
 
     public function getReportsQueryProperty(): Builder
     {
-        $query = ResidentReport::with(['report', 'report.category'])
-            ->whereHas('report', function ($q) {
-                $q->where('category_id', 1); // دسته‌بندی تخلف
-            })
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->whereHas('report', function ($reportQuery) {
-                        $reportQuery->where('title', 'like', '%' . $this->search . '%');
-                    })
-                    ->orWhere('notes', 'like', '%' . $this->search . '%');
+        try {
+            $query = ResidentReport::with(['report', 'report.category', 'resident'])
+                ->whereHas('report', function ($q) {
+                    $q->where('category_id', 1); // دسته‌بندی تخلف
+                })
+                ->when($this->search && strlen($this->search) > 0, function ($query) {
+                    $query->where(function ($q) {
+                        $q->whereHas('report', function ($reportQuery) {
+                            $reportQuery->where('title', 'like', '%' . $this->search . '%');
+                        })
+                        ->orWhere('notes', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('resident', function ($residentQuery) {
+                            $residentQuery->where('resident_full_name', 'like', '%' . $this->search . '%');
+                        });
+                    });
+                })
+                ->when($this->filterByResidentName, function ($query) {
+                    $residentId = \App\Models\Resident::where('resident_full_name', $this->filterByResidentName)->value('resident_id');
+                    if ($residentId) {
+                        $query->where('resident_id', $residentId);
+                    }
+                })
+                ->when($this->filters['unit_id'], function ($query) {
+                    $query->where('unit_id', $this->filters['unit_id']);
+                })
+                ->when($this->filters['room_id'], function ($query) {
+                    $query->where('room_id', $this->filters['room_id']);
+                })
+                ->when($this->filters['report_id'], function ($query) {
+                    $query->where('report_id', $this->filters['report_id']);
+                })
+                ->when($this->filters['category_id'], function ($query) {
+                    $query->whereHas('report', function ($q) {
+                        $q->where('category_id', $this->filters['category_id']);
+                    });
+                })
+                ->when($this->filters['date_from'], function ($query) {
+                    $query->whereDate('created_at', '>=', $this->filters['date_from']);
+                })
+                ->when($this->filters['date_to'], function ($query) {
+                    $query->whereDate('created_at', '<=', $this->filters['date_to']);
                 });
-            })
-            ->when($this->filterByResidentName, function ($query) {
-                $residentId = \App\Models\Resident::where('resident_full_name', $this->filterByResidentName)->value('resident_id');
-                if ($residentId) {
-                    $query->where('resident_id', $residentId);
-                }
-            })
-            ->when($this->filters['unit_id'], function ($query) {
-                $query->where('unit_id', $this->filters['unit_id']);
-            })
-            ->when($this->filters['room_id'], function ($query) {
-                $query->where('room_id', $this->filters['room_id']);
-            })
-            ->when($this->filters['report_id'], function ($query) {
-                $query->where('report_id', $this->filters['report_id']);
-            })
-            ->when($this->filters['category_id'], function ($query) {
-                $query->whereHas('report', function ($q) {
-                    $q->where('category_id', $this->filters['category_id']);
-                });
-            })
-            ->when($this->filters['date_from'], function ($query) {
-                $query->whereDate('created_at', '>=', $this->filters['date_from']);
-            })
-            ->when($this->filters['date_to'], function ($query) {
-                $query->whereDate('created_at', '<=', $this->filters['date_to']);
-            });
 
-        return $query->orderBy($this->sortField, $this->sortDirection);
+            // مرتب‌سازی
+            if ($this->sortField && in_array($this->sortField, ['created_at', 'updated_at'])) {
+                $query->orderBy($this->sortField, $this->sortDirection);
+            } else {
+                $query->orderBy('created_at', 'desc');
+            }
+
+            return $query;
+        } catch (\Exception $e) {
+            // در صورت خطا، کوئری پایه را برمی‌گردانیم
+            return ResidentReport::with(['report', 'report.category', 'resident'])
+                ->whereHas('report', function ($q) {
+                    $q->where('category_id', 1);
+                })
+                ->orderBy('created_at', 'desc');
+        }
     }
-
 
     public function mount()
     {
         $this->loadFilterData();
+        // لود کردن کارت‌های اقامت‌گران
+        $this->residentCards = $this->residentCards;
     }
 
     public function loadFilterData()
@@ -535,17 +573,21 @@ class ResidentReports extends Component
 
     public function selectResident($residentName)
     {
-        $this->selectedResident = $residentName;
-        $this->residentSearch = $residentName; // برای نمایش نام در اینپوت
-
-        // پیدا کردن resident از جدول residents
+        // پاک کردن جستجو
+        $this->search = '';
+        
+        // تنظیم فیلتر اقامت‌گر
+        $this->filterByResidentName = $residentName;
+        
+        // پیدا کردن اقامت‌گر
         $resident = Resident::where('resident_full_name', $residentName)->first();
-
+        
         if ($resident) {
-            // ذخیره داده‌های کامل اقامت‌گر
+            // ذخیره داده‌های اقامت‌گر
+            $this->selectedResident = $residentName;
             $this->selectedResidentData = $resident;
             
-            // استفاده از resident_id از جدول residents
+            // دریافت گزارش‌های تخلفی اقامت‌گر
             $this->residentReports = ResidentReport::whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
@@ -554,21 +596,17 @@ class ResidentReports extends Component
             ->orderBy('created_at', 'desc')
             ->get();
             
-            // بارگذاری بخشودگی‌های این اقامت‌گر
+            // بارگذاری بخشودگی‌ها
             $this->loadResidentGrants($residentName);
             
             // باز کردن مدال
             $this->showResidentModal = true;
         } else {
+            // اقامت‌گر یافت نشد
+            $this->selectedResident = null;
             $this->selectedResidentData = null;
             $this->residentReports = collect([]);
             $this->selectedResidentGrants = [];
-            
-            $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'خطا!',
-                'text' => 'اقامت‌گر یافت نشد'
-            ]);
         }
     }
     
@@ -841,13 +879,111 @@ class ResidentReports extends Component
         }
     }
 
+    public function updatedSearch()
+    {
+        try {
+            // جستجو امن با حفظ کارایی
+            $this->resetPage();
+        } catch (\Exception $e) {
+            // در صورت خطا، صفحه را ریست می‌کنیم
+            $this->resetPage();
+        }
+    }
+
+    public function updatedPerPage()
+    {
+        try {
+            // تغییر تعداد آیتم‌ها با حفظ کارایی
+            $this->resetPage();
+        } catch (\Exception $e) {
+            // در صورت خطا، صفحه را ریست می‌کنیم
+            $this->resetPage();
+        }
+    }
+
+    public function updatedFilters()
+    {
+        try {
+            // تغییر فیلترها با حفظ کارایی
+            $this->resetPage();
+        } catch (\Exception $e) {
+            // در صورت خطا، صفحه را ریست می‌کنیم
+            $this->resetPage();
+        }
+    }
+
     public function updatedSelectAll($value)
     {
-        if ($value) {
-            $this->selectedReports = $this->reportsQuery->pluck('id')->toArray();
-        } else {
+        try {
+            if ($value) {
+                // استفاده از pluck برای بهینه‌وری و جلوگیری از خطا
+                $this->selectedReports = $this->reportsQuery->pluck('id')->toArray();
+            } else {
+                $this->selectedReports = [];
+            }
+        } catch (\Exception $e) {
+            // در صورت خطا، آرایه را خالی کن
             $this->selectedReports = [];
         }
+    }
+
+    /**
+     * تغییر وضعیت is_checked گزارش
+     */
+    public function toggleReportStatus($reportId)
+    {
+        try {
+            $report = ResidentReport::find($reportId);
+            
+            if (!$report) {
+                $this->dispatch('showToast', [
+                    'type' => 'error',
+                    'title' => 'خطا',
+                    'message' => 'گزارش مورد نظر یافت نشد.',
+                    'duration' => 3000,
+                ]);
+                return;
+            }
+            
+            // تغییر وضعیت
+            $report->is_checked = !$report->is_checked;
+            $report->save();
+            
+            $status = $report->is_checked ? 'فعال' : 'غیرفعال';
+            $action = $report->is_checked ? 'فعال' : 'غیرفعال';
+            
+            // به‌روزرسانی داده‌های کارت‌ها برای محاسبه مجدد امتیازات
+            $this->resetCachedData();
+            
+            $this->dispatch('showToast', [
+                'type' => 'success',
+                'title' => 'موفقیت!',
+                'message' => "وضعیت گزارش {$action} شد.",
+                'duration' => 3000,
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showToast', [
+                'type' => 'error',
+                'title' => 'خطا',
+                'message' => 'خطا در تغییر وضعیت گزارش: ' . $e->getMessage(),
+                'duration' => 5000,
+            ]);
+        }
+    }
+
+    /**
+     * ریست کردن داده‌های کش شده برای به‌روزرسانی کارت‌ها
+     */
+    public function resetCachedData()
+    {
+        // پاک کردن داده‌های کش شده کارت‌ها با استفاده از unset
+        unset($this->pendingCards);
+        unset($this->approvedCards);
+        unset($this->pendingYellowCards);
+        unset($this->pendingRedCards);
+        unset($this->approvedYellowCards);
+        unset($this->approvedRedCards);
     }
 
     /**
@@ -869,6 +1005,9 @@ class ResidentReports extends Component
                     }
                 }
 
+                // به‌روزرسانی داده‌های کارت‌ها برای محاسبه مجدد امتیازات
+                $this->resetCachedData();
+                
                 // بارگذاری مجدد گزارش‌های این اقامت‌گر برای اطمینان از sync
                 if ($this->selectedResident) {
                     $resident = Resident::where('resident_full_name', $this->selectedResident)->first();
@@ -980,6 +1119,9 @@ class ResidentReports extends Component
                 ->orderBy('created_at', 'desc')
                 ->get();
                 
+                // به‌روزرسانی داده‌های کارت‌ها برای محاسبه مجدد امتیازات
+                $this->resetCachedData();
+                
                 // بارگذاری مجدد بخشودگی‌ها
                 $this->loadResidentGrants($this->selectedResident);
             }
@@ -1062,6 +1204,9 @@ class ResidentReports extends Component
             ->orderBy('created_at', 'desc')
             ->get();
             
+            // به‌روزرسانی داده‌های کارت‌ها برای محاسبه مجدد امتیازات
+            $this->resetCachedData();
+            
             // بارگذاری مجدد بخشودگی‌ها
             $this->loadResidentGrants($this->selectedResident);
         } catch (\Exception $e) {
@@ -1124,6 +1269,745 @@ class ResidentReports extends Component
     public function getResidentReportsCountProperty()
     {
         return $this->residentReports ? $this->residentReports->count() : 0;
+    }
+
+    /**
+     * دریافت آستانه کارت زرد
+     */
+    public function getYellowCardThresholdProperty()
+    {
+        $threshold = \App\Models\Constant::where('key', 'yellow_card_threshold')->first();
+        return $threshold ? (int)$threshold->value : 20; // تغییر از 15 به 20
+    }
+
+    /**
+     * دریافت آستانه کارت قرمز
+     */
+    public function getRedCardThresholdProperty()
+    {
+        $threshold = \App\Models\Constant::where('key', 'red_card_threshold')->first();
+        return $threshold ? (int)$threshold->value : 30; // تغییر از 25 به 30
+    }
+
+    /**
+     * دریافت کارت‌های بررسی نشده
+     */
+    public function getPendingCardsProperty()
+    {
+        $yellowThreshold = $this->yellowCardThreshold;
+        $redThreshold = $this->redCardThreshold;
+        
+        // دریافت اقامت‌گرانی که کارت تأیید شده ندارند
+        $approvedResidentIds = \App\Models\ResidentCard::where('card_status', 'approved')
+            ->pluck('resident_id')
+            ->toArray();
+        
+        // دریافت اقامت‌گران با مجموع امتیازات تخلفات
+        $residentsWithScores = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
+            ->where('reports.category_id', 1) // فقط دسته‌بندی تخلف
+            ->where('reports.negative_score', '>', 0) // فقط گزارش‌های با امتیاز منفی
+            ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال (غیر چک شده)
+            ->whereNotIn('residents.resident_id', $approvedResidentIds) // حذف اقامت‌گران با کارت تأیید شده
+            ->selectRaw('
+                residents.resident_id,
+                residents.resident_full_name as resident_name,
+                SUM(reports.negative_score) as total_score,
+                COUNT(resident_reports.id) as violation_count,
+                MIN(resident_reports.created_at) as first_violation
+            ')
+            ->groupBy('residents.resident_id', 'residents.resident_full_name')
+            ->havingRaw('SUM(reports.negative_score) >= ?', [$yellowThreshold])
+            ->orderBy('total_score', 'desc')
+            ->get();
+
+        // Debug: نمایش اطلاعات برای اشکال‌زدایی
+        \Log::info('Yellow Threshold: ' . $yellowThreshold);
+        \Log::info('Red Threshold: ' . $redThreshold);
+        \Log::info('Approved resident IDs: ' . implode(', ', $approvedResidentIds));
+        \Log::info('Residents with high scores count: ' . $residentsWithScores->count());
+        
+        $pendingCards = [];
+        
+        foreach ($residentsWithScores as $resident) {
+            // تعیین نوع کارت بر اساس امتیاز با منطق دقیق
+            if ($resident->total_score >= $redThreshold) {
+                // کارت قرمز: امتیاز بیشتر یا مساوی آستانه قرمز (≥ 30)
+                $cardType = 'red';
+            } elseif ($resident->total_score >= $yellowThreshold) {
+                // کارت زرد: امتیاز بیشتر یا مساوی آستانه زرد (≥ 20)
+                $cardType = 'yellow';
+            } else {
+                // این شرط نباید برقرار باشد چون havingRaw امتیاز را فیلتر کرده
+                continue;
+            }
+            
+            $pendingCards[] = (object)[
+                'id' => 'pending_' . $resident->resident_id,
+                'resident_id' => $resident->resident_id,
+                'resident_name' => $resident->resident_name,
+                'total_score' => $resident->total_score,
+                'card_type' => $cardType,
+                'first_violation' => $resident->first_violation,
+                'approved_at' => null
+            ];
+        }
+        
+        // Debug: نمایش کارت‌های ساخته شده
+        \Log::info('Pending cards created: ' . count($pendingCards));
+        \Log::info('Yellow cards: ' . collect($pendingCards)->where('card_type', 'yellow')->count());
+        \Log::info('Red cards: ' . collect($pendingCards)->where('card_type', 'red')->count());
+        
+        return collect($pendingCards);
+    }
+
+    /**
+     * دریافت کارت‌های بررسی شده
+     */
+    public function getApprovedCardsProperty()
+    {
+        // دریافت کارت‌های تأیید شده از جدول resident_cards
+        $approvedCards = \App\Models\ResidentCard::where('card_status', 'approved')
+            ->orderBy('card_assigned_at', 'desc')
+            ->get();
+        
+        // تبدیل به فرمت استاندارد کارت‌ها
+        return $approvedCards->map(function($residentCard) {
+            // پیدا کردن اقامت‌گر بر اساس resident_id
+            $resident = \App\Models\Resident::where('resident_id', $residentCard->resident_id)->first();
+            
+            // محاسبه امتیاز فعلی
+            $currentScore = \App\Models\ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('resident_reports.resident_id', $residentCard->resident_id)
+                ->where('reports.category_id', 1) // دسته‌بندی تخلف
+                ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال
+                ->sum('reports.negative_score');
+            
+            return (object)[
+                'id' => $residentCard->id,
+                'resident_id' => $residentCard->resident_id,
+                'resident_name' => $resident ? $resident->resident_full_name : 'نامشخص',
+                'card_type' => $residentCard->current_card_type,
+                'current_score' => $currentScore,
+                'total_score' => $currentScore,
+                'card_status' => $residentCard->card_status,
+                'card_assigned_at' => $residentCard->card_assigned_at,
+                'approved_at' => $residentCard->card_assigned_at,
+            ];
+        });
+    }
+
+    /**
+     * تعداد کارت‌های بررسی نشده
+     */
+    public function getPendingCardsCountProperty()
+    {
+        return $this->pendingCards->count();
+    }
+
+    /**
+     * تعداد کارت‌های بررسی شده
+     */
+    public function getApprovedCardsCountProperty()
+    {
+        return $this->approvedCards->count();
+    }
+
+    /**
+     * دریافت کارت‌های زرد بررسی نشده
+     */
+    public function getPendingYellowCardsProperty()
+    {
+        // مستقیماً متد getPendingCardsProperty را فراخوانی می‌کنیم تا از caching مشکل جلوگیری کنیم
+        $pendingCards = $this->getPendingCardsProperty();
+        
+        $yellowCards = $pendingCards->filter(function($card) {
+            return $card->card_type === 'yellow';
+        });
+        
+        // محاسبه امتیاز فعلی برای هر کارت
+        $yellowCards = $yellowCards->map(function($card) {
+            $currentScore = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('resident_reports.resident_id', $card->resident_id)
+                ->where('reports.category_id', 1) // دسته‌بندی تخلف
+                ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال
+                ->sum('reports.negative_score');
+            
+            $card->current_score = $currentScore;
+            return $card;
+        });
+        
+        return $yellowCards;
+    }
+
+    /**
+     * دریافت کارت‌های قرمز بررسی نشده
+     */
+    public function getPendingRedCardsProperty()
+    {
+        // مستقیماً متد getPendingCardsProperty را فراخوانی می‌کنیم تا از caching مشکل جلوگیری کنیم
+        $pendingCards = $this->getPendingCardsProperty();
+        
+        $redCards = $pendingCards->filter(function($card) {
+            return $card->card_type === 'red';
+        });
+        
+        // محاسبه امتیاز فعلی برای هر کارت
+        $redCards = $redCards->map(function($card) {
+            $currentScore = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('resident_reports.resident_id', $card->resident_id)
+                ->where('reports.category_id', 1) // دسته‌بندی تخلف
+                ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال
+                ->sum('reports.negative_score');
+            
+            $card->current_score = $currentScore;
+            return $card;
+        });
+        
+        return $redCards;
+    }
+
+    /**
+     * تعداد کارت‌های زرد بررسی نشده
+     */
+    public function getPendingYellowCardsCountProperty()
+    {
+        return $this->pendingYellowCards->count();
+    }
+
+    /**
+     * تعداد کارت‌های قرمز بررسی نشده
+     */
+    public function getPendingRedCardsCountProperty()
+    {
+        return $this->pendingRedCards->count();
+    }
+
+    /**
+     * دریافت کارت‌های اقامت‌گران
+     */
+    public function getResidentCardsProperty()
+    {
+        $yellowThreshold = $this->yellowCardThreshold;
+        $redThreshold = $this->redCardThreshold;
+        
+        // دریافت تمام کارت‌های موجود از دیتابیس
+        $residentCards = \App\Models\ResidentCard::with('resident')
+            ->orderBy('card_assigned_at', 'desc')
+            ->get();
+        
+        // فیلتر کردن اقامت‌گرانی بر اساس مجموع تخلفات هر اقامت‌گر
+        $filteredCards = $residentCards->filter(function ($card) use ($yellowThreshold, $redThreshold) {
+            // محاسبه مجموع تخلفات این اقامت‌گر خاص
+            $residentTotalScore = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('resident_reports.resident_id', $card->resident_id)
+                ->where('reports.category_id', 1) // فقط تخلفات
+                ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال
+                ->sum('reports.negative_score');
+            
+            // بررسی اینکه آیا این اقامت‌گر به آستانه کارت زرد رسیده است یا نه
+            // اگر مجموع تخلفات کمتر از آستانه زرد باشد، کارت را نمایش بده
+            if ($residentTotalScore < $yellowThreshold) {
+                return true;
+            }
+            
+            // اگر به آستانه رسیده، این کارت را در بخش اصلی نمایش نده
+            return false;
+        });
+        
+        return $filteredCards;
+    }
+
+    /**
+     * تعداد کارت‌های اقامت‌گران
+     */
+    public function getResidentCardsCountProperty()
+    {
+        return $this->residentCards->count();
+    }
+
+    /**
+     * دریافت کارت‌های بررسی نشده (اقامت‌گرانی که به آستانه رسیده‌اند)
+     */
+    public function getPendingThresholdCardsProperty()
+    {
+        $yellowThreshold = $this->yellowCardThreshold;
+        $redThreshold = $this->redCardThreshold;
+        
+        // دریافت تمام کارت‌های موجود از دیتابیس
+        $allCards = \App\Models\ResidentCard::with('resident')
+            ->orderBy('card_assigned_at', 'desc')
+            ->get();
+        
+        // فیلتر کردن اقامت‌گرانی بر اساس مجموع تخلفات هر اقامت‌گر
+        $thresholdCards = $allCards->filter(function ($card) use ($yellowThreshold, $redThreshold) {
+            // محاسبه مجموع تخلفات این اقامت‌گر خاص
+            $residentTotalScore = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('resident_reports.resident_id', $card->resident_id)
+                ->where('reports.category_id', 1) // فقط تخلفات
+                ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال
+                ->sum('reports.negative_score');
+            
+            // بررسی اینکه آیا این اقامت‌گر به آستانه کارت زرد رسیده است یا نه
+            // اگر مجموع تخلفات مساوی یا بیشتر از آستانه زرد باشد، در این بخش نمایش بده
+            if ($residentTotalScore >= $yellowThreshold) {
+                // اضافه کردن مجموع تخلفات فعلی به کارت برای نمایش
+                $card->current_score = $residentTotalScore;
+                
+                // تعیین نوع کارت بر اساس امتیاز فعلی
+                if ($residentTotalScore >= $redThreshold) {
+                    $card->suggested_card_type = 'red';
+                } else {
+                    $card->suggested_card_type = 'yellow';
+                }
+                
+                return true;
+            }
+            
+            return false;
+        });
+        
+        return $thresholdCards;
+    }
+
+    /**
+     * تعداد کارت‌های بررسی نشده
+     */
+    public function getPendingThresholdCardsCountProperty()
+    {
+        return $this->pendingThresholdCards->count();
+    }
+
+    /**
+     * تأیید کارت اقامت‌گر
+     */
+    public function approveResidentCard($residentId)
+    {
+        // پیدا کردن کارت اقامت‌گر در دیتابیس
+        $residentCard = \App\Models\ResidentCard::where('resident_id', $residentId)->first();
+        
+        if (!$residentCard) {
+            $this->dispatch('showToast', [
+                'type' => 'error',
+                'title' => 'خطا!',
+                'message' => 'کارت اقامت‌گر یافت نشد.',
+                'duration' => 3000,
+            ]);
+            return;
+        }
+        
+        // به‌روزرسانی وضعیت کارت به تأیید شده
+        $residentCard->card_status = 'approved';
+        $residentCard->save();
+        
+        // دریافت نام اقامت‌گر از جدول residents
+        $resident = \App\Models\Resident::where('resident_id', $residentId)->first();
+        $residentName = $resident ? $resident->resident_full_name : 'نامشخص';
+        
+        $this->dispatch('showToast', [
+            'type' => 'success',
+            'title' => 'موفقیت!',
+            'message' => "کارت {$residentCard->card_type_label} برای {$residentName} با موفقیت تأیید شد.",
+            'duration' => 3000,
+        ]);
+    }
+
+    /**
+     * اختصاص کارت به اقامت‌گران بر اساس مجموع تخلفات
+     */
+    public function assignCardsToResidents()
+    {
+        $yellowThreshold = $this->yellowCardThreshold;
+        $redThreshold = $this->redCardThreshold;
+        
+        // دریافت تمام اقامت‌گران با مجموع تخلفات
+        $residentsWithScores = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
+            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->where('reports.negative_score', '>', 0)
+            ->selectRaw('
+                residents.resident_id,
+                residents.resident_full_name as resident_name,
+                SUM(reports.negative_score) as total_score,
+                COUNT(resident_reports.id) as violation_count,
+                MIN(resident_reports.created_at) as first_violation
+            ')
+            ->groupBy('residents.resident_id', 'residents.resident_full_name')
+            ->orderBy('total_score', 'desc')
+            ->get();
+
+        foreach ($residentsWithScores as $resident) {
+            // تعیین نوع کارت بر اساس مجموع تخلفات
+            $currentCardType = null;
+            $cardStatus = 'pending';
+            $cardAssignedAt = now();
+            
+            if ($resident->total_score >= $redThreshold) {
+                $currentCardType = 'red';
+            } elseif ($resident->total_score >= $yellowThreshold) {
+                $currentCardType = 'yellow';
+            } else {
+                continue; // مجموع تخلفات کمتر از آستانه زرد
+            }
+            
+            // بررسی اینکه آیا کارتی از قبل برای این اقامت‌گر وجود دارد
+            $existingCard = \App\Models\ResidentCard::where('resident_id', $resident->resident_id)->first();
+            
+            if ($existingCard) {
+                // به‌روزرسانی کارت موجود (بدون ذخیره total_score و resident_name)
+                $existingCard->update([
+                    'current_card_type' => $currentCardType,
+                    'card_status' => $cardStatus,
+                    'card_assigned_at' => $cardAssignedAt,
+                ]);
+            } else {
+                // ایجاد کارت جدید (بدون ذخیره total_score و resident_name)
+                \App\Models\ResidentCard::create([
+                    'resident_id' => $resident->resident_id,
+                    'current_card_type' => $currentCardType,
+                    'card_status' => $cardStatus,
+                    'card_assigned_at' => $cardAssignedAt,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * متد تست برای نمایش داده‌های کارت‌ها
+     */
+    public function testCardData()
+    {
+        $yellowCards = $this->pendingYellowCards;
+        $redCards = $this->pendingRedCards;
+        
+        $data = [
+            'yellow_cards_count' => $yellowCards->count(),
+            'red_cards_count' => $redCards->count(),
+            'yellow_cards' => $yellowCards->toArray(),
+            'red_cards' => $redCards->toArray(),
+            'all_pending_cards' => $this->pendingCards->toArray()
+        ];
+        
+        // نمایش در لاگ برای دیباگ
+        \Log::info('Card Test Data:', $data);
+        
+        $this->dispatch('showAlert', [
+            'type' => 'info',
+            'title' => 'اطلاعات کارت‌ها',
+            'text' => "کارت زرد: {$yellowCards->count()}، کارت قرمز: {$redCards->count()}"
+        ]);
+    }
+
+    /**
+     * متد دیباگ برای بررسی داده‌ها
+     */
+    public function debugCardData()
+    {
+        $yellowThreshold = $this->yellowCardThreshold;
+        $redThreshold = $this->redCardThreshold;
+        
+        // دریافت تمام گزارش‌ها با امتیاز منفی
+        $allReports = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
+            ->where('reports.category_id', 1) // فقط دسته‌بندی تخلف
+            ->where('reports.negative_score', '>', 0)
+            ->selectRaw('
+                residents.resident_full_name as resident_name,
+                reports.negative_score,
+                reports.title as report_title,
+                resident_reports.created_at
+            ')
+            ->orderBy('residents.resident_full_name')
+            ->orderBy('resident_reports.created_at', 'desc')
+            ->limit(20)
+            ->get();
+            
+        // محاسبه مجموع امتیاز هر اقامت‌گر
+        $residentScores = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
+            ->where('reports.category_id', 1) // فقط دسته‌بندی تخلف
+            ->where('reports.negative_score', '>', 0)
+            ->selectRaw('
+                residents.resident_full_name as resident_name,
+                residents.resident_id,
+                SUM(reports.negative_score) as total_score,
+                COUNT(resident_reports.id) as violation_count
+            ')
+            ->groupBy('residents.resident_id', 'residents.resident_full_name')
+            ->orderBy('total_score', 'desc')
+            ->get();
+            
+        // تفکیک کارت‌های زرد و قرمز
+        $yellowCards = $residentScores->filter(function($r) use ($yellowThreshold, $redThreshold) {
+            return $r->total_score >= $yellowThreshold && $r->total_score < $redThreshold;
+        });
+        
+        $redCards = $residentScores->filter(function($r) use ($redThreshold) {
+            return $r->total_score >= $redThreshold;
+        });
+            
+        // بررسی اینکه آیا اصلاً داده‌ای وجود دارد یا نه
+        $hasData = $allReports->count() > 0;
+        $hasHighScores = $residentScores->filter(function($r) use ($yellowThreshold) { return $r->total_score >= $yellowThreshold; })->count() > 0;
+        
+        // نمایش نتایج برای عیب‌یابی
+        $output = [
+            'thresholds' => [
+                'yellow' => $yellowThreshold,
+                'red' => $redThreshold
+            ],
+            'has_any_data' => $hasData,
+            'total_reports_count' => $allReports->count(),
+            'total_residents_with_scores' => $residentScores->count(),
+            'residents_above_yellow' => $residentScores->filter(function($r) use ($yellowThreshold) { return $r->total_score >= $yellowThreshold; })->count(),
+            'residents_above_red' => $residentScores->filter(function($r) use ($redThreshold) { return $r->total_score >= $redThreshold; })->count(),
+            'yellow_cards_count' => $yellowCards->count(),
+            'red_cards_count' => $redCards->count(),
+            'sample_reports' => $allReports->take(5),
+            'yellow_cards' => $yellowCards->take(10),
+            'red_cards' => $redCards->take(10),
+            'all_resident_scores' => $residentScores->take(10),
+        ];
+        
+        // اگر داده‌ای وجود ندارد، پیام مناسب نمایش بده
+        if (!$hasData) {
+            $output['message'] = 'هیچ گزارش تخلفی با امتیاز منفی در سیستم وجود ندارد!';
+        } elseif (!$hasHighScores) {
+            $output['message'] = "گزارش‌ها وجود دارند اما هیچ اقامت‌گری امتیاز کل {$yellowThreshold} یا بیشتر ندارد!";
+        }
+        
+        dd($output);
+    }
+
+    /**
+     * دریافت کارت‌های زرد بررسی شده
+     */
+    public function getApprovedYellowCardsProperty()
+    {
+        // مستقیماً متد getApprovedCardsProperty را فراخوانی می‌کنیم تا از caching مشکل جلوگیری کنیم
+        $approvedCards = $this->getApprovedCardsProperty();
+        
+        $yellowCards = $approvedCards->filter(function($card) {
+            return $card->card_type === 'yellow';
+        });
+        
+        return $yellowCards;
+    }
+
+    /**
+     * دریافت کارت‌های قرمز بررسی شده
+     */
+    public function getApprovedRedCardsProperty()
+    {
+        // مستقیماً متد getApprovedCardsProperty را فراخوانی می‌کنیم تا از caching مشکل جلوگیری کنیم
+        $approvedCards = $this->getApprovedCardsProperty();
+        
+        $redCards = $approvedCards->filter(function($card) {
+            return $card->card_type === 'red';
+        });
+        
+        return $redCards;
+    }
+
+    /**
+     * تعداد کارت‌های زرد بررسی شده
+     */
+    public function getApprovedYellowCardsCountProperty()
+    {
+        return $this->approvedYellowCards->count();
+    }
+
+    /**
+     * تعداد کارت‌های قرمز بررسی شده
+     */
+    public function getApprovedRedCardsCountProperty()
+    {
+        return $this->approvedRedCards->count();
+    }
+
+    /**
+     * حذف کارت تأیید شده
+     */
+    public function deleteCard($cardId)
+    {
+        try {
+            // پیدا کردن کارت در دیتابیس
+            $residentCard = \App\Models\ResidentCard::find($cardId);
+            
+            if (!$residentCard) {
+                $this->dispatch('showToast', [
+                    'type' => 'error',
+                    'title' => 'خطا',
+                    'message' => 'کارت مورد نظر یافت نشد.',
+                    'duration' => 3000,
+                ]);
+                return;
+            }
+            
+            // پیدا کردن نام اقامت‌گر برای نمایش در پیام
+            $resident = \App\Models\Resident::where('resident_id', $residentCard->resident_id)->first();
+            $residentName = $resident ? $resident->resident_full_name : 'نامشخص';
+            $cardType = $residentCard->current_card_type === 'yellow' ? 'زرد' : 'قرمز';
+            
+            // حذف کارت از دیتابیس
+            $residentCard->delete();
+            
+            $this->dispatch('showToast', [
+                'type' => 'success',
+                'title' => 'موفقیت!',
+                'message' => "کارت {$cardType} برای {$residentName} با موفقیت حذف شد.",
+                'duration' => 3000,
+            ]);
+            
+            // رفرش کردن کامپوننت برای نمایش تغییرات
+            $this->dispatch('refreshComponent');
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showToast', [
+                'type' => 'error',
+                'title' => 'خطا',
+                'message' => 'خطا در حذف کارت: ' . $e->getMessage(),
+                'duration' => 5000,
+            ]);
+        }
+    }
+
+    /**
+     * رفرش کردن کامپوننت
+     */
+    public function refreshComponent()
+    {
+        // این متد برای رفرش کردن کامپوننت استفاده می‌شود
+        // Livewire به صورت خودکار کامپوننت را رفرش می‌کند
+    }
+
+    /**
+     * تأیید کارت
+     */
+    public function approveCard($residentId)
+    {
+        try {
+            // پیدا کردن کارت از لیست کارت‌های بررسی نشده
+            $card = null;
+            
+            // جستجو در کارت‌های زرد بررسی نشده
+            $yellowCards = $this->getPendingYellowCardsProperty();
+            $card = $yellowCards->firstWhere('resident_id', $residentId);
+            
+            // اگر در کارت‌های زرد نبود، در کارت‌های قرمز جستجو کن
+            if (!$card) {
+                $redCards = $this->getPendingRedCardsProperty();
+                $card = $redCards->firstWhere('resident_id', $residentId);
+            }
+            
+            if (!$card) {
+                $this->dispatch('showToast', [
+                    'type' => 'error',
+                    'title' => 'خطا',
+                    'message' => 'کارت مورد نظر یافت نشد.',
+                    'duration' => 3000,
+                ]);
+                return;
+            }
+            
+            // ایجاد یا به‌روزرسانی کارت در دیتابیس
+            // مستقیماً از resident_id استفاده می‌کنیم
+            $residentCard = \App\Models\ResidentCard::updateOrCreate(
+                [
+                    'resident_id' => $card->resident_id, // مستقیماً resident_id را ذخیره می‌کنیم
+                    'current_card_type' => $card->card_type,
+                ],
+                [
+                    'card_status' => 'approved',
+                    'card_assigned_at' => now(),
+                ]
+            );
+            
+            // محاسبه امتیاز فعلی برای هر کارت
+            $currentScore = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('resident_reports.resident_id', $card->resident_id)
+                ->where('reports.category_id', 1) // دسته‌بندی تخلف
+                ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال
+                ->sum('reports.negative_score');
+            
+            // اگر جدول resident_card_scores وجود دارد، امتیاز را هم ذخیره کن
+            if (Schema::hasTable('resident_card_scores')) {
+                \DB::table('resident_card_scores')->updateOrCreate(
+                    [
+                        'resident_id' => $card->resident_id,
+                        'resident_card_id' => $residentCard->id,
+                    ],
+                    [
+                        'total_score' => $currentScore,
+                        'card_type' => $card->card_type,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            }
+            
+            $cardTypeLabel = $card->card_type === 'yellow' ? 'زرد' : 'قرمز';
+            
+            $this->dispatch('showToast', [
+                'type' => 'success',
+                'title' => 'موفقیت!',
+                'message' => "کارت {$cardTypeLabel} برای {$card->resident_name} با موفقیت تأیید شد.",
+                'duration' => 3000,
+            ]);
+            
+            // رفرش کردن کامپوننت برای نمایش تغییرات
+            $this->dispatch('refreshComponent');
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showToast', [
+                'type' => 'error',
+                'title' => 'خطا',
+                'message' => 'خطا در تأیید کارت: ' . $e->getMessage(),
+                'duration' => 5000,
+            ]);
+        }
+    }
+
+    /**
+     * دانلود کارت‌های زرد
+     */
+    public function downloadYellowCards()
+    {
+        $yellowCards = $this->pendingYellowCards->merge($this->approvedYellowCards);
+        
+        // ایجاد CSV برای دانلود
+        $csvContent = "نام اقامت‌گر,نوع کارت,امتیاز,وضعیت,تاریخ\n";
+        
+        foreach ($yellowCards as $card) {
+            $status = $card->approved_at ? 'تأیید شده' : 'بررسی نشده';
+            $date = $card->approved_at ? $card->approved_at : $card->first_violation;
+            $csvContent .= "\"{$card->resident_name}\",\"کارت زرد\",\"{$card->total_score}\",\"{$status}\",\"{$date}\"\n";
+        }
+        
+        return response()->streamDownload(function() use ($csvContent) {
+            echo $csvContent;
+        }, 'yellow-cards-' . date('Y-m-d') . '.csv');
+    }
+
+    /**
+     * دانلود کارت‌های قرمز
+     */
+    public function downloadRedCards()
+    {
+        $redCards = $this->pendingRedCards->merge($this->approvedRedCards);
+        
+        // ایجاد CSV برای دانلود
+        $csvContent = "نام اقامت‌گر,نوع کارت,امتیاز,وضعیت,تاریخ\n";
+        
+        foreach ($redCards as $card) {
+            $status = $card->approved_at ? 'تأیید شده' : 'بررسی نشده';
+            $date = $card->approved_at ? $card->approved_at : $card->first_violation;
+            $csvContent .= "\"{$card->resident_name}\",\"کارت قرمز\",\"{$card->total_score}\",\"{$status}\",\"{$date}\"\n";
+        }
+        
+        return response()->streamDownload(function() use ($csvContent) {
+            echo $csvContent;
+        }, 'red-cards-' . date('Y-m-d') . '.csv');
     }
 
     /**

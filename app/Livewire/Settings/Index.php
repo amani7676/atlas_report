@@ -14,6 +14,8 @@ class Index extends Component
     public $repeat_violation = 3; // تعداد گزارش یکسان برای نمایش
     public $count_violation = 5; // تعداد گزارش برای نمایش اقامت‌گران برتر
     public $max_violation = 10; // مجموع نمرات منفی برای نمایش اقامت‌گران برتر
+    public $yellow_card_threshold = 15; // امتیاز برای کارت زرد
+    public $red_card_threshold = 25; // امتیاز برای کارت قرمز
 
     protected function rules()
     {
@@ -25,6 +27,8 @@ class Index extends Component
             'repeat_violation' => 'required|integer|min:1',
             'count_violation' => 'required|integer|min:1',
             'max_violation' => 'required|integer|min:1',
+            'yellow_card_threshold' => 'required|integer|min:1',
+            'red_card_threshold' => 'required|integer|min:1',
         ];
     }
 
@@ -44,6 +48,12 @@ class Index extends Component
         'max_violation.required' => 'مجموع نمرات منفی الزامی است.',
         'max_violation.integer' => 'مجموع نمرات منفی باید عدد باشد.',
         'max_violation.min' => 'مجموع نمرات منفی باید حداقل 1 باشد.',
+        'yellow_card_threshold.required' => 'امتیاز کارت زرد الزامی است.',
+        'yellow_card_threshold.integer' => 'امتیاز کارت زرد باید عدد باشد.',
+        'yellow_card_threshold.min' => 'امتیاز کارت زرد باید حداقل 1 باشد.',
+        'red_card_threshold.required' => 'امتیاز کارت قرمز الزامی است.',
+        'red_card_threshold.integer' => 'امتیاز کارت قرمز باید عدد باشد.',
+        'red_card_threshold.min' => 'امتیاز کارت قرمز باید حداقل 1 باشد.',
         'sms_delay_before_start.required' => 'تاخیر قبل از شروع ارسال الزامی است.',
         'sms_delay_before_start.integer' => 'تاخیر قبل از شروع ارسال باید عدد باشد.',
         'sms_delay_before_start.min' => 'تاخیر قبل از شروع ارسال نمی‌تواند منفی باشد.',
@@ -71,6 +81,13 @@ class Index extends Component
         
         $maxViolation = \App\Models\Constant::where('key', 'max_violation')->first();
         $this->max_violation = $maxViolation ? (int)$maxViolation->value : 10;
+        
+        // بارگذاری تنظیمات کارت‌ها از constants
+        $yellowCard = \App\Models\Constant::where('key', 'yellow_card_threshold')->first();
+        $this->yellow_card_threshold = $yellowCard ? (int)$yellowCard->value : 15;
+        
+        $redCard = \App\Models\Constant::where('key', 'red_card_threshold')->first();
+        $this->red_card_threshold = $redCard ? (int)$redCard->value : 25;
     }
 
     public function save()
@@ -98,6 +115,17 @@ class Index extends Component
         \App\Models\Constant::updateOrCreate(
             ['key' => 'max_violation'],
             ['value' => (string)$this->max_violation, 'type' => 'number', 'description' => 'مجموع نمرات منفی برای نمایش در اقامت‌گران برتر']
+        );
+        
+        // ذخیره تنظیمات کارت‌ها در constants
+        \App\Models\Constant::updateOrCreate(
+            ['key' => 'yellow_card_threshold'],
+            ['value' => (string)$this->yellow_card_threshold, 'type' => 'number', 'description' => 'امتیاز لازم برای دریافت کارت زرد']
+        );
+        
+        \App\Models\Constant::updateOrCreate(
+            ['key' => 'red_card_threshold'],
+            ['value' => (string)$this->red_card_threshold, 'type' => 'number', 'description' => 'امتیاز لازم برای دریافت کارت قرمز']
         );
 
         $this->dispatch('showToast', [
