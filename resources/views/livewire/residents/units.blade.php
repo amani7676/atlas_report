@@ -340,7 +340,7 @@
                                                         </th>
                                                         <th>نام</th>
                                                         <th>تلفن</th>
-                                                        <th>تعداد گزارش‌های تخلف</th>
+                                                        <th>امتیاز تخلفات</th>
                                                         <th>تخت</th>
                                                         <th width="50px">عملیات</th>
                                                     </tr>
@@ -364,9 +364,22 @@
                                                                 <td>{{ $bed['resident']['full_name'] }}</td>
                                                                 <td>{{ $bed['resident']['phone'] }}</td>
                                                                 <td>
-                                                                    <span style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                                                                        {{ $this->getViolationReportsCount($bed['resident']['id'] ?? null) }}
-                                                                    </span>
+                                                                    @php
+                                                                        $colorData = $this->getViolationCardColor($bed['resident']['id'] ?? null);
+                                                                        $violationScore = $this->getViolationReportsCount($bed['resident']['id'] ?? null);
+                                                                        $yellowThreshold = 15; // Default, will be updated dynamically
+                                                                        $redThreshold = 25; // Default, will be updated dynamically
+                                                                    @endphp
+                                                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                                                        <span style="background: {{ $colorData['bg'] }}; color: {{ $colorData['text'] }}; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 2px solid {{ $colorData['border'] }}; position: relative; cursor: help;" title="امتیاز مجموع: {{ $violationScore }}
+آستانه زرد: {{ $yellowThreshold }}
+آستانه قرمز: {{ $redThreshold }}">
+                                                                            {{ $violationScore }}
+                                                                        </span>
+                                                                        <span style="color: {{ $violationScore >= 1 && $violationScore < 15 ? '#000000' : $colorData['bg'] }}; font-size: 11px; font-weight: 500;">
+                                                                            {{ $colorData['label'] }}
+                                                                        </span>
+                                                                    </div>
                                                                 </td>
                                                                 <td>{{ $bed['name'] }}</td>
                                                                 <td>

@@ -299,27 +299,117 @@ class Units extends Component
         }
     }
 
+    /**
+     * محاسبه مجموع امتیاز منفی تخلفات یک اقامت‌گر
+     */
     public function getViolationReportsCount($residentId)
     {
         if (!$residentId) {
+            Log::warning('getViolationReportsCount: residentId is empty');
             return 0;
         }
         
-        // پیدا کردن resident از جدول residents بر اساس resident_id
-        $resident = Resident::where('resident_id', $residentId)->first();
-        if (!$resident) {
-            return 0;
-        }
+        Log::info('getViolationReportsCount: Processing resident', [
+            'residentId' => $residentId
+        ]);
         
-        // شمارش تعداد گزارش‌های تخلف (category_id = 1)
-        // resident_id در ResidentReport به id در جدول residents اشاره می‌کند
-        $count = ResidentReport::where('resident_id', $resident->id)
+        // محاسبه مجموع امتیاز منفی تخلفات (category_id = 1)
+        // مستقیماً از resident_id که از API آمده استفاده می‌کنیم
+        $query = ResidentReport::where('resident_id', $residentId) // resident_id از API
             ->whereHas('report', function($q) {
                 $q->where('category_id', 1); // دسته‌بندی تخلف
             })
-            ->count();
+            ->join('reports', 'resident_reports.report_id', '=', 'reports.id');
+            
+        Log::info('getViolationReportsCount: Query built', [
+            'sql' => $query->toSql(),
+            'residentId' => $residentId
+        ]);
         
-        return $count;
+        $totalScore = $query->sum('reports.negative_score');
+        
+        Log::info('getViolationReportsCount: Result', [
+            'residentId' => $residentId,
+            'totalScore' => $totalScore,
+            'count' => $query->count()
+        ]);
+        
+        return (int)($totalScore ?? 0);
+    }
+    
+    /**
+     * تعیین رنگ کارت بر اساس امتیاز تخلفات و تنظیمات
+     * استفاده از آستانه‌های تعریف شده در تنظیمات
+     */
+    public function getViolationCardColor($residentId)
+    {
+        $totalScore = $this->getViolationReportsCount($residentId);
+        
+        // دریافت آستانه‌ها از تنظیمات
+        $yellowThreshold = $this->getYellowCardThreshold();
+        $redThreshold = $this->getRedCardThreshold();
+        
+        if ($totalScore == 0) {
+            return [
+                'bg' => '#10b981',      // سبز
+                'text' => '#ffffff',
+                'border' => '#059669',
+                'label' => 'بدون تخلف',
+                'score' => $totalScore
+            ];
+        } elseif ($totalScore >= 1 && $totalScore < $yellowThreshold) {
+            return [
+                'bg' => '#F1FF5E',      // زرد درخشان (برای امتیاز کم)
+                'text' => '#000000',
+                'border' => '#F59E0B',
+                'label' => 'تخلف کم',
+                'score' => $totalScore
+            ];
+        } elseif ($totalScore >= $yellowThreshold && $totalScore < $redThreshold) {
+            return [
+                'bg' => '#f59e0b',      // زرد معمولی (برای آستانه زرد)
+                'text' => '#ffffff',
+                'border' => '#d97706',
+                'label' => 'تخلف متوسط',
+                'score' => $totalScore
+            ];
+        } elseif ($totalScore >= $redThreshold) {
+            return [
+                'bg' => '#ef4444',      // قرمز
+                'text' => '#ffffff',
+                'border' => '#dc2626',
+                'label' => 'تخلف زیاد',
+                'score' => $totalScore
+            ];
+        } else {
+            return [
+                'bg' => '#8b5cf6',      // بنفش
+                'text' => '#ffffff',
+                'border' => '#7c3aed',
+                'label' => 'تخلف متوسط',
+                'score' => $totalScore
+            ];
+        }
+    }
+    
+    /**
+     * دریافت آستانه کارت زرد از تنظیمات
+     */
+    private function getYellowCardThreshold()
+    {
+        // دریافت از constants table
+        $threshold = \App\Models\Constant::where('key', 'yellow_card_threshold')->first();
+        return $threshold ? (int)$threshold->value : 15;
+    }
+    
+    /**
+     * دریافت آستانه کارت قرمز از تنظیمات
+     */
+    private function getRedCardThreshold()
+    {
+        // دریافت از constants table
+        $threshold = \App\Models\Constant::where('key', 'red_card_threshold')->first();
+        return $threshold ? (int)$threshold->value : 25;
     }
 
     public function getJobTitle($job)
