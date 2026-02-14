@@ -7,6 +7,9 @@ use App\Models\ResidentReport;
 use App\Models\Report;
 use App\Models\Resident;
 use App\Models\Category;
+use App\Models\Pattern;
+use App\Models\PatternVariable;
+use App\Services\ResidentService;
 
 class CreateResidentReport extends Component
 {
@@ -17,10 +20,18 @@ class CreateResidentReport extends Component
     public $reports = [];
     public $categories = [];
     public $selectedCategory = null;
+    public $selectedResidents = []; // For multiple selection
+    public $isGroupMode = false;
+    public $sendSms = false;
+    public $patternMessage = null;
+    public $showPreviewModal = false;
+    public $previewMessages = [];
 
     public function mount($residentId = null)
     {
-        $this->resident_id = $residentId;
+        if ($residentId) {
+            $this->resident_id = $residentId;
+        }
         $this->loadReports();
     }
 
@@ -35,71 +46,384 @@ class CreateResidentReport extends Component
         $this->reports = $this->selectedCategory 
             ? Report::where('category_id', $this->selectedCategory)->get()
             : Report::all();
+        
+        // Update pattern message when reports change
+        $this->updatePatternMessage();
+    }
+    
+    public function updatedReportId()
+    {
+        $this->updatePatternMessage();
+    }
+    
+    public function updatedSendSms()
+    {
+        if ($this->sendSms) {
+            $this->updatePatternMessage();
+        }
+    }
+    
+    private function updatePatternMessage()
+    {
+        if (!$this->sendSms || !$this->report_id) {
+            $this->patternMessage = null;
+            return;
+        }
+        
+        $report = Report::find($this->report_id);
+        if (!$report) {
+            $this->patternMessage = null;
+            return;
+        }
+        
+        // Get first active pattern for this report
+        $pattern = $report->activePatterns()
+            ->where('patterns.is_active', true)
+            ->whereNotNull('patterns.pattern_code')
+            ->first();
+        
+        if (!$pattern) {
+            $this->patternMessage = [
+                'success' => false,
+                'message' => 'الگویی برای این گزارش تعریف نشده است'
+            ];
+            return;
+        }
+        
+        $this->patternMessage = [
+            'success' => true,
+            'pattern_title' => $pattern->title,
+            'pattern_code' => $pattern->pattern_code,
+            'original_message' => $pattern->text,
+            'pattern' => $pattern
+        ];
     }
 
     protected $rules = [
-        'resident_id' => 'required|exists:residents,resident_id',
+        'resident_id' => 'required_without:selectedResidents|exists:residents,resident_id',
+        'selectedResidents' => 'required_without:resident_id|array',
+        'selectedResidents.*' => 'exists:residents,resident_id',
         'report_id' => 'required|exists:reports,id',
         'description' => 'nullable|string|max:1000',
     ];
+    
+    public function showSmsPreview()
+    {
+        if (!$this->sendSms || !$this->report_id) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'message' => 'لطفاً ابتدا گزارش را انتخاب و گزینه ارسال پیامک را فعال کنید'
+            ]);
+            return;
+        }
+        
+        $residents = $this->getTargetResidents();
+        
+        if (empty($residents)) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'message' => 'هیچ اقامت‌گری برای پیش نمایش انتخاب نشده است'
+            ]);
+            return;
+        }
+        
+        $this->previewMessages = [];
+        $pattern = $this->patternMessage['pattern'] ?? null;
+        
+        if (!$pattern) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'message' => 'الگویی برای این گزارش یافت نشد'
+            ]);
+            return;
+        }
+        
+        foreach ($residents as $resident) {
+            $finalMessage = $this->generatePersonalizedMessage($pattern, $resident);
+            
+            $this->previewMessages[] = [
+                'resident_id' => $resident->resident_id,
+                'resident_name' => $resident->resident_full_name ?? 'نامشخص',
+                'phone' => $resident->resident_phone ?? 'ندارد',
+                'unit_name' => $resident->unit_name ?? '',
+                'room_name' => $resident->room_name ?? '',
+                'message' => $finalMessage,
+                'has_phone' => !empty($resident->resident_phone)
+            ];
+        }
+        
+        $this->showPreviewModal = true;
+    }
+    
+    private function getTargetResidents()
+    {
+        $residents = collect();
+        
+        if ($this->isGroupMode && !empty($this->selectedResidents)) {
+            $residents = Resident::whereIn('resident_id', $this->selectedResidents)->get();
+        } elseif ($this->resident_id) {
+            $resident = Resident::where('resident_id', $this->resident_id)->first();
+            if ($resident) {
+                $residents = collect([$resident]);
+            }
+        }
+        
+        return $residents;
+    }
+    
+    private function generatePersonalizedMessage($pattern, $resident)
+    {
+        $message = $pattern->text;
+        $report = Report::find($this->report_id);
+        
+        // Extract variable codes from pattern text
+        preg_match_all('/\{(\d+)\}/', $message, $matches);
+        $variableCodes = $matches[0];
+        
+        if (empty($variableCodes)) {
+            return $message;
+        }
+        
+        // Get pattern variable
+        $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
+            ->where('is_active', true)
+            ->first();
+        
+        if (!$patternVariable) {
+            return $message;
+        }
+        
+        // Replace variables
+        foreach ($variableCodes as $code) {
+            $pivotData = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
+                ->where('pattern_id', $pattern->id)
+                ->where('variable_code', $code)
+                ->first();
+            
+            if ($pivotData && $pivotData->table_field) {
+                $value = $this->getVariableValue($patternVariable->table_name, $pivotData->table_field, $resident, $report);
+                $message = str_replace($code, $value, $message);
+            }
+        }
+        
+        return $message;
+    }
+    
+    private function getVariableValue($tableName, $tableField, $resident, $report)
+    {
+        switch ($tableName) {
+            case 'residents':
+                return $resident->$tableField ?? '';
+            case 'reports':
+                return $report->$tableField ?? '';
+            default:
+                return '';
+        }
+    }
+    
+    public function closePreviewModal()
+    {
+        $this->showPreviewModal = false;
+        $this->previewMessages = [];
+    }
 
     public function save()
     {
         \Log::info('CreateResidentReport save() called', [
             'resident_id' => $this->resident_id,
+            'selectedResidents' => $this->selectedResidents,
             'report_id' => $this->report_id,
             'description' => $this->description,
-            'notes' => $this->notes
+            'notes' => $this->notes,
+            'isGroupMode' => $this->isGroupMode,
+            'sendSms' => $this->sendSms
         ]);
         
         $this->validate();
-
-        // بررسی اینکه آیا این گزارش قبلاً برای این اقامت‌گر ثبت شده است
-        $existingReport = ResidentReport::where('resident_id', $this->resident_id)
-            ->where('report_id', $this->report_id)
-            ->first();
-
-        if ($existingReport) {
+        
+        $residents = $this->getTargetResidents();
+        
+        if ($residents->isEmpty()) {
             $this->dispatch('showAlert', [
                 'type' => 'error',
-                'message' => 'این گزارش قبلاً برای این اقامت‌گر ثبت شده است.'
+                'message' => 'هیچ اقامت‌گری برای ثبت گزارش انتخاب نشده است'
             ]);
             return;
         }
-
-        // دریافت اطلاعات اقامت‌گر
-        $resident = Resident::where('resident_id', $this->resident_id)->first();
         
-        // ایجاد گزارش جدید
-        $newReport = ResidentReport::create([
-            'resident_id' => $this->resident_id,
-            'report_id' => $this->report_id,
-            'unit_id' => $resident->unit_id ?? null,
-            'room_id' => $resident->room_id ?? null,
-            'bed_id' => $resident->bed_id ?? null,
-            'notes' => $this->notes,
-            'description' => $this->description,
-            'has_been_sent' => false,
-            'is_checked' => false,
-        ]);
+        $report = Report::find($this->report_id);
+        $createdReports = [];
         
-        \Log::info('ResidentReport created successfully', [
-            'id' => $newReport->id,
-            'description' => $newReport->description,
-            'notes' => $newReport->notes
-        ]);
-
-        // ریست فرم
+        foreach ($residents as $resident) {
+            // Check if report already exists for this resident
+            $existingReport = ResidentReport::where('resident_id', $resident->resident_id)
+                ->where('report_id', $this->report_id)
+                ->first();
+            
+            if ($existingReport) {
+                \Log::warning('Report already exists for resident', [
+                    'resident_id' => $resident->resident_id,
+                    'report_id' => $this->report_id
+                ]);
+                continue;
+            }
+            
+            // Create new report
+            $newReport = ResidentReport::create([
+                'resident_id' => $resident->resident_id,
+                'report_id' => $this->report_id,
+                'unit_id' => $resident->unit_id ?? null,
+                'room_id' => $resident->room_id ?? null,
+                'bed_id' => $resident->bed_id ?? null,
+                'notes' => $this->notes,
+                'description' => $this->description,
+                'has_been_sent' => false,
+                'is_checked' => false,
+            ]);
+            
+            $createdReports[] = $newReport;
+            
+            \Log::info('ResidentReport created successfully', [
+                'id' => $newReport->id,
+                'resident_id' => $resident->resident_id,
+                'resident_name' => $resident->resident_full_name
+            ]);
+        }
+        
+        if (empty($createdReports)) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'message' => 'همه گزارش‌ها قبلاً برای این اقامت‌گران ثبت شده است'
+            ]);
+            return;
+        }
+        
+        // Handle SMS sending if enabled
+        if ($this->sendSms && $this->patternMessage && $this->patternMessage['success']) {
+            $this->sendSmsToResidents($residents, $report);
+        }
+        
+        // Reset form
         $this->reset(['report_id', 'notes', 'description']);
-
-        // ارسال رویداد برای به‌روزرسانی لیست
+        
+        // Send event to update list
         $this->dispatch('reportCreated');
-
-        // نمایش پیام موفقیت
+        
+        // Show success message
+        $message = $residents->count() > 1 
+            ? "{$residents->count()} گزارش با موفقیت ثبت شد"
+            : 'گزارش با موفقیت ثبت شد';
+            
         $this->dispatch('showAlert', [
             'type' => 'success',
-            'message' => 'گزارش با موفقیت ثبت شد.'
+            'message' => $message
         ]);
+    }
+    
+    private function sendSmsToResidents($residents, $report)
+    {
+        $pattern = $this->patternMessage['pattern'];
+        
+        foreach ($residents as $resident) {
+            if (empty($resident->resident_phone)) {
+                continue;
+            }
+            
+            try {
+                // Generate personalized message
+                $finalMessage = $this->generatePersonalizedMessage($pattern, $resident);
+                
+                // Extract variables for SMS
+                preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+                $variableCodes = $matches[0];
+                
+                $variables = [];
+                foreach ($variableCodes as $code) {
+                    $pivotData = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
+                        ->where('pattern_id', $pattern->id)
+                        ->where('variable_code', $code)
+                        ->first();
+                    
+                    if ($pivotData && $pivotData->table_field) {
+                        $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
+                            ->where('is_active', true)
+                            ->first();
+                        
+                        if ($patternVariable) {
+                            $value = $this->getVariableValue($patternVariable->table_name, $pivotData->table_field, $resident, $report);
+                            $variables[] = $value;
+                        }
+                    }
+                }
+                
+                // Create SMS record
+                $smsMessageResident = \App\Models\SmsMessageResident::create([
+                    'sms_message_id' => null,
+                    'report_id' => $this->report_id,
+                    'pattern_id' => $pattern->id,
+                    'is_pattern' => true,
+                    'pattern_variables' => implode(';', $variables),
+                    'resident_id' => $resident->id,
+                    'resident_name' => $resident->resident_full_name ?? '',
+                    'phone' => $resident->resident_phone,
+                    'title' => $pattern->title,
+                    'description' => $finalMessage,
+                    'status' => 'pending',
+                ]);
+                
+                // Send SMS using sendByBaseNumber (same as individual sending)
+                $melipayamakService = new \App\Services\MelipayamakService();
+                $bodyId = (int)$pattern->pattern_code;
+                
+                // Get sender number and API key
+                $senderNumber = \App\Models\SenderNumber::getActivePatternNumbers()->first();
+                $senderNumberValue = $senderNumber ? $senderNumber->number : null;
+                $apiKey = $senderNumber ? $senderNumber->api_key : null;
+                
+                $result = $melipayamakService->sendByBaseNumber(
+                    $resident->resident_phone,
+                    $bodyId,
+                    $variables,
+                    $senderNumberValue,
+                    $apiKey
+                );
+                
+                // Update SMS record status
+                if ($result['success']) {
+                    $smsMessageResident->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                        'response_code' => $result['response_code'] ?? null,
+                        'rec_id' => $result['rec_id'] ?? null,
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
+                    ]);
+                } else {
+                    $smsMessageResident->update([
+                        'status' => 'failed',
+                        'error_message' => $result['message'] ?? 'خطا در ارسال',
+                        'response_code' => $result['response_code'] ?? null,
+                        'rec_id' => $result['rec_id'] ?? null,
+                        'api_response' => $result['api_response'] ?? null,
+                        'raw_response' => $result['raw_response'] ?? null,
+                    ]);
+                }
+                
+                \Log::info('SMS record created and sent for resident', [
+                    'resident_id' => $resident->resident_id,
+                    'phone' => $resident->resident_phone,
+                    'pattern_id' => $pattern->id,
+                    'success' => $result['success'] ?? false,
+                    'message' => $result['message'] ?? 'No message'
+                ]);
+                
+            } catch (\Exception $e) {
+                \Log::error('Error creating/sending SMS for resident', [
+                    'resident_id' => $resident->resident_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
     }
 
     public function render()

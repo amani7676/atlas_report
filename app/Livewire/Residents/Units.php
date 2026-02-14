@@ -1056,11 +1056,11 @@ class Units extends Component
                                     'status' => 'pending',
                                 ]);
                                 
-                                // ارسال پیامک با الگو - استفاده از sendByBaseNumber2 (مشابه PatternManual)
+                                // ارسال پیامک با الگو - استفاده از sendByBaseNumber (مانند ارسال فردی)
                                 $melipayamakService = new MelipayamakService();
                                 $bodyId = (int)$pattern->pattern_code;
                                 
-                                $result = $melipayamakService->sendByBaseNumber2(
+                                $result = $melipayamakService->sendByBaseNumber(
                                     $residentData['phone'],
                                     $bodyId,
                                     $variables,
