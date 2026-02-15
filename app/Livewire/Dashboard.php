@@ -95,6 +95,8 @@ class Dashboard extends Component
             $deletedReports = 0;
             $deletedMessages = 0;
             $deletedJobs = 0;
+            $cleanedLogs = 0;
+            $cleanedFiles = 0;
             
             // 1. حذف گزارش‌هایی که resident_id ندارند (null)
             $deletedNullReports = ResidentReport::whereNull('resident_id')->delete();
@@ -133,13 +135,19 @@ class Dashboard extends Component
                 $deletedJobs = 0;
             }
             
+            // 7. پاک‌سازی فایل‌های لاگ
+            $cleanedLogs = $this->cleanupLogFiles();
+            
+            // 8. پاک‌سازی فایل‌های قدیمی
+            $cleanedFiles = $this->cleanupOldFiles();
+            
             // بارگذاری مجدد داده‌ها
             $this->loadData();
             
             // نمایش پیام موفقیت
             $message = "پاک‌سازی با موفقیت انجام شد.";
-            if ($deletedReports > 0 || $deletedMessages > 0 || $deletedJobs > 0) {
-                $message .= " {$deletedReports} گزارش و {$deletedMessages} پیام و {$deletedJobs} job حذف شدند.";
+            if ($deletedReports > 0 || $deletedMessages > 0 || $deletedJobs > 0 || $cleanedLogs > 0 || $cleanedFiles > 0) {
+                $message .= " {$deletedReports} گزارش، {$deletedMessages} پیام، {$deletedJobs} job، {$cleanedLogs} لاگ و {$cleanedFiles} فایل قدیمی حذف شدند.";
                 if ($deletedNullReports > 0) {
                     $message .= " ({$deletedNullReports} گزارش بدون resident_id)";
                 }
@@ -147,7 +155,7 @@ class Dashboard extends Component
                     $message .= " ({$deletedNullMessages} پیام بدون resident_id)";
                 }
             } else {
-                $message .= " هیچ رکورد یتیمی برای حذف وجود نداشت.";
+                $message .= " هیچ رکورد یتیمی یا فایل قدیمی برای حذف وجود نداشت.";
             }
             
             $this->dispatch('showAlert', [
@@ -202,6 +210,156 @@ class Dashboard extends Component
                 'title' => 'خطا!',
                 'text' => 'خطا در به‌روزرسانی وضعیت دلیوری: ' . $e->getMessage()
             ]);
+        }
+    }
+    
+    /**
+     * پاک‌سازی فایل‌های لاگ
+     */
+    private function cleanupLogFiles()
+    {
+        $cleanedCount = 0;
+        
+        try {
+            // مسیرهای لاگ لاراول
+            $logPaths = [
+                storage_path('logs/laravel.log'),
+                storage_path('logs/laravel-' . date('Y-m-d') . '.log'),
+                storage_path('logs/app.log'),
+                storage_path('logs/error.log'),
+                storage_path('logs/custom.log'),
+            ];
+            
+            foreach ($logPaths as $logPath) {
+                if (file_exists($logPath)) {
+                    // خالی کردن فایل لاگ به جای حذف کامل
+                    if (file_put_contents($logPath, '') !== false) {
+                        $cleanedCount++;
+                        \Log::info("Log file cleaned: {$logPath}");
+                    }
+                }
+            }
+            
+            // پاک‌سازی لاگ‌های قدیمی (بیشتر از ۷ روز)
+            $logDir = storage_path('logs');
+            if (is_dir($logDir)) {
+                $files = glob($logDir . '/laravel-*.log');
+                foreach ($files as $file) {
+                    if (filemtime($file) < strtotime('-7 days')) {
+                        if (unlink($file)) {
+                            $cleanedCount++;
+                            \Log::info("Old log file deleted: {$file}");
+                        }
+                    }
+                }
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Error cleaning log files', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+        
+        return $cleanedCount;
+    }
+    
+    /**
+     * پاک‌سازی فایل‌های قدیمی و کش
+     */
+    private function cleanupOldFiles()
+    {
+        $cleanedCount = 0;
+        
+        try {
+            // مسیرهای پاک‌سازی
+            $cleanupPaths = [
+                storage_path('framework/cache/'),
+                storage_path('framework/sessions/'),
+                storage_path('framework/views/'),
+                storage_path('framework/testing/'),
+                storage_path('app/public/'),
+                public_path('storage/temp/'),
+            ];
+            
+            foreach ($cleanupPaths as $path) {
+                if (is_dir($path)) {
+                    $this->deleteDirectoryContents($path);
+                    $cleanedCount++;
+                    \Log::info("Directory cleaned: {$path}");
+                }
+            }
+            
+            // پاک‌سازی فایل‌های موقت
+            $tempPaths = [
+                sys_get_temp_dir() . '/atlas_report_*',
+                storage_path('temp/'),
+                storage_path('tmp/'),
+            ];
+            
+            foreach ($tempPaths as $pattern) {
+                $files = glob($pattern);
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        if (unlink($file)) {
+                            $cleanedCount++;
+                            \Log::info("Temp file deleted: {$file}");
+                        }
+                    } elseif (is_dir($file)) {
+                        $this->deleteDirectoryContents($file);
+                        if (rmdir($file)) {
+                            $cleanedCount++;
+                            \Log::info("Temp directory deleted: {$file}");
+                        }
+                    }
+                }
+            }
+            
+            // پاک‌سازی کش مرورگر
+            $cachePaths = [
+                public_path('storage/cache/'),
+                public_path('js/cache/'),
+                public_path('css/cache/'),
+            ];
+            
+            foreach ($cachePaths as $path) {
+                if (is_dir($path)) {
+                    $this->deleteDirectoryContents($path);
+                    $cleanedCount++;
+                    \Log::info("Cache directory cleaned: {$path}");
+                }
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Error cleaning old files', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+        
+        return $cleanedCount;
+    }
+    
+    /**
+     * حذف محتویات یک دایرکتوری
+     */
+    private function deleteDirectoryContents($dir)
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        
+        $files = array_diff(scandir($dir), ['.', '..']);
+        
+        foreach ($files as $file) {
+            $path = $dir . '/' . $file;
+            
+            if (is_dir($path)) {
+                $this->deleteDirectoryContents($path);
+                rmdir($path);
+            } else {
+                unlink($path);
+            }
         }
     }
 
