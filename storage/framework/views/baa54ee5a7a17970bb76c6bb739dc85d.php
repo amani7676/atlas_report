@@ -204,4 +204,4 @@
         });
     </script>
 </div>
-<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/reports/index.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\livewire\reports\index.blade.php ENDPATH**/ ?>

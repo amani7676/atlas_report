@@ -1636,7 +1636,7 @@ $__split = function ($name, $params = []) {
 
 $key = null;
 
-$key ??= \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::generateKey('lw-2407318976-0', null);
+$key ??= \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::generateKey('lw-324784192-0', null);
 
 $__html = app('livewire')->mount($__name, $__params, $key);
 
@@ -1655,4 +1655,4 @@ if (isset($__slots)) unset($__slots);
     <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 </div>
 
-<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/residents/resident-reports.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\livewire\residents\resident-reports.blade.php ENDPATH**/ ?>

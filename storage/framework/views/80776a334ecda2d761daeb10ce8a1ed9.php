@@ -1,0 +1,1 @@
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\livewire\variables\index_new.blade.php ENDPATH**/ ?>

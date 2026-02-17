@@ -1,0 +1,682 @@
+<div>
+    <!-- استایل‌های خارجی -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- استایل‌های سفارشی برای صفحه‌بندی زیبا -->
+    <style>
+        .custom-pagination .page-link {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 3px;
+            border: 1px solid #dee2e6;
+            color: #0d6efd;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+        }
+
+        .custom-pagination .page-link:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4);
+        }
+
+        .custom-pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+        }
+
+        .custom-pagination .page-link i {
+            font-size: 0.75rem;
+        }
+
+        /* استایل‌های زیبا برای جدول گزارش‌ها */
+        .table tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .table thead th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            border: none;
+            padding: 12px 15px;
+        }
+
+        .table thead th:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .table tbody td {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 15px;
+        }
+
+        /* استایل‌های ریسپانسیو برای موبایل */
+        @media (max-width: 768px) {
+            /* کاهش اندازه فونت‌ها و padding در موبایل */
+            .card {
+                margin-bottom: 0.75rem;
+            }
+
+            .card-body {
+                padding: 0.75rem;
+            }
+
+            .card-header {
+                padding: 0.5rem 0.75rem;
+            }
+
+            h5 {
+                font-size: 1rem;
+            }
+
+            h6 {
+                font-size: 0.875rem;
+            }
+
+            /* تنظیمات کارت‌های آماری */
+            .stats-card h3 {
+                font-size: 1.5rem;
+            }
+
+            /* تنظیمات جدول برای موبایل */
+            .table-responsive {
+                border-radius: 0.25rem;
+            }
+
+            .table th, .table td {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            /* بهبود نمایش فیلترها در موبایل */
+            .col-md-2 {
+                margin-bottom: 0.5rem;
+            }
+
+            /* تنظیمات صفحه‌بندی برای موبایل */
+            .custom-pagination .page-link {
+                width: 30px;
+                height: 30px;
+                font-size: 0.8rem;
+                margin: 0 1px;
+            }
+
+            /* بهبود نمایش دکمه‌ها در موبایل */
+            .btn-group-sm > .btn, .btn-sm {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            /* بهبود نمایش مودال در موبایل */
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100% - 1rem);
+            }
+
+            /* بهبود نمایش جستجو در موبایل */
+            .input-group-sm {
+                width: 100% !important;
+            }
+
+            /* تنظیمات عملیات گروهی در موبایل */
+            .alert {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+
+        }
+
+        /* استایل‌های خاص برای گوشی‌های کوچکتر */
+        @media (max-width: 480px) {
+            /* کاهش بیشتر اندازه فونت‌ها */
+            .card-body {
+                padding: 0.5rem;
+            }
+
+            h5 {
+                font-size: 0.9rem;
+            }
+
+            h6 {
+                font-size: 0.8rem;
+            }
+
+            /* تنظیمات جدول برای صفحه‌نمایش کوچک */
+            .table th, .table td {
+                padding: 0.3rem;
+                font-size: 0.75rem;
+            }
+
+            /* بهبود نمایش کارت‌های آماری */
+            .stats-card h3 {
+                font-size: 1.25rem;
+            }
+
+            /* بهبود نمایش صفحه‌بندی */
+            .custom-pagination .page-link {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+            }
+
+            /* بهبود نمایش دکمه‌ها */
+            .btn-group-sm > .btn, .btn-sm {
+                padding: 0.2rem 0.4rem;
+                font-size: 0.7rem;
+            }
+
+            /* بهبود نمایش مودال */
+            .modal-body {
+                padding: 0.75rem;
+            }
+
+            /* بهبود نمایش فیلترها */
+            .form-select-sm, .form-control-sm {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+
+    <div class="container-fluid py-3">
+        <!-- بخش هدر و آمار کلی -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-bell me-2"></i>
+                    گزارش‌های اطلاع‌رسانی اقامت‌گران
+                </h5>
+                <div class="d-flex flex-column flex-md-row">
+                    
+                    <span class="badge bg-warning text-dark mb-1 mb-md-0 me-md-2">
+                        <i class="fas fa-chart-line me-1"></i>
+                        مجموع نمرات منفی: <?php echo e($totalScore); ?>
+
+                    </span>
+                    <span class="badge bg-info">
+                        <i class="fas fa-file-alt me-1"></i>
+                        <?php echo e($totalReportsCount); ?> گزارش
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- بخش کارت‌های آماری -->
+        <div class="row mb-3">
+            <div class="col-6 col-md-3">
+                <div class="card bg-primary text-white stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-1">تعداد گزارش‌ها</h6>
+                                <h3 class="mb-0"><?php echo e($reports->total()); ?></h3>
+                            </div>
+                            <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card bg-danger text-white stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-1">مجموع نمرات منفی</h6>
+                                <h3 class="mb-0"><?php echo e($totalScore); ?></h3>
+                            </div>
+                            <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card bg-success text-white stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-1">تعداد واحدها</h6>
+                                <h3 class="mb-0"><?php echo e(count($units)); ?></h3>
+                            </div>
+                            <i class="fas fa-building fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card bg-warning text-dark stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-1">اقامت‌گران دارای گزارش</h6>
+                                <h3 class="mb-0"><?php echo e($distinctResidentsCount); ?></h3>
+                            </div>
+                            <i class="fas fa-users fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- بخش فیلترهای اصلی -->
+        <div class="card mb-3">
+            <div class="card-header bg-light">
+                <div class="row g-2">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">نام اقامت‌گر</label>
+                        <input type="text" wire:model.live.debounce.300ms="filters.resident_name" 
+                            class="form-control form-control-sm" 
+                            placeholder="نام اقامت‌گر...">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">تلفن اقامت‌گر</label>
+                        <input type="text" wire:model.live.debounce.300ms="filters.resident_phone" 
+                            class="form-control form-control-sm" 
+                            placeholder="شماره تلفن...">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">گزارش</label>
+                        <select wire:model.live="filters.report_id" class="form-select form-select-sm">
+                            <option value="">همه گزارش‌ها</option>
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $reportsList; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $report): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($report->id); ?>"><?php echo e($report->title); ?></option>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">از تاریخ</label>
+                        <input type="date" wire:model.live="filters.date_from"
+                            class="form-control form-control-sm">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small mb-1">تا تاریخ</label>
+                        <input type="date" wire:model.live="filters.date_to"
+                            class="form-control form-control-sm">
+                    </div>
+
+                    <div class="col-12 mt-2">
+                        <button wire:click="resetFilters" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-times me-1"></i>حذف فیلترها
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- بخش عملیات گروهی -->
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($selectedReports) > 0): ?>
+            <div class="alert alert-warning mb-3">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                    <div class="mb-2 mb-md-0">
+                        <strong><?php echo e(count($selectedReports)); ?></strong> گزارش انتخاب شده است
+                    </div>
+                    <div class="d-flex flex-column flex-md-row gap-2">
+                        <select wire:model="bulkAction" class="form-select form-select-sm">
+                            <option value="">عملیات گروهی</option>
+                            <option value="delete">حذف انتخاب‌شده‌ها</option>
+                        </select>
+                        <button wire:click="executeBulkAction" class="btn btn-danger btn-sm">
+                            <i class="fas fa-play me-1"></i> اجرا
+                        </button>
+                        <button wire:click="$set('selectedReports', [])" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-times me-1"></i> لغو
+                        </button>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+        <!-- جدول اصلی گزارش‌های اطلاع‌رسانی -->
+        <div class="card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">لیست گزارش‌های اطلاع‌رسانی</h6>
+                <select wire:model.live="perPage" class="form-select form-select-sm" style="width: auto;">
+                    <option value="10">10 در صفحه</option>
+                    <option value="25">25 در صفحه</option>
+                    <option value="50">50 در صفحه</option>
+                    <option value="100">100 در صفحه</option>
+                </select>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>شماره</th>
+                                <th wire:click="sortBy('resident_name')" style="cursor: pointer;">
+                                    اقامت‌گر
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($sortField === 'resident_name'): ?>
+                                        <i class="fas fa-sort-<?php echo e($sortDirection === 'asc' ? 'up' : 'down'); ?>"></i>
+                                    <?php else: ?>
+                                        <i class="fas fa-sort"></i>
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                </th>
+                                <th class="d-none d-md-table-cell">موقعیت</th>
+                                <th>گزارش</th>
+                                <th wire:click="sortBy('created_at')" style="cursor: pointer;">
+                                    تاریخ ثبت
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($sortField === 'created_at'): ?>
+                                        <i class="fas fa-sort-<?php echo e($sortDirection === 'asc' ? 'up' : 'down'); ?>"></i>
+                                    <?php else: ?>
+                                        <i class="fas fa-sort"></i>
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                </th>
+                                <th>نمره منفی</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $counter_number = 0; ?>
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $reports; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $report): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                <?php $counter_number++; ?>
+                                <tr style="transition: all 0.2s ease;">
+                                    <td style="width: 1%; text-align: center; vertical-align: middle;">
+                                        <span class="badge rounded-pill" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 13px; padding: 6px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                            <?php echo e($counter_number); ?>
+
+                                        </span>
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                                <?php echo e(mb_substr($report->resident_name ?? 'ن', 0, 1)); ?>
+
+                                            </div>
+                                            <div>
+                                                <strong style="font-size: 14px; color: #1f2937; display: block; margin-bottom: 3px;"><?php echo e($report->resident_name ?? 'نامشخص'); ?></strong>
+                                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($report->resident_id): ?>
+                                                    <small style="color: #6b7280; font-size: 11px;">
+                                                        <i class="fas fa-id-card"></i> ID: <?php echo e($report->resident_id); ?>
+
+                                                    </small>
+                                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="d-none d-md-table-cell" style="vertical-align: middle;">
+                                        <div>
+                                            <span class="badge" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 5px 10px; margin-bottom: 5px; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                                <i class="fas fa-building"></i> <?php echo e($report->unit_name ?? 'واحد نامشخص'); ?>
+
+                                            </span>
+                                            <br>
+                                            <div style="margin-top: 5px; font-size: 12px; color: #6b7280;">
+                                                <i class="fas fa-door-open"></i> اتاق: <?php echo e($report->room_name ?? 'نامشخص'); ?>
+
+                                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($report->bed_name): ?>
+                                                    <br>
+                                                    <i class="fas fa-bed"></i> تخت: <?php echo e($report->bed_name); ?>
+
+                                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <div style="padding: 8px; background: #f8f9fa; border-radius: 6px; border-right: 3px solid #3b82f6;">
+                                            <strong style="font-size: 14px; color: #1f2937; display: block; margin-bottom: 5px;">
+                                                <?php echo e($report->report->title ?? 'گزارش حذف شده'); ?>
+
+                                            </strong>
+                                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                                                <span class="badge" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; padding: 3px 8px; font-size: 11px;">
+                                                    <i class="fas fa-tag"></i> <?php echo e($report->report->category->name ?? 'بدون دسته'); ?>
+
+                                                </span>
+                                            </div>
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($report->notes): ?>
+                                                <div style="margin-top: 5px; padding: 5px; background: white; border-radius: 4px; border: 1px solid #e5e7eb;">
+                                                    <small style="color: #6b7280; font-size: 11px;">
+                                                        <i class="fas fa-sticky-note"></i> <?php echo e(Str::limit($report->notes, 50)); ?>
+
+                                                    </small>
+                                                </div>
+                                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        </div>
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <div style="text-align: center;">
+                                            <div style="font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 3px;">
+                                                <?php echo e(jalaliDate($report->created_at, 'Y/m/d')); ?>
+
+                                            </div>
+                                            <div style="font-size: 11px; color: #6b7280;">
+                                                <i class="fas fa-clock"></i> <?php echo e(jalaliDate($report->created_at, 'H:i')); ?>
+
+                                            </div>
+                                            <small style="color: #9ca3af; font-size: 10px; display: block; margin-top: 3px;">
+                                                <?php echo e($report->created_at->diffForHumans()); ?>
+
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <td style="vertical-align: middle; text-align: center;">
+                                        <span class="badge" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; font-size: 14px; padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                            <i class="fas fa-minus-circle"></i> <?php echo e($report->report->negative_score ?? 0); ?>
+
+                                        </span>
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-danger" style="border-radius: 6px 0 0 6px;"
+                                                onclick="confirmDeleteReport(<?php echo e($report->id); ?>)" title="حذف گزارش">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" style="border-radius: 0 6px 6px 0;"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#reportDetails<?php echo e($report->id); ?>"
+                                                title="مشاهده جزئیات">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- مودال (پنجره پاپ‌آپ) جزئیات گزارش -->
+                                        <div class="modal fade" id="reportDetails<?php echo e($report->id); ?>"
+                                            tabindex="-1">
+                                            <div class="modal-dialog modal-dialog-scrollable">
+                                                <div class="modal-content">
+                                                    <div class="modal-header bg-info text-white">
+                                                        <h5 class="modal-title">جزئیات گزارش</h5>
+                                                        <button type="button" class="btn-close btn-close-white"
+                                                            data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="row">
+                                                            <div class="col-12 col-md-6">
+                                                                <p><strong>اقامت‌گر:</strong>
+                                                                    <?php echo e($report->resident_name); ?></p>
+                                                                <p><strong>واحد:</strong> <?php echo e($report->unit_name); ?></p>
+                                                                <p><strong>اتاق:</strong> <?php echo e($report->room_name); ?></p>
+                                                                <p><strong>تخت:</strong> <?php echo e($report->bed_name); ?></p>
+                                                            </div>
+                                                            <div class="col-12 col-md-6">
+                                                                <p><strong>گزارش:</strong>
+                                                                    <?php echo e($report->report->title ?? 'حذف شده'); ?></p>
+                                                                <p><strong>دسته‌بندی:</strong>
+                                                                    <?php echo e($report->report->category->name ?? 'بدون دسته'); ?>
+
+                                                                </p>
+                                                                <p><strong>نمره منفی:</strong> <span
+                                                                        class="badge bg-danger"><?php echo e($report->report->negative_score ?? 0); ?></span>
+                                                                </p>
+                                                                <p><strong>ضریب افزایش:</strong>
+                                                                    <?php echo e($report->report->increase_coefficient ?? 0); ?>
+
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($report->notes): ?>
+                                                            <div class="mt-3">
+                                                                <strong>توضیحات:</strong>
+                                                                <div class="alert alert-light mt-2">
+                                                                    <?php echo e($report->notes); ?>
+
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                                        <div class="mt-3">
+                                                            <strong>اطلاعات ثبت:</strong>
+                                                            <p class="mb-1">تاریخ ثبت:
+                                                                <?php echo e(jalaliDate($report->created_at, 'Y/m/d H:i')); ?></p>
+                                                            <p class="mb-0">آخرین ویرایش:
+                                                                <?php echo e(jalaliDate($report->updated_at, 'Y/m/d H:i')); ?></p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary"
+                                                            data-bs-dismiss="modal">بستن</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+                                        <p class="text-muted">هیچ گزارشی یافت نشد</p>
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(array_filter($filters)): ?>
+                                            <button wire:click="resetFilters" class="btn btn-sm btn-outline-primary">
+                                                حذف فیلترها
+                                            </button>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- فوتر جدول با صفحه‌بندی زیبا و سفارشی -->
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($reports->hasPages()): ?>
+                <div class="card-footer d-flex justify-content-between align-items-center flex-wrap">
+                    <div class="text-muted small mb-2 mb-sm-0">
+                        نمایش
+                        <?php echo e($reports->firstItem() ?? 0); ?>
+
+                        تا
+                        <?php echo e($reports->lastItem() ?? 0); ?>
+
+                        از
+                        <?php echo e($reports->total()); ?>
+
+                        نتیجه
+                    </div>
+                    
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination custom-pagination mb-0">
+                            
+                            <li class="page-item <?php echo e($reports->onFirstPage() ? 'disabled' : ''); ?>">
+                                <a class="page-link" href="#" wire:click="previousPage()" tabindex="-1"
+                                    aria-disabled="<?php echo e($reports->onFirstPage() ? 'true' : 'false'); ?>">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+
+                            
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $reports->getUrlRange(1, $reports->lastPage()); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $page => $url): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($page == $reports->currentPage()): ?>
+                                    <li class="page-item active">
+                                        <span class="page-link"><?php echo e($page); ?></span>
+                                    </li>
+                                <?php else: ?>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#"
+                                            wire:click="gotoPage(<?php echo e($page); ?>)"><?php echo e($page); ?></a>
+                                    </li>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                            
+                            <li class="page-item <?php echo e(!$reports->hasMorePages() ? 'disabled' : ''); ?>">
+                                <a class="page-link" href="#" wire:click="nextPage()"
+                                    aria-disabled="<?php echo e(!$reports->hasMorePages() ? 'true' : 'false'); ?>">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        </div>
+    </div>
+
+    <!-- اسکریپت‌های خارجی -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        function confirmDeleteReport(id) {
+            Swal.fire({
+                title: 'حذف گزارش',
+                text: 'آیا مطمئن هستید که می‌خواهید این گزارش را حذف کنید؟',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'بله، حذف شود',
+                cancelButtonText: 'لغو',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.Livewire.find('<?php echo e($_instance->getId()); ?>').deleteReport(id);
+                }
+            });
+        }
+
+        window.addEventListener('confirmBulkDelete', event => {
+            const {
+                type,
+                count
+            } = event.detail;
+
+            Swal.fire({
+                title: `حذف ${count} گزارش`,
+                text: `آیا مطمئن هستید که می‌خواهید ${count} گزارش انتخاب شده را حذف کنید؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'بله، حذف شود',
+                cancelButtonText: 'لغو',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.Livewire.find('<?php echo e($_instance->getId()); ?>').deleteMultipleReports();
+                }
+            });
+        });
+
+        document.addEventListener('livewire:navigated', () => {
+            var modals = document.querySelectorAll('.modal');
+            modals.forEach(function(modal) {
+                if (!bootstrap.Modal.getInstance(modal)) {
+                    new bootstrap.Modal(modal);
+                }
+            });
+        });
+    </script>
+</div>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\livewire\residents\notification-reports.blade.php ENDPATH**/ ?>

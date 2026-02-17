@@ -1,14 +1,17 @@
 <div>
     <div class="card">
-        <h2 style="margin-bottom: 20px;">ایجاد گزارش جدید</h2>
+        <h2 style="margin-bottom: 20px;">ویرایش گزارش</h2>
 
-        <form wire:submit.prevent="save">
+        <form wire:submit.prevent="update">
             <div class="form-group">
                 <label class="form-label">دسته‌بندی *</label>
                 <select wire:model="category_id" class="form-control" required>
                     <option value="">انتخاب دسته‌بندی</option>
                     <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                        <option value="<?php echo e($category->id); ?>"><?php echo e($category->name); ?></option>
+                        <option value="<?php echo e($category->id); ?>" <?php echo e($category_id == $category->id ? 'selected' : ''); ?>>
+                            <?php echo e($category->name); ?>
+
+                        </option>
                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </select>
                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['category_id'];
@@ -27,7 +30,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                     type="text"
                     wire:model="title"
                     class="form-control"
-                    placeholder="مثال: نامرتب بودن اتاق"
                     required
                 >
                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['title'];
@@ -46,7 +48,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                     wire:model="description"
                     class="form-control"
                     rows="4"
-                    placeholder="توضیحات کامل گزارش..."
                     required
                 ></textarea>
                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['description'];
@@ -87,7 +88,6 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                         class="form-control"
                         step="0.01"
                         min="0"
-                        value="1"
                         required
                     >
                     <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['increase_coefficient'];
@@ -132,7 +132,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                     <select wire:model="selectedPattern" class="form-control" required>
                         <option value="">انتخاب الگوی پیامک</option>
                         <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $patterns; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $pattern): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                            <option value="<?php echo e($pattern->id); ?>">
+                            <option value="<?php echo e($pattern->id); ?>" <?php echo e($selectedPattern == $pattern->id ? 'selected' : ''); ?>>
                                 <?php echo e($pattern->title); ?>
 
                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($pattern->pattern_code): ?>
@@ -160,14 +160,49 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
             <div style="display: flex; gap: 10px; margin-top: 30px;">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i>
-                    ذخیره گزارش
+                    به‌روزرسانی گزارش
                 </button>
                 <a href="/reports" class="btn" style="background: #6c757d; color: white;">
                     <i class="fas fa-arrow-right"></i>
                     بازگشت به لیست
                 </a>
+                <button
+                    type="button"
+                    onclick="confirmDelete(<?php echo e($report->id); ?>, 'Report')"
+                    class="btn btn-danger"
+                >
+                    <i class="fas fa-trash"></i>
+                    حذف گزارش
+                </button>
             </div>
         </form>
     </div>
 </div>
-<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/reports/create.blade.php ENDPATH**/ ?>
+
+<script>
+    // تابع تایید حذف
+    function confirmDelete(id, type, persianType = null) {
+        const typeName = persianType || (type === 'Report' ? 'گزارش' : 'دسته‌بندی');
+        
+        Swal.fire({
+            title: `حذف ${typeName}`,
+            text: `آیا مطمئن هستید که می‌خواهید این ${typeName} را حذف کنید؟`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'بله، حذف شود',
+            cancelButtonText: 'لغو',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (type === 'Report') {
+                    window.Livewire.find('<?php echo e($_instance->getId()); ?>').deleteReport(id);
+                } else {
+                    window.Livewire.find('<?php echo e($_instance->getId()); ?>').deleteCategory(id);
+                }
+            }
+        });
+    }
+</script>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\livewire\reports\edit.blade.php ENDPATH**/ ?>
