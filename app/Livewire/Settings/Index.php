@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use Livewire\Component;
 use App\Models\Settings;
+use App\Models\Report;
 
 class Index extends Component
 {
@@ -13,6 +14,8 @@ class Index extends Component
     public $repeat_violation = 3; // تعداد گزارش یکسان برای نمایش
     public $yellow_card_threshold = 15; // امتیاز برای کارت زرد
     public $red_card_threshold = 25; // امتیاز برای کارت قرمز
+    public $excluded_reports = []; // لیست گزارش‌های مستثنی شده
+    public $reports = []; // لیست تمام گزارش‌ها
 
     protected function rules()
     {
@@ -23,6 +26,8 @@ class Index extends Component
             'repeat_violation' => 'required|integer|min:1',
             'yellow_card_threshold' => 'required|integer|min:1',
             'red_card_threshold' => 'required|integer|min:1',
+            'excluded_reports' => 'array',
+            'excluded_reports.*' => 'integer|exists:reports,id',
         ];
     }
 
@@ -65,6 +70,26 @@ class Index extends Component
         
         $redCard = \App\Models\Constant::where('key', 'red_card_threshold')->first();
         $this->red_card_threshold = $redCard ? (int)$redCard->value : 25;
+        
+        // بارگذاری لیست تمام گزارش‌ها
+        $this->reports = Report::with('category')
+            ->orderBy('title')
+            ->get()
+            ->map(function ($report) {
+                return [
+                    'id' => $report->id,
+                    'title' => $report->title,
+                    'category_name' => $report->category ? $report->category->name : 'بدون دسته',
+                    'negative_score' => $report->negative_score,
+                ];
+            })
+            ->toArray();
+        
+        // بارگذاری گزارش‌های مستثنی شده از constants
+        $excludedReportsConstant = \App\Models\Constant::where('key', 'excluded_reports')->first();
+        if ($excludedReportsConstant && $excludedReportsConstant->value) {
+            $this->excluded_reports = json_decode($excludedReportsConstant->value, true) ?? [];
+        }
     }
 
     public function save()
@@ -93,16 +118,44 @@ class Index extends Component
             ['key' => 'red_card_threshold'],
             ['value' => (string)$this->red_card_threshold, 'type' => 'number', 'description' => 'امتیاز لازم برای دریافت کارت قرمز']
         );
+        
+        // ذخیره گزارش‌های مستثنی شده در constants
+        \App\Models\Constant::updateOrCreate(
+            ['key' => 'excluded_reports'],
+            ['value' => json_encode($this->excluded_reports), 'type' => 'string', 'description' => 'لیست گزارش‌های مستثنی شده از محاسبه تخلفات']
+        );
+
+        // به‌روزرسانی مجدد متغیرها برای نمایش صحیح
+        $this->refreshExcludedReports();
+
+        $excludedCount = count($this->excluded_reports);
+        $message = 'تنظیمات با موفقیت ذخیره شد.';
+        if ($excludedCount > 0) {
+            $message .= " {$excludedCount} گزارش مستثنی شده ذخیره گردید.";
+        }
 
         $this->dispatch('showToast', [
             'type' => 'success',
             'title' => 'موفقیت!',
-            'message' => 'تنظیمات با موفقیت ذخیره شد.',
+            'message' => $message,
             'duration' => 3000,
         ]);
 
         // ارسال event برای به‌روزرسانی JavaScript
         $this->dispatch('settings-updated');
+    }
+    
+    /**
+     * به‌روزرسانی مجدد گزارش‌های مستثنی شده از دیتابیس
+     */
+    private function refreshExcludedReports()
+    {
+        $excludedReportsConstant = \App\Models\Constant::where('key', 'excluded_reports')->first();
+        if ($excludedReportsConstant && $excludedReportsConstant->value) {
+            $this->excluded_reports = json_decode($excludedReportsConstant->value, true) ?? [];
+        } else {
+            $this->excluded_reports = [];
+        }
     }
 
     public function render()

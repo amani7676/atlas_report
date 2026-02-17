@@ -266,9 +266,16 @@ class ResidentReports extends Component
         if ($repeatViolationValue <= 0) {
             $repeatViolationValue = 3;
         }
+        
+        // دریافت گزارش‌های مستثنی شده از تنظیمات
+        $excludedReportsConstant = Constant::where('key', 'excluded_reports')->first();
+        $excludedReportIds = [];
+        if ($excludedReportsConstant && $excludedReportsConstant->value) {
+            $excludedReportIds = json_decode($excludedReportsConstant->value, true) ?? [];
+        }
 
-        // پیدا کردن اقامت‌گرانی که یک نوع گزارش را چند بار داشته‌اند
-        $residents = ResidentReport::selectRaw('
+        // پیدا کردن اقامت‌گرانی که یک نوع گزارش را چند بار داشته‌اند (فقط گزارش‌های غیرمستثنی)
+        $query = ResidentReport::selectRaw('
             MAX(residents.resident_full_name) as resident_name,
             resident_reports.report_id,
             reports.title as report_name,
@@ -286,8 +293,14 @@ class ResidentReports extends Component
             ->leftJoin('residents', 'resident_reports.resident_id', '=', 'residents.id')
             ->where('reports.category_id', 1) // دسته‌بندی تخلف
             ->where('resident_reports.is_checked', false) // فقط تخلف‌های چک نشده
-            ->whereNotNull('resident_reports.resident_id')
-            ->when($this->filters['report_id'], function ($query) {
+            ->whereNotNull('resident_reports.resident_id');
+            
+        // حذف گزارش‌های مستثنی شده برای محاسبه تعداد گزارش‌های یکسان
+        if (!empty($excludedReportIds)) {
+            $query->whereNotIn('resident_reports.report_id', $excludedReportIds);
+        }
+            
+        $residents = $query->when($this->filters['report_id'], function ($query) {
                 $query->where('resident_reports.report_id', $this->filters['report_id']);
             })
             ->when($this->filters['category_id'], function ($query) {
@@ -1301,12 +1314,19 @@ class ResidentReports extends Component
         $repeatViolationSetting = \App\Models\Constant::where('key', 'repeat_violation')->first();
         $repeatViolationThreshold = $repeatViolationSetting ? (int)$repeatViolationSetting->value : 3;
         
+        // دریافت گزارش‌های مستثنی شده از تنظیمات
+        $excludedReportsConstant = \App\Models\Constant::where('key', 'excluded_reports')->first();
+        $excludedReportIds = [];
+        if ($excludedReportsConstant && $excludedReportsConstant->value) {
+            $excludedReportIds = json_decode($excludedReportsConstant->value, true) ?? [];
+        }
+        
         // دریافت اقامت‌گرانی که کارت تأیید شده ندارند
         $approvedResidentIds = \App\Models\ResidentCard::where('card_status', 'approved')
             ->pluck('resident_id')
             ->toArray();
         
-        // دریافت اقامت‌گران با مجموع امتیازات تخلفات
+        // دریافت اقامت‌گران با مجموع امتیازات تخلفات (با تفکیک گزارش‌های مستثنی)
         $residentsWithScores = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
             ->where('reports.category_id', 1) // فقط دسته‌بندی تخلف
@@ -1317,33 +1337,52 @@ class ResidentReports extends Component
                 residents.resident_id,
                 residents.resident_full_name as resident_name,
                 SUM(reports.negative_score) as total_score,
+                SUM(CASE WHEN reports.id NOT IN (' . implode(',', $excludedReportIds ?: [0]) . ') THEN reports.negative_score ELSE 0 END) as eligible_score,
                 COUNT(resident_reports.id) as violation_count,
                 MIN(resident_reports.created_at) as first_violation
             ')
             ->groupBy('residents.resident_id', 'residents.resident_full_name')
-            ->havingRaw('SUM(reports.negative_score) >= ?', [$yellowThreshold])
+            ->havingRaw('SUM(reports.negative_score) >= ?', [$yellowThreshold]) // فیلتر بر اساس مجموع امتیاز کل (با گزارش‌های مستثنی)
             ->orderBy('total_score', 'desc')
             ->get();
 
         // Debug: نمایش اطلاعات برای اشکال‌زدایی
-        // \Log::info('Yellow Threshold: ' . $yellowThreshold);
-        // \Log::info('Red Threshold: ' . $redThreshold);
-        // \Log::info('Repeat Violation Threshold: ' . $repeatViolationThreshold);
-        // \Log::info('Approved resident IDs: ' . implode(', ', $approvedResidentIds));
-        // \Log::info('Residents with high scores count: ' . $residentsWithScores->count());
+        \Log::info('=== CARD GENERATION DEBUG ===');
+        \Log::info('Yellow Threshold: ' . $yellowThreshold);
+        \Log::info('Red Threshold: ' . $redThreshold);
+        \Log::info('Excluded Report IDs: ' . implode(',', $excludedReportIds ?: []));
+        \Log::info('Residents with high scores count: ' . $residentsWithScores->count());
+        
+        foreach ($residentsWithScores as $resident) {
+            \Log::info('Resident: ' . $resident->resident_name . ' - Total: ' . $resident->total_score . ' - Eligible: ' . $resident->eligible_score);
+            
+            // بررسی شرایط کارت بر اساس مجموع امتیاز کل (با گزارش‌های مستثنی)
+            if ($resident->total_score >= $redThreshold) {
+                \Log::info('  -> Should get RED card (total >= red threshold)');
+            } elseif ($resident->total_score >= $yellowThreshold) {
+                \Log::info('  -> Should get YELLOW card (total >= yellow threshold)');
+            } else {
+                \Log::info('  -> Should get NO card (total < yellow threshold)');
+            }
+        }
+        \Log::info('=== END DEBUG ===');
         
         $pendingCards = [];
         
         foreach ($residentsWithScores as $resident) {
-            // تعیین نوع کارت بر اساس امتیاز با منطق دقیق
+            \Log::info('Processing resident: ' . $resident->resident_name . ' - Total: ' . $resident->total_score . ' vs Yellow: ' . $yellowThreshold);
+            
+            // تعیین نوع کارت بر اساس مجموع امتیاز کل (با گزارش‌های مستثنی)
             if ($resident->total_score >= $redThreshold) {
-                // کارت قرمز: امتیاز بیشتر یا مساوی آستانه قرمز (≥ 30)
+                // کارت قرمز: مجموع امتیاز بیشتر یا مساوی آستانه قرمز
                 $cardType = 'red';
+                \Log::info('  -> RED card created');
             } elseif ($resident->total_score >= $yellowThreshold) {
-                // کارت زرد: امتیاز بیشتر یا مساوی آستانه زرد (≥ 20)
+                // کارت زرد: مجموع امتیاز بیشتر یا مساوی آستانه زرد
                 $cardType = 'yellow';
+                \Log::info('  -> YELLOW card created');
             } else {
-                // این شرط نباید برقرار باشد چون havingRaw امتیاز را فیلتر کرده
+                \Log::info('  -> SKIPPED: total score (' . $resident->total_score . ') < yellow threshold (' . $yellowThreshold . ')');
                 continue;
             }
             
@@ -1351,12 +1390,15 @@ class ResidentReports extends Component
                 'id' => 'pending_' . $resident->resident_id,
                 'resident_id' => $resident->resident_id,
                 'resident_name' => $resident->resident_name,
-                'total_score' => $resident->total_score,
+                'total_score' => $resident->total_score, // نمایش امتیاز مجموع واقعی
+                'eligible_score' => $resident->eligible_score, // امتیاز واجد شرایط برای گزارش‌های تکراری
                 'card_type' => $cardType,
                 'first_violation' => $resident->first_violation,
                 'approved_at' => null
             ];
         }
+        
+        \Log::info('Total cards created: ' . count($pendingCards));
         
         // اضافه کردن اقامت‌گرانی که تعداد گزارش‌های یکسان آن‌ها به آستانه می‌رسد
         // حتی اگر امتیازشان به کارت زرد نرسیده باشد
@@ -1391,7 +1433,14 @@ class ResidentReports extends Component
         // دریافت شناسه‌های اقامت‌گرانی که قبلاً کارت دارند
         $existingResidentIds = collect($existingCards)->pluck('resident_id')->toArray();
         
-        // دریافت اقامت‌گرانی که گزارش‌های تکراری دارند
+        // دریافت گزارش‌های مستثنی شده از تنظیمات
+        $excludedReportsConstant = Constant::where('key', 'excluded_reports')->first();
+        $excludedReportIds = [];
+        if ($excludedReportsConstant && $excludedReportsConstant->value) {
+            $excludedReportIds = json_decode($excludedReportsConstant->value, true) ?? [];
+        }
+        
+        // دریافت اقامت‌گرانی که گزارش‌های تکراری دارند (فقط گزارش‌های غیرمستثنی)
         $repeatResidents = ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
             ->join('residents', 'resident_reports.resident_id', '=', 'residents.resident_id')
             ->where('reports.category_id', 1) // فقط دسته‌بندی تخلف
@@ -1399,6 +1448,7 @@ class ResidentReports extends Component
             ->where('resident_reports.is_checked', false) // فقط گزارش‌های فعال (غیر چک شده)
             ->whereNotIn('residents.resident_id', $approvedResidentIds) // حذف اقامت‌گران با کارت تأیید شده
             ->whereNotIn('residents.resident_id', $existingResidentIds) // حذف اقامت‌گرانی که قبلاً کارت دارند
+            ->whereNotIn('resident_reports.report_id', $excludedReportIds) // حذف گزارش‌های مستثنی شده
             ->selectRaw('
                 residents.resident_id,
                 residents.resident_full_name as resident_name,

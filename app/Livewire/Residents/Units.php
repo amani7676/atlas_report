@@ -313,6 +313,9 @@ class Units extends Component
             'residentId' => $residentId
         ]);
         
+        // دریافت گزارش‌های مستثنی شده از تنظیمات
+        $excludedReportIds = $this->getExcludedReports();
+        
         // محاسبه مجموع امتیاز منفی تخلفات (category_id = 1)
         // مستقیماً از resident_id که از API آمده استفاده می‌کنیم
         $query = ResidentReport::where('resident_id', $residentId) // resident_id از API
@@ -321,14 +324,109 @@ class Units extends Component
             })
             ->join('reports', 'resident_reports.report_id', '=', 'reports.id');
             
+        // حذف گزارش‌های مستثنی شده
+        if (!empty($excludedReportIds)) {
+            $query->whereNotIn('reports.id', $excludedReportIds);
+        }
+            
         Log::info('getViolationReportsCount: Query built', [
+            'sql' => $query->toSql(),
+            'residentId' => $residentId,
+            'excludedReports' => $excludedReportIds
+        ]);
+        
+        $totalScore = $query->sum('reports.negative_score');
+        
+        Log::info('getViolationReportsCount: Result', [
+            'residentId' => $residentId,
+            'totalScore' => $totalScore,
+            'count' => $query->count(),
+            'excludedReports' => $excludedReportIds
+        ]);
+        
+        return (int)($totalScore ?? 0);
+    }
+    
+    /**
+     * محاسبه مجموع امتیاز منفی تخلفات یک اقامت‌گر (فقط از گزارش‌های غیرمستثنی)
+     * این متد برای کارت‌های زرد و قرمز استفاده می‌شود
+     */
+    public function getEligibleViolationScore($residentId)
+    {
+        if (!$residentId) {
+            Log::warning('getEligibleViolationScore: residentId is empty');
+            return 0;
+        }
+        
+        Log::info('getEligibleViolationScore: Processing resident', [
+            'residentId' => $residentId
+        ]);
+        
+        // دریافت گزارش‌های مستثنی شده از تنظیمات
+        $excludedReportIds = $this->getExcludedReports();
+        
+        // محاسبه مجموع امتیاز منفی تخلفات (category_id = 1)
+        // فقط از گزارش‌های غیرمستثنی برای کارت‌ها
+        $query = ResidentReport::where('resident_id', $residentId) // resident_id از API
+            ->whereHas('report', function($q) {
+                $q->where('category_id', 1); // دسته‌بندی تخلف
+            })
+            ->join('reports', 'resident_reports.report_id', '=', 'reports.id');
+            
+        // حذف گزارش‌های مستثنی شده - فقط گزارش‌های واجد شرایط برای کارت
+        if (!empty($excludedReportIds)) {
+            $query->whereNotIn('reports.id', $excludedReportIds);
+        }
+            
+        Log::info('getEligibleViolationScore: Query built', [
+            'sql' => $query->toSql(),
+            'residentId' => $residentId,
+            'excludedReports' => $excludedReportIds
+        ]);
+        
+        $totalScore = $query->sum('reports.negative_score');
+        
+        Log::info('getEligibleViolationScore: Result', [
+            'residentId' => $residentId,
+            'totalScore' => $totalScore,
+            'count' => $query->count(),
+            'excludedReports' => $excludedReportIds
+        ]);
+        
+        return (int)($totalScore ?? 0);
+    }
+    
+    /**
+     * محاسبه مجموع امتیاز منفی تخلفات یک اقامت‌گر (بدون در نظر گرفتن مستثنی‌ها)
+     * این متد برای نمایش امتیاز واقعی در کارت‌ها استفاده می‌شود
+     */
+    public function getTotalViolationScore($residentId)
+    {
+        if (!$residentId) {
+            Log::warning('getTotalViolationScore: residentId is empty');
+            return 0;
+        }
+        
+        Log::info('getTotalViolationScore: Processing resident', [
+            'residentId' => $residentId
+        ]);
+        
+        // محاسبه مجموع امتیاز منفی تخلفات (category_id = 1)
+        // بدون حذف گزارش‌های مستثنی شده - برای امتیاز مجموع واقعی
+        $query = ResidentReport::where('resident_id', $residentId) // resident_id از API
+            ->whereHas('report', function($q) {
+                $q->where('category_id', 1); // دسته‌بندی تخلف
+            })
+            ->join('reports', 'resident_reports.report_id', '=', 'reports.id');
+            
+        Log::info('getTotalViolationScore: Query built', [
             'sql' => $query->toSql(),
             'residentId' => $residentId
         ]);
         
         $totalScore = $query->sum('reports.negative_score');
         
-        Log::info('getViolationReportsCount: Result', [
+        Log::info('getTotalViolationScore: Result', [
             'residentId' => $residentId,
             'totalScore' => $totalScore,
             'count' => $query->count()
@@ -338,12 +436,25 @@ class Units extends Component
     }
     
     /**
+     * دریافت لیست گزارش‌های مستثنی شده از تنظیمات
+     */
+    private function getExcludedReports()
+    {
+        $excludedReportsConstant = \App\Models\Constant::where('key', 'excluded_reports')->first();
+        if ($excludedReportsConstant && $excludedReportsConstant->value) {
+            return json_decode($excludedReportsConstant->value, true) ?? [];
+        }
+        return [];
+    }
+    
+    /**
      * تعیین رنگ کارت بر اساس امتیاز تخلفات و تنظیمات
      * استفاده از آستانه‌های تعریف شده در تنظیمات
      */
     public function getViolationCardColor($residentId)
     {
-        $totalScore = $this->getViolationReportsCount($residentId);
+        // استفاده از مجموع امتیاز کل (با گزارش‌های مستثنی) برای تصمیم‌گیری کارت
+        $totalScore = $this->getTotalViolationScore($residentId);
         
         // دریافت آستانه‌ها از تنظیمات
         $yellowThreshold = $this->getYellowCardThreshold();
@@ -351,7 +462,7 @@ class Units extends Component
         
         if ($totalScore == 0) {
             return [
-                'bg' => '#10b981',      // سبز
+                'bg' => '#10b981',
                 'text' => '#ffffff',
                 'border' => '#059669',
                 'label' => 'بدون تخلف',
@@ -359,34 +470,26 @@ class Units extends Component
             ];
         } elseif ($totalScore >= 1 && $totalScore < $yellowThreshold) {
             return [
-                'bg' => '#F1FF5E',      // زرد درخشان (برای امتیاز کم)
-                'text' => '#000000',
-                'border' => '#F59E0B',
+                'bg' => '#f59e0b',
+                'text' => '#ffffff',
+                'border' => '#d97706',
                 'label' => 'تخلف کم',
                 'score' => $totalScore
             ];
         } elseif ($totalScore >= $yellowThreshold && $totalScore < $redThreshold) {
             return [
-                'bg' => '#f59e0b',      // زرد معمولی (برای آستانه زرد)
+                'bg' => '#8b5cf6',
                 'text' => '#ffffff',
-                'border' => '#d97706',
+                'border' => '#7c3aed',
                 'label' => 'تخلف متوسط',
-                'score' => $totalScore
-            ];
-        } elseif ($totalScore >= $redThreshold) {
-            return [
-                'bg' => '#ef4444',      // قرمز
-                'text' => '#ffffff',
-                'border' => '#dc2626',
-                'label' => 'تخلف زیاد',
                 'score' => $totalScore
             ];
         } else {
             return [
-                'bg' => '#8b5cf6',      // بنفش
+                'bg' => '#ef4444',
                 'text' => '#ffffff',
-                'border' => '#7c3aed',
-                'label' => 'تخلف متوسط',
+                'border' => '#dc2626',
+                'label' => 'تخلف زیاد',
                 'score' => $totalScore
             ];
         }

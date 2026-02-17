@@ -22,11 +22,19 @@
                 <small style="color: #666; margin-top: 5px; display: block;">
                     آدرس API که داده‌های اقامت‌گران از آن دریافت می‌شود.
                 </small>
-                @error('api_url') 
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['api_url'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> 
                     <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                        {{ $message }}
+                        <?php echo e($message); ?>
+
                     </span> 
-                @enderror
+                <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
             </div>
 
             <!-- بخش تنظیمات کارت‌ها -->
@@ -53,11 +61,19 @@
                     <small style="color: #666; margin-top: 5px; display: block;">
                         تعداد گزارش یکسان که باید برای نمایش در "اقامت‌گران با تخلف‌های تکرارای یکسان" استفاده شود.
                     </small>
-                    @error('repeat_violation') 
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['repeat_violation'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> 
                         <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
+                            <?php echo e($message); ?>
+
                         </span> 
-                    @enderror
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </div>
 
                 <!-- گزارش‌های مستثنی شده -->
@@ -73,11 +89,11 @@
                             class="form-control"
                             style="width: 100%; max-width: 600px; min-height: 150px;"
                         >
-                            @foreach($reports as $report)
-                                <option value="{{ $report['id'] }}" {{ in_array($report['id'], $excluded_reports) ? 'selected' : '' }}>
-                                    {{ $report['title'] }} ({{ $report['category_name'] }}) - {{ $report['negative_score'] }} امتیاز
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $reports; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $report): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($report['id']); ?>" <?php echo e(in_array($report['id'], $excluded_reports) ? 'selected' : ''); ?>>
+                                    <?php echo e($report['title']); ?> (<?php echo e($report['category_name']); ?>) - <?php echo e($report['negative_score']); ?> امتیاز
                                 </option>
-                            @endforeach
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                         </select>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -85,7 +101,7 @@
                             گزارش‌هایی را انتخاب کنید که در محاسبه تخلفات و نمایش کارت‌ها در صفحه "گزارش‌های تخلفی" لحاظ نشوند.
                             برای انتخاب چندگانه، کلید Ctrl را نگه دارید و روی موارد مورد نظر کلیک کنید.
                         </small>
-                        @if(count($excluded_reports) > 0)
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($excluded_reports) > 0): ?>
                             <button 
                                 type="button" 
                                 wire:click="$set('excluded_reports', [])"
@@ -94,34 +110,43 @@
                             >
                                 <i class="fas fa-times"></i> پاک کردن انتخاب
                             </button>
-                        @endif
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                     </div>
-                    @error('excluded_reports') 
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['excluded_reports'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> 
                         <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
+                            <?php echo e($message); ?>
+
                         </span> 
-                    @enderror
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                     
-                    @if(count($excluded_reports) > 0)
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($excluded_reports) > 0): ?>
                         <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px; border-right: 3px solid #007bff;">
                             <small style="color: #333; font-weight: 500;">
                                 <i class="fas fa-info-circle"></i>
-                                {{ count($excluded_reports) }} گزارش مستثنی شده:
+                                <?php echo e(count($excluded_reports)); ?> گزارش مستثنی شده:
                             </small>
                             <div style="margin-top: 5px;">
-                                @foreach($excluded_reports as $reportId)
-                                    @php
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $excluded_reports; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $reportId): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <?php
                                         $report = collect($reports)->firstWhere('id', $reportId);
                                         if($report):
-                                    @endphp
+                                    ?>
                                         <span style="display: inline-block; margin: 2px; padding: 3px 8px; background: #e3f2fd; border-radius: 12px; font-size: 12px; color: #1976d2;">
-                                            {{ $report['title'] }}
+                                            <?php echo e($report['title']); ?>
+
                                         </span>
-                                    @endif
-                                @endforeach
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                             </div>
                         </div>
-                    @endif
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </div>
 
                 <!-- امتیاز کارت زرد -->
@@ -141,11 +166,19 @@
                     <small style="color: #666; margin-top: 5px; display: block;">
                         مجموع امتیاز تخلفات که برای دریافت کارت زرد لازم است. پیش‌فرض: 15 امتیاز.
                     </small>
-                    @error('yellow_card_threshold') 
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['yellow_card_threshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> 
                         <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
+                            <?php echo e($message); ?>
+
                         </span> 
-                    @enderror
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </div>
 
                 <!-- امتیاز کارت قرمز -->
@@ -165,11 +198,19 @@
                     <small style="color: #666; margin-top: 5px; display: block;">
                         مجموع امتیاز تخلفات که برای دریافت کارت قرمز لازم است. پیش‌فرض: 25 امتیاز.
                     </small>
-                    @error('red_card_threshold') 
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['red_card_threshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> 
                         <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
-                            {{ $message }}
+                            <?php echo e($message); ?>
+
                         </span> 
-                    @enderror
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </div>
             </div>
 
@@ -193,7 +234,8 @@
             <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
                 <div style="color: #666; font-size: 14px; margin-bottom: 5px;">لینک API</div>
                 <div style="font-size: 14px; font-weight: 500; color: #333; word-break: break-all;">
-                    {{ $api_url }}
+                    <?php echo e($api_url); ?>
+
                 </div>
             </div>
         </div>
@@ -213,3 +255,4 @@
         });
     });
 </script>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/settings/index.blade.php ENDPATH**/ ?>
