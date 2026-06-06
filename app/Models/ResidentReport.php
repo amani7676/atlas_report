@@ -3,14 +3,12 @@
 namespace App\Models;
 
 use App\Events\ResidentReportCreated;
-use App\Traits\TriggersAutoSms;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Services\ResidentApiService;
 
 class ResidentReport extends Model
 {
-    use TriggersAutoSms;
     protected $fillable = [
         'report_id',
         'resident_id',
