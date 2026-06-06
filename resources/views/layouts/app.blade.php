@@ -1512,8 +1512,17 @@
                     </ul>
                 </li>
 
-                
-                
+                <!-- خروج -->
+                <li>
+                    <form method="POST" action="{{ route('logout') }}" style="margin: 0;">
+                        @csrf
+                        <button type="submit" style="width: 100%; text-align: right; background: none; border: none; color: white; padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 15px; transition: all 0.3s;" onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>خروج</span>
+                        </button>
+                    </form>
+                </li>
+
             </ul>
         </nav>
 

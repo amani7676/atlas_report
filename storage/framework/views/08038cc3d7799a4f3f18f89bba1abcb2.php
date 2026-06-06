@@ -1,0 +1,1145 @@
+<div>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- استایل برای ردیف‌های انتخاب شده و ریسپانسیو -->
+    <style>
+        /* استایل‌های ریسپانسیو برای موبایل */
+        @media (max-width: 576px) {
+            .container-fluid {
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+            }
+            
+            .card {
+                margin-bottom: 12px;
+            }
+            
+            .card-header h6 {
+                font-size: 13px !important;
+            }
+            
+            .table {
+                font-size: 12px !important;
+            }
+            
+            .table th,
+            .table td {
+                padding: 6px 4px !important;
+                font-size: 12px !important;
+            }
+            
+            .btn-sm {
+                padding: 4px 8px !important;
+                font-size: 11px !important;
+            }
+            
+            .input-group-text {
+                padding: 6px 10px !important;
+                font-size: 13px !important;
+            }
+            
+            .form-control {
+                font-size: 13px !important;
+                padding: 6px 10px !important;
+            }
+        }
+        
+        /* استایل برای گوشی‌های متوسط (مثل A54) */
+        @media (min-width: 577px) and (max-width: 768px) {
+            .table {
+                font-size: 13px !important;
+            }
+            
+            .table th,
+            .table td {
+                padding: 8px 6px !important;
+                font-size: 13px !important;
+            }
+        }
+        .selected-resident-row {
+            background-color: #C1E59F !important;
+        }
+        
+        .selected-resident-row td {
+            background-color: #C1E59F !important;
+        }
+        
+        /* Override table-hover برای ردیف‌های انتخاب شده */
+        .table-hover tbody tr.selected-resident-row:hover {
+            background-color: #B0D88F !important;
+        }
+        
+        .table-hover tbody tr.selected-resident-row:hover td {
+            background-color: #B0D88F !important;
+        }
+        
+        /* Override table-striped برای ردیف‌های انتخاب شده */
+        .table-striped tbody tr.selected-resident-row:nth-of-type(odd) {
+            background-color: #C1E59F !important;
+        }
+        
+        .table-striped tbody tr.selected-resident-row:nth-of-type(odd) td {
+            background-color: #C1E59F !important;
+        }
+        
+        .table-striped tbody tr.selected-resident-row:nth-of-type(even) {
+            background-color: #C1E59F !important;
+        }
+        
+        .table-striped tbody tr.selected-resident-row:nth-of-type(even) td {
+            background-color: #C1E59F !important;
+        }
+    </style>
+
+    <div class="container-fluid py-3" dir="rtl">
+        <!-- کارت نمایش نتایج ثبت گزارش -->
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showSubmissionResult && !empty($lastSubmittedReports)): ?>
+            <div id="submission-results-card" class="card mb-4" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden;">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+                        <h5 class="mb-0" style="font-weight: 600;">نتایج ثبت گزارش</h5>
+                    </div>
+                    <button wire:click="closeSubmissionResult" class="btn btn-sm" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="card-body" style="padding: 20px; background: #f8f9fa;">
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $lastSubmittedReports; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $submittedReport): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <div class="card mb-3" style="border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 10px; overflow: hidden;">
+                            <div class="card-body" style="padding: 16px;">
+                                <!-- اطلاعات اقامت‌گر -->
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e5e7eb;">
+                                    <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
+                                        <?php echo e(mb_substr($submittedReport['resident_name'] ?? 'ن', 0, 1)); ?>
+
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 16px; margin-bottom: 4px;">
+                                            <?php echo e($submittedReport['resident_name'] ?? 'نامشخص'); ?>
+
+                                        </div>
+                                        <div style="font-size: 13px; color: #64748b;">
+                                            <i class="fas fa-phone" style="margin-left: 6px;"></i><?php echo e($submittedReport['phone'] ?? 'نامشخص'); ?>
+
+                                            <span style="margin: 0 8px;">|</span>
+                                            <i class="fas fa-door-open" style="margin-left: 6px;"></i><?php echo e($submittedReport['room_name'] ?? 'نامشخص'); ?>
+
+                                            <span style="margin: 0 8px;">|</span>
+                                            <i class="fas fa-bed" style="margin-left: 6px;"></i><?php echo e($submittedReport['bed_name'] ?? 'نامشخص'); ?>
+
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- اطلاعات گزارش -->
+                                <div style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <i class="fas fa-file-alt" style="color: #3b82f6;"></i>
+                                        <strong style="color: #1e293b; font-size: 15px;"><?php echo e($submittedReport['report_title'] ?? 'نامشخص'); ?></strong>
+                                    </div>
+                                    <div style="font-size: 13px; color: #64748b;">
+                                        <span style="background: white; padding: 4px 10px; border-radius: 6px; margin-left: 8px;">
+                                            دسته: <?php echo e($submittedReport['category_name'] ?? 'بدون دسته'); ?>
+
+                                        </span>
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['notes'])): ?>
+                                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(59,130,246,0.2);">
+                                                <i class="fas fa-sticky-note" style="margin-left: 6px; color: #3b82f6;"></i>
+                                                <span style="color: #1e293b;"><?php echo e($submittedReport['notes']); ?></span>
+                                            </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                    </div>
+                                </div>
+                                
+                                <!-- پاسخ دیتابیس -->
+                                <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; margin-bottom: 12px; border-right: 4px solid #10b981;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                        <i class="fas fa-database" style="color: #10b981; font-size: 16px;"></i>
+                                        <strong style="color: #1e293b; font-size: 14px;">پاسخ دیتابیس:</strong>
+                                    </div>
+                                    <div style="color: #059669; font-size: 13px; margin-right: 24px;">
+                                        <i class="fas fa-check-circle" style="margin-left: 6px;"></i>
+                                        گزارش با موفقیت در دیتابیس ثبت شد
+                                        <span style="color: #64748b; margin-right: 8px;">(ID: <?php echo e($submittedReport['id'] ?? 'نامشخص'); ?>)</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- پاسخ ملی پیامک -->
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result'])): ?>
+                                    <div style="background: <?php echo e($submittedReport['sms_result']['success'] ? '#f0fdf4' : '#fef2f2'); ?>; padding: 12px; border-radius: 8px; border-right: 4px solid <?php echo e($submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                            <i class="fas fa-sms" style="color: <?php echo e($submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; font-size: 16px;"></i>
+                                            <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                        </div>
+                                        <div style="color: <?php echo e($submittedReport['sms_result']['success'] ? '#059669' : '#dc2626'); ?>; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($submittedReport['sms_result']['success']): ?>
+                                                <i class="fas fa-check-circle" style="margin-left: 6px;"></i>
+                                                <?php echo e($submittedReport['sms_result']['message'] ?? 'پیامک با موفقیت ارسال شد'); ?>
+
+                                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['rec_id'])): ?>
+                                                    <span style="color: #64748b; margin-right: 8px;">(RecId: <?php echo e($submittedReport['sms_result']['rec_id']); ?>)</span>
+                                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                            <?php else: ?>
+                                                <i class="fas fa-times-circle" style="margin-left: 6px;"></i>
+                                                <?php echo e($submittedReport['sms_result']['message'] ?? $submittedReport['sms_result']['error_message'] ?? 'خطا در ارسال پیامک'); ?>
+
+                                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['response_code'])): ?>
+                                                    <span style="color: #64748b; margin-right: 8px;">(کد خطا: <?php echo e($submittedReport['sms_result']['response_code']); ?>)</span>
+                                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        </div>
+                                        
+                                        <!-- نمایش پاسخ دقیق API -->
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['raw_response']) || !empty($submittedReport['sms_result']['api_response'])): ?>
+                                            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 8px; border: 1px solid #e5e7eb;">
+                                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                                                    <i class="fas fa-code" style="color: #64748b; font-size: 14px;"></i>
+                                                    <strong style="color: #1e293b; font-size: 13px;">پاسخ دقیق API:</strong>
+                                                </div>
+                                                <div style="background: #1e293b; color: #10b981; padding: 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; direction: ltr; text-align: left;">
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['raw_response'])): ?>
+                                                        <div style="margin-bottom: 6px;">
+                                                            <span style="color: #94a3b8; font-size: 11px;">Raw Response:</span><br>
+                                                            <span style="color: #10b981;"><?php echo e(is_string($submittedReport['sms_result']['raw_response']) ? $submittedReport['sms_result']['raw_response'] : json_encode($submittedReport['sms_result']['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></span>
+                                                        </div>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['api_response'])): ?>
+                                                        <div>
+                                                            <span style="color: #94a3b8; font-size: 11px;">API Response:</span><br>
+                                                            <span style="color: #10b981;"><?php echo e(is_string($submittedReport['sms_result']['api_response']) ? $submittedReport['sms_result']['api_response'] : json_encode($submittedReport['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></span>
+                                                        </div>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #f59e0b;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 16px;"></i>
+                                            <span style="color: #92400e; font-size: 13px;">پیامک ارسال نشد یا الگویی برای این گزارش تنظیم نشده است</span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+        
+        <!-- Header -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-users me-2"></i>
+                        سیستم مدیریت اقامت‌گران
+                    </span>
+                    <span><?php echo e(count(array_filter($filteredUnits, function($unit) {
+                        return array_filter($unit['rooms'], function($room) {
+                            return ($room['bed_count'] ?? 0) > 0;
+                        });
+                    }))); ?> گروه</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12 col-md-6">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input
+                                type="text"
+                                wire:model.live.debounce.300ms="search"
+                                class="form-control"
+                                placeholder="جستجوی اقامت‌گر..."
+                            >
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="form-check form-switch">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="filterEmptyBeds"
+                                wire:model.live="filterEmptyBeds"
+                            >
+                            <label class="form-check-label" for="filterEmptyBeds">
+                                فقط اتاق‌های دارای اقامت‌گر
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($error): ?>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <?php echo e($error); ?>
+
+                    </div>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count($selectedResidents) > 0): ?>
+                    <div class="alert alert-info d-flex justify-content-between align-items-center">
+                        <span><?php echo e(count($selectedResidents)); ?> اقامت‌گر انتخاب شده</span>
+                        <button
+                            class="btn btn-warning btn-sm"
+                            wire:click="openSelectedGroupReport"
+                        >
+                            <i class="fas fa-file-alt me-1"></i>
+                            ثبت گزارش گروهی
+                        </button>
+                    </div>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </div>
+        </div>
+
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($loading): ?>
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">در حال بارگذاری...</span>
+                </div>
+                <p class="mt-2">در حال دریافت اطلاعات از API...</p>
+            </div>
+        <?php else: ?>
+            <!-- Rooms Tables -->
+            <div class="row">
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $filteredUnits; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $unitIndex => $unit): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $unit['rooms']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $roomIndex => $room): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(($room['bed_count'] ?? 0) > 0): ?>
+                            <div class="col-12 col-md-6 mb-4">
+                                <div class="card">
+                                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-door-closed me-2"></i>
+                                            <?php echo e($room['name']); ?>
+
+                                        </h6>
+                                        <div>
+                                            <button
+                                                class="btn btn-sm btn-light me-2"
+                                                wire:click="selectAllInRoom(<?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
+                                            >
+                                                <i class="fas fa-check-square"></i>
+                                            </button>
+                                            <button
+                                                class="btn btn-sm btn-warning"
+                                                wire:click="openGroupReportFromRoom(<?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
+                                            >
+                                                <i class="fas fa-file-alt"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th width="30px">
+                                                            <input
+                                                                class="form-check-input"
+                                                                type="checkbox"
+                                                                wire:click="selectAllInRoom(<?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
+                                                            >
+                                                        </th>
+                                                        <th>نام</th>
+                                                        <th>تلفن</th>
+                                                        <th>امتیاز تخلفات</th>
+                                                        <th>تخت</th>
+                                                        <th width="50px">عملیات</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $room['beds']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bed): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($bed['resident']): ?>
+                                                            <?php
+                                                                $residentKey = $unitIndex . '_' . $roomIndex . '_' . $bed['id'];
+                                                                $isSelected = isset($selectedResidents[$residentKey]);
+                                                            ?>
+                                                            <tr wire:key="resident-row-<?php echo e($residentKey); ?>" class="<?php echo e($isSelected ? 'selected-resident-row' : ''); ?>">
+                                                                <td>
+                                                                    <input
+                                                                        class="form-check-input"
+                                                                        type="checkbox"
+                                                                        wire:model="selectedResidents.<?php echo e($residentKey); ?>"
+                                                                        wire:click="toggleSelectResident('<?php echo e($residentKey); ?>', <?php echo e(json_encode($bed['resident'])); ?>, <?php echo e(json_encode($bed)); ?>, <?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
+                                                                    >
+                                                                </td>
+                                                                <td><?php echo e($bed['resident']['full_name']); ?></td>
+                                                                <td><?php echo e($bed['resident']['phone']); ?></td>
+                                                                <td>
+                                                                    <?php
+                                                                        $colorData = $this->getViolationCardColor($bed['resident']['id'] ?? null);
+                                                                        $violationScore = $this->getViolationReportsCount($bed['resident']['id'] ?? null);
+                                                                        $yellowThreshold = 15; // Default, will be updated dynamically
+                                                                        $redThreshold = 25; // Default, will be updated dynamically
+                                                                    ?>
+                                                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                                                        <span style="background: <?php echo e($colorData['bg']); ?>; color: <?php echo e($colorData['text']); ?>; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 2px solid <?php echo e($colorData['border']); ?>; position: relative; cursor: help;" title="امتیاز مجموع: <?php echo e($violationScore); ?>
+
+آستانه زرد: <?php echo e($yellowThreshold); ?>
+
+آستانه قرمز: <?php echo e($redThreshold); ?>">
+                                                                            <?php echo e($violationScore); ?>
+
+                                                                        </span>
+                                                                        <span style="color: <?php echo e($violationScore >= 1 && $violationScore < 15 ? '#000000' : $colorData['bg']); ?>; font-size: 11px; font-weight: 500;">
+                                                                            <?php echo e($colorData['label']); ?>
+
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td><?php echo e($bed['name']); ?></td>
+                                                                <td>
+                                                                    <button
+                                                                        class="btn btn-sm btn-outline-danger"
+                                                                        wire:click="openIndividualReport(<?php echo e(json_encode($bed['resident'])); ?>, <?php echo e(json_encode($bed)); ?>, <?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
+                                                                    >
+                                                                        <i class="fas fa-file-medical"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        <?php else: ?>
+                                                            <tr class="table-secondary">
+                                                                <td></td>
+                                                                <td colspan="4" class="text-center">
+                                                                    <i class="fas fa-bed me-2"></i>
+                                                                    تخت <?php echo e($bed['name']); ?> - خالی
+                                                                </td>
+                                                                <td></td>
+                                                            </tr>
+                                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(count(array_filter($filteredUnits, function($unit) {
+                    return array_filter($unit['rooms'], function($room) {
+                        return ($room['bed_count'] ?? 0) > 0;
+                    });
+                })) === 0): ?>
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            هیچ اطلاعاتی یافت نشد
+                        </div>
+                    </div>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </div>
+        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+    </div>
+
+    <!-- Report Modal - Material Design -->
+    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showReportModal): ?>
+        <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1050;" tabindex="-1">
+            <div class="modal-dialog modal-lg" style="margin-top: 5vh;">
+                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden; position: relative;">
+                    
+                    <!-- Loading Overlay -->
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($reportModalLoading): ?>
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.95); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px;">
+                            <div style="text-align: center;">
+                                <div style="width: 80px; height: 80px; margin: 0 auto 20px; position: relative;">
+                                    <div style="width: 80px; height: 80px; border: 6px solid #f3f4f6; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; border: 4px solid #f3f4f6; border-top-color: #764ba2; border-radius: 50%; animation: spin 0.8s linear infinite reverse;"></div>
+                                </div>
+                                <h4 style="color: #667eea; font-weight: 600; margin-bottom: 10px; font-size: 20px;">
+                                    <i class="fas fa-paper-plane" style="margin-left: 8px;"></i>
+                                    در حال ثبت گزارش و ارسال پیامک...
+                                </h4>
+                                <p style="color: #64748b; font-size: 14px; margin: 0;">
+                                    لطفاً صبر کنید
+                                </p>
+                            </div>
+                        </div>
+                        <style>
+                            @keyframes spin {
+                                0% { transform: rotate(0deg); }
+                                100% { transform: rotate(360deg); }
+                            }
+                        </style>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                    <!-- Header with Material Design -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; position: relative;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-file-alt" style="font-size: 24px;"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <h5 style="margin: 0; font-size: 20px; font-weight: 600;">
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($reportType === 'individual'): ?>
+                                        ثبت گزارش برای <?php echo e($currentResident['name']); ?>
+
+                                    <?php else: ?>
+                                        ثبت گزارش گروهی برای <?php echo e(count($selectedResidents)); ?> اقامت‌گر
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                </h5>
+                            </div>
+                            <button type="button" wire:click="closeModal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="modal-body" style="padding: 24px; background: #f8f9fa;">
+                        <!-- Resident/Room Info - Material Card -->
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($reportType === 'individual'): ?>
+                            <div style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                            <?php echo e(mb_substr($currentResident['name'], 0, 1)); ?>
+
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 12px; color: #64748b; margin-bottom: 2px;">اقامت‌گر</div>
+                                            <div style="font-weight: 600; color: #1e293b; font-size: 14px;"><?php echo e($currentResident['name']); ?></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 2px;">تلفن</div>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 14px; direction: ltr; text-align: right;">
+                                            <i class="fas fa-phone" style="margin-left: 6px; color: #3b82f6;"></i><?php echo e($currentResident['phone']); ?>
+
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 2px;">اتاق</div>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 14px;">
+                                            <i class="fas fa-door-open" style="margin-left: 6px; color: #10b981;"></i><?php echo e($currentResident['room_name']); ?>
+
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 2px;">تخت</div>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 14px;">
+                                            <i class="fas fa-bed" style="margin-left: 6px; color: #f59e0b;"></i><?php echo e($currentResident['bed_name']); ?>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">
+                                        <?php echo e(count($selectedResidents)); ?>
+
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 600; color: #92400e; font-size: 16px;">تعداد اقامت‌گران انتخاب شده</div>
+                                        <div style="color: #78350f; font-size: 14px; margin-top: 4px;"><?php echo e(count($selectedResidents)); ?> نفر</div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                        <!-- Categories and Reports - Modern Dropdown Design -->
+                        <div style="margin-bottom: 24px;">
+                            <label style="font-weight: 600; color: #1e293b; margin-bottom: 16px; display: block; font-size: 16px;">
+                                <i class="fas fa-folder-open" style="margin-left: 8px; color: #667eea;"></i>
+                                انتخاب گزارش
+                            </label>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                                <!-- Dropdown دسته‌بندی -->
+                                <div style="position: relative;">
+                                    <label for="categorySelect" style="font-weight: 500; color: #374151; margin-bottom: 8px; display: block; font-size: 14px;">
+                                        <i class="fas fa-layer-group" style="margin-left: 6px; color: #667eea;"></i>
+                                        دسته‌بندی
+                                    </label>
+                                    <div style="position: relative;">
+                                        <select 
+                                            id="categorySelect"
+                                            wire:model.live="selectedCategoryId"
+                                            style="width: 100%; padding: 12px 16px 12px 45px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; font-weight: 500; background: white; color: #1e293b; cursor: pointer; transition: all 0.2s; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23667eea\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 12px center; background-size: 20px; padding-right: 40px;"
+                                            onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102,126,234,0.1)'"
+                                            onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+                                        >
+                                            <option value="">انتخاب دسته‌بندی...</option>
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                <option value="<?php echo e($category['id']); ?>"><?php echo e($category['name']); ?></option>
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        </select>
+                                        <div style="position: absolute; right: 16px; top: 42px; pointer-events: none;">
+                                            <i class="fas fa-folder" style="color: #667eea; font-size: 16px;"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Dropdown گزارش‌ها -->
+                                <div style="position: relative;">
+                                    <label for="reportSelect" style="font-weight: 500; color: #374151; margin-bottom: 8px; display: block; font-size: 14px;">
+                                        <i class="fas fa-file-alt" style="margin-left: 6px; color: #764ba2;"></i>
+                                        گزارش
+                                    </label>
+                                    <div style="position: relative;">
+                                        <select 
+                                            id="reportSelect"
+                                            wire:model.live="selectedReportId"
+                                            style="width: 100%; padding: 12px 16px 12px 45px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; font-weight: 500; background: white; color: #1e293b; cursor: pointer; transition: all 0.2s; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23764ba2\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 12px center; background-size: 20px; padding-right: 40px;"
+                                            onfocus="this.style.borderColor='#764ba2'; this.style.boxShadow='0 0 0 3px rgba(118,75,162,0.1)'"
+                                            onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
+                                            <?php if(!$selectedCategoryId): ?> disabled <?php endif; ?>
+                                        >
+                                            <option value="">انتخاب گزارش...</option>
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $filteredReports; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $report): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                <option value="<?php echo e($report['id']); ?>"><?php echo e($report['title']); ?></option>
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        </select>
+                                        <div style="position: absolute; right: 16px; top: 42px; pointer-events: none;">
+                                            <i class="fas fa-file-alt" style="color: #764ba2; font-size: 16px;"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- نمایش اطلاعات گزارش انتخاب شده -->
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedReportId): ?>
+                                <?php
+                                    $selectedReport = collect($filteredReports)->firstWhere('id', $selectedReportId);
+                                ?>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedReport): ?>
+                                    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 20px; border-radius: 12px; border: 2px solid #0ea5e9; box-shadow: 0 4px 12px rgba(14,165,233,0.15);">
+                                        <div style="display: flex; align-items: start; gap: 16px;">
+                                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                                                <i class="fas fa-check-circle" style="font-size: 20px;"></i>
+                                            </div>
+                                            <div style="flex: 1;">
+                                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                                    <strong style="font-size: 16px; color: #0c4a6e; font-weight: 600;"><?php echo e($selectedReport['title']); ?></strong>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($selectedReport['negative_score']) && $selectedReport['negative_score'] > 0): ?>
+                                                        <span style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                                                            -<?php echo e($selectedReport['negative_score']); ?>
+
+                                                        </span>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </div>
+                                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($selectedReport['description']) && $selectedReport['description']): ?>
+                                                    <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
+                                                        <?php echo e(\Illuminate\Support\Str::limit($selectedReport['description'], 100)); ?>
+
+                                                    </div>
+                                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(14,165,233,0.2);">
+                                                    <span style="background: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; color: #0284c7; font-weight: 500;">
+                                                        <i class="fas fa-folder" style="margin-left: 6px;"></i>
+                                                        <?php echo e(collect($categories)->firstWhere('id', $selectedCategoryId)['name'] ?? 'نامشخص'); ?>
+
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                            <!-- پیام راهنما -->
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!$selectedCategoryId): ?>
+                                <div style="background: #fef3c7; padding: 16px; border-radius: 10px; border-right: 4px solid #f59e0b; margin-top: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 18px;"></i>
+                                        <span style="color: #92400e; font-size: 14px; font-weight: 500;">
+                                            لطفاً ابتدا دسته‌بندی مورد نظر را انتخاب کنید
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php elseif($selectedCategoryId && !$selectedReportId): ?>
+                                <div style="background: #fef3c7; padding: 16px; border-radius: 10px; border-right: 4px solid #f59e0b; margin-top: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 18px;"></i>
+                                        <span style="color: #92400e; font-size: 14px; font-weight: 500;">
+                                            حالا گزارش مورد نظر خود را از لیست انتخاب کنید
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        </div>
+
+                        <!-- توضیحات گزارش -->
+                        <div style="margin-bottom: 24px;">
+                            <label style="font-weight: 600; color: #1e293b; font-size: 16px;">
+                                <i class="fas fa-comment me-2" style="color: #667eea;"></i>
+                                توضیحات گزارش
+                            </label>
+                            <textarea 
+                                wire:model="description" 
+                                style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical; background: white; transition: all 0.2s;" 
+                                placeholder="توضیحات مربوط به این گزارش را وارد کنید..."
+                                onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102,126,234,0.1)'"
+                                onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"
+                            ></textarea>
+                        </div>
+
+                        <!-- پیام الگو با مقداردهی کدها -->
+                        <div style="margin-bottom: 24px;">
+                            <label style="font-weight: 600; color: #1e293b; font-size: 16px;">
+                                <i class="fas fa-envelope me-2" style="color: #667eea;"></i>
+                                پیام الگویی
+                            </label>
+                            
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($this->patternMessage)): ?>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($this->patternMessage['success']): ?>
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 12px;">
+                                        <!-- عنوان الگو -->
+                                        <div style="margin-bottom: 12px;">
+                                            <strong style="color: #374151;">عنوان الگو:</strong>
+                                            <span style="color: #667eea; font-weight: 500;"><?php echo e($this->patternMessage['pattern_title']); ?></span>
+                                        </div>
+                                        
+                                        <!-- پیام اصلی -->
+                                        <div style="margin-bottom: 12px;">
+                                            <strong style="color: #374151;">پیام اصلی:</strong>
+                                            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-top: 8px; font-family: monospace; font-size: 0.9rem;">
+                                                <?php echo e($this->patternMessage['original_message']); ?>
+
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- متغیرها -->
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($this->patternMessage['variables'])): ?>
+                                            <div style="margin-bottom: 12px;">
+                                                <strong style="color: #374151;">متغیرها:</strong>
+                                                <div style="margin-top: 8px;">
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $this->patternMessage['variables']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $variable): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                        <div style="display: flex; justify-content: space-between; align-items-center; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                                                            <span style="color: #64748b; font-size: 0.9rem;">
+                                                                <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;"><?php echo e($variable['code']); ?></code>
+                                                                → <?php echo e($variable['table']); ?>.<?php echo e($variable['field']); ?>
+
+                                                            </span>
+                                                            <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
+                                                                <?php echo e($variable['value'] ?: 'خالی'); ?>
+
+                                                            </span>
+                                                        </div>
+                                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        
+                                        <!-- پیام نهایی -->
+                                        <div>
+                                            <strong style="color: #374151;">پیام نهایی (ارسالی):</strong>
+                                            <div style="background: #dcfce7; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-top: 8px; font-size: 1rem; color: #166534;">
+                                                <?php echo e($this->patternMessage['final_message']); ?>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-top: 12px; color: #92400e;">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <?php echo e($this->patternMessage['message']); ?>
+
+                                    </div>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            <?php else: ?>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 12px; text-align: center; color: #64748b;">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    برای مشاهده پیام الگو، ابتدا یک گزارش و اقامت‌گر انتخاب کنید
+                                </div>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        </div>
+
+                        <!-- نمایش پاسخ دیتابیس -->
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($databaseResponse): ?>
+                            <div style="margin-bottom: 24px; margin-top: 24px; border-top: 2px solid #e5e7eb; padding-top: 24px;">
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($databaseResponse['success']): ?>
+                                    <div style="background: linear-gradient(135deg, #d1fae5 0%, #f0fdf4 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #10b981; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);">
+                                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                            <div style="background: #10b981; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                <i class="fas fa-check" style="font-size: 18px;"></i>
+                                            </div>
+                                            <div>
+                                                <strong style="color: #059669; font-size: 18px; display: block;"><?php echo e($databaseResponse['message']); ?></strong>
+                                                <span style="color: #047857; font-size: 14px;">تعداد: <?php echo e(count($databaseResponse['reports'] ?? [])); ?> گزارش با موفقیت ثبت شد</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- نمایش پاسخ API ملی پیامک -->
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($smsResponses)): ?>
+                                        <div style="background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #3b82f6; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);">
+                                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                                <div style="background: #3b82f6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-mobile-alt" style="font-size: 18px;"></i>
+                                                </div>
+                                                <div>
+                                                    <strong style="color: #1e40af; font-size: 18px; display: block;">پاسخ API ملی پیامک</strong>
+                                                    <span style="color: #1e40af; font-size: 14px;">نتایج ارسال پیامک الگو</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $smsResponses; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $smsResponse): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; border-right: 3px solid <?php echo e($smsResponse['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                                            <div style="background: <?php echo e($smsResponse['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                                <i class="fas <?php echo e($smsResponse['sms_result']['success'] ? 'fa-check' : 'fa-times'); ?>" style="font-size: 12px;"></i>
+                                                            </div>
+                                                            <strong style="color: #1e293b; font-size: 15px;">
+                                                                <?php echo e($smsResponse['report_title']); ?>
+
+                                                            </strong>
+                                                        </div>
+                                                        <span style="background: <?php echo e($smsResponse['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                                            <?php echo e($smsResponse['sms_result']['success'] ? 'ارسال موفق' : 'ارسال ناموفق'); ?>
+
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-user" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">اقامت‌گر:</strong> 
+                                                            <span style="color: #1f2937;"><?php echo e($smsResponse['resident_name']); ?></span>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-phone" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">تلفن:</strong> 
+                                                            <span style="color: #1f2937; direction: ltr;"><?php echo e($smsResponse['phone']); ?></span>
+                                                        </div>
+                                                        
+                                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($smsResponse['sms_result']['rec_id'])): ?>
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-hashtag" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">RecId:</strong> 
+                                                            <code style="background: #f8f9fa; padding: 4px 8px; border-radius: 6px; font-size: 12px; color: #059669; font-weight: 600;"><?php echo e($smsResponse['sms_result']['rec_id']); ?></code>
+                                                        </div>
+                                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                        
+                                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($smsResponse['sms_result']['response_code'])): ?>
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-code" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">کد پاسخ:</strong> 
+                                                            <code style="background: #f8f9fa; padding: 4px 8px; border-radius: 6px; font-size: 12px; color: #1e293b;"><?php echo e($smsResponse['sms_result']['response_code']); ?></code>
+                                                        </div>
+                                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                        
+                                                        <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-comment" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">پیام:</strong> 
+                                                            <span style="color: <?php echo e($smsResponse['sms_result']['success'] ? '#059669' : '#dc2626'); ?>; font-weight: 500;"><?php echo e($smsResponse['sms_result']['message']); ?></span>
+                                                        </div>
+                                                        
+                                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($smsResponse['sms_result']['sent_at'])): ?>
+                                                        <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px;">
+                                                            <i class="fas fa-clock" style="color: #64748b; font-size: 12px;"></i>
+                                                            <strong style="color: #666;">زمان ارسال:</strong> 
+                                                            <span style="color: #1f2937;"><?php echo e(jalaliDate($smsResponse['sms_result']['sent_at'], 'Y/m/d H:i:s')); ?></span>
+                                                        </div>
+                                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                        
+                                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($smsResponse['sms_result']['api_response'])): ?>
+                                                        <div style="grid-column: 1 / -1;">
+                                                            <details style="margin-top: 12px;">
+                                                                <summary style="cursor: pointer; color: #3b82f6; font-weight: 600; font-size: 13px; padding: 8px 12px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; gap: 6px;">
+                                                                    <i class="fas fa-code"></i>
+                                                                    <strong>پاسخ کامل API ملی پیامک</strong>
+                                                                </summary>
+                                                                <div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                                                    <pre style="margin: 0; font-size: 11px; color: #374151; direction: ltr; text-align: left; max-height: 250px; overflow-y: auto; background: white; padding: 8px; border-radius: 4px; border: 1px solid #d1d5db;"><?php echo e(is_array($smsResponse['sms_result']['api_response']) ? json_encode($smsResponse['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $smsResponse['sms_result']['api_response']); ?></pre>
+                                                                </div>
+                                                            </details>
+                                                        </div>
+                                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #f59e0b; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div style="background: #f59e0b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-info-circle" style="font-size: 18px;"></i>
+                                                </div>
+                                                <div>
+                                                    <strong style="color: #92400e; font-size: 18px; display: block;">پیامکی ارسال نشد</strong>
+                                                    <span style="color: #92400e; font-size: 14px;">هیچ پاسخی از API ملی پیامک دریافت نشد. ممکن است الگوی پیامک برای این گزارش تنظیم نشده باشد.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($databaseResponse['reports'])): ?>
+                                        <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border-right: 3px solid #cbd5e1;">
+                                            <h6 style="color: #64748b; font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="fas fa-list-alt" style="color: #64748b;"></i>
+                                                جزئیات گزارش‌های ثبت شده
+                                            </h6>
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $databaseResponse['reports']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $report): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-right: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                                                    <div>
+                                                        <strong style="color: #475569; font-size: 13px;"><?php echo e($report['report_title'] ?? 'نامشخص'); ?></strong>
+                                                        <span style="color: #64748b; font-size: 12px; margin-right: 8px;">- <?php echo e($report['resident_name'] ?? '-'); ?></span>
+                                                    </div>
+                                                    <span style="background: #e2e8f0; color: #1e293b; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">ID: <?php echo e($report['id']); ?></span>
+                                                </div>
+                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        </div>
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                </div>
+                            <?php else: ?>
+                                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); padding: 20px; border-radius: 16px; border-right: 4px solid #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="background: #ef4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-exclamation-circle" style="font-size: 18px;"></i>
+                                        </div>
+                                        <div>
+                                            <strong style="color: #dc2626; font-size: 18px; display: block;">خطا در ثبت گزارش</strong>
+                                            <span style="color: #991b1b; font-size: 14px;"><?php echo e($databaseResponse['message']); ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                    </div>
+
+                    <!-- Footer - Material Design -->
+                    <div style="padding: 20px 24px; background: white; border-top: 1px solid #e5e7eb;">
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($reportCheckError): ?>
+                            <div style="margin-bottom: 12px; padding: 12px; background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; color: #92400e; text-align: center; font-weight: 500;">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <?php echo e($reportCheckError); ?>
+
+                            </div>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                            <button type="button" wire:click="closeModal" style="background: #f1f5f9; color: #64748b; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                                <i class="fas fa-times"></i> انصراف
+                            </button>
+                            <button type="button" wire:click="submitReport" wire:loading.attr="disabled" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);" onmouseover="this.style.boxShadow='0 6px 16px rgba(102,126,234,0.4)'" onmouseout="this.style.boxShadow='0 4px 12px rgba(102,126,234,0.3)'">
+                                <span wire:loading.remove wire:target="submitReport">
+                                    <i class="fas fa-save"></i> ثبت گزارش
+                                </span>
+                                <span wire:loading wire:target="submitReport">
+                                    <i class="fas fa-spinner fa-spin"></i> در حال ثبت...
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('livewire:navigated', () => {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
+        // لاگ پاسخ دیتابیس در کنسول
+        // اسکرول به کارت نتایج بعد از بسته شدن مودال
+        Livewire.on('scroll-to-results', () => {
+            setTimeout(() => {
+                const resultsCard = document.getElementById('submission-results-card');
+                if (resultsCard) {
+                    resultsCard.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                    // اضافه کردن انیمیشن highlight
+                    resultsCard.style.transition = 'box-shadow 0.3s ease';
+                    resultsCard.style.boxShadow = '0 8px 24px rgba(102, 126, 234, 0.4)';
+                    setTimeout(() => {
+                        resultsCard.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                    }, 2000);
+                }
+            }, 300); // تاخیر کوتاه برای اطمینان از رندر شدن کارت
+        });
+        
+        window.addEventListener('logDatabaseResponse', event => {
+            const response = event.detail;
+            console.log('=== پاسخ دیتابیس ===');
+            console.log('وضعیت:', response.success ? '✅ موفق' : '❌ خطا');
+            
+            if (response.success) {
+                console.log('تعداد گزارش‌های ثبت شده:', response.count);
+                console.log('گزارش‌های ثبت شده:', response.reports);
+                
+                // نمایش JSON کامل در کنسول
+                console.log('پاسخ کامل دیتابیس (JSON):');
+                console.log(JSON.stringify(response.reports, null, 2));
+                
+                // نمایش جزئیات هر گزارش
+                if (response.reports && response.reports.length > 0) {
+                    response.reports.forEach((report, index) => {
+                        console.log(`\n--- گزارش #${index + 1} ---`);
+                        console.log('ID:', report.id);
+                        console.log('گزارش:', report.report_title);
+                        console.log('دسته‌بندی:', report.category_name);
+                        console.log('اقامت‌گر:', report.resident_name);
+                        console.log('تلفن:', report.phone);
+                        console.log('واحد:', report.unit_name);
+                        console.log('اتاق:', report.room_name);
+                        console.log('تخت:', report.bed_name);
+                        console.log('تمام داده‌ها:', report.all_data);
+                    });
+                }
+            } else {
+                console.error('خطا:', response.error);
+                if (response.error_details) {
+                    console.error('جزئیات خطا:', response.error_details);
+                }
+            }
+            
+            console.log('===================');
+        });
+    </script>
+
+    <!-- SMS Response Modal -->
+    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showSmsResponseModal): ?>
+        <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1060;" tabindex="-1">
+            <div class="modal-dialog modal-lg" style="margin-top: 5vh;">
+                <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden; position: relative;">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fas fa-sms" style="color: white; font-size: 24px;"></i>
+                            <h5 style="margin: 0; color: white; font-weight: 600; font-size: 18px;">پاسخ ملی پیامک</h5>
+                        </div>
+                        <button type="button" wire:click="closeSmsResponseModal" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="modal-body" style="padding: 24px; background: #f8f9fa; max-height: 70vh; overflow-y: auto;">
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($smsResponses)): ?>
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $smsResponses; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $response): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <div style="background: white; padding: 20px; border-radius: 12px; border-right: 4px solid <?php echo e($response['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                            <div>
+                                                <h6 style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">
+                                                    <i class="fas <?php echo e($response['sms_result']['success'] ? 'fa-check-circle' : 'fa-times-circle'); ?>" style="color: <?php echo e($response['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; margin-left: 8px;"></i>
+                                                    پیامک #<?php echo e($index + 1); ?>
+
+                                                </h6>
+                                                <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                                                    گزارش: <?php echo e($response['report_title']); ?>
+
+                                                </div>
+                                            </div>
+                                            <span style="background: <?php echo e($response['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                                                <?php echo e($response['sms_result']['status'] === 'sent' ? 'ارسال شد' : ($response['sms_result']['status'] === 'failed' ? 'خطا' : 'در حال ارسال')); ?>
+
+                                            </span>
+                                        </div>
+
+                                        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                                                <div>
+                                                    <strong style="color: #64748b;">اقامت‌گر:</strong>
+                                                    <span style="color: #1e293b; margin-right: 8px;"><?php echo e($response['resident_name']); ?></span>
+                                                </div>
+                                                <div>
+                                                    <strong style="color: #64748b;">تلفن:</strong>
+                                                    <span style="color: #1e293b; direction: ltr; text-align: right; margin-right: 8px;"><?php echo e($response['phone']); ?></span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style="margin-bottom: 12px;">
+                                            <strong style="color: #64748b; font-size: 13px;">پیام:</strong>
+                                            <div style="color: <?php echo e($response['sms_result']['success'] ? '#059669' : '#dc2626'); ?>; font-size: 14px; margin-top: 4px; padding: 8px; background: <?php echo e($response['sms_result']['success'] ? '#f0fdf4' : '#fef2f2'); ?>; border-radius: 6px;">
+                                                <?php echo e($response['sms_result']['message']); ?>
+
+                                            </div>
+                                        </div>
+
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($response['sms_result']['rec_id']) && $response['sms_result']['rec_id']): ?>
+                                        <div style="margin-bottom: 8px; font-size: 13px;">
+                                            <strong style="color: #64748b;">RecId:</strong>
+                                            <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 8px;"><?php echo e($response['sms_result']['rec_id']); ?></code>
+                                        </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($response['sms_result']['response_code']) && $response['sms_result']['response_code']): ?>
+                                        <div style="margin-bottom: 8px; font-size: 13px;">
+                                            <strong style="color: #64748b;">کد پاسخ:</strong>
+                                            <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 8px;"><?php echo e($response['sms_result']['response_code']); ?></code>
+                                        </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($response['sms_result']['error_message']) && $response['sms_result']['error_message'] && !$response['sms_result']['success']): ?>
+                                        <div style="margin-bottom: 8px; font-size: 13px;">
+                                            <strong style="color: #64748b;">پیام خطا:</strong>
+                                            <span style="color: #dc2626; margin-right: 8px;"><?php echo e($response['sms_result']['error_message']); ?></span>
+                                        </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($response['sms_result']['sent_at']) && $response['sms_result']['sent_at']): ?>
+                                        <div style="margin-bottom: 8px; font-size: 13px;">
+                                            <strong style="color: #64748b;">زمان ارسال:</strong>
+                                            <span style="color: #1e293b; margin-right: 8px;"><?php echo e(jalaliDate($response['sms_result']['sent_at'], 'Y/m/d H:i:s')); ?></span>
+                                        </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($response['sms_result']['api_response']) && $response['sms_result']['api_response']): ?>
+                                        <details style="margin-top: 12px;">
+                                            <summary style="cursor: pointer; color: #3b82f6; font-weight: 600; font-size: 13px; padding: 8px; background: #dbeafe; border-radius: 6px;">
+                                                <i class="fas fa-code" style="margin-left: 6px;"></i>
+                                                <strong>پاسخ API</strong>
+                                            </summary>
+                                            <div style="margin-top: 8px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
+                                                <pre style="margin: 0; font-size: 11px; color: #374151; direction: ltr; text-align: left; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #e5e7eb; white-space: pre-wrap; word-wrap: break-word;"><?php echo e(is_array($response['sms_result']['api_response']) ? json_encode($response['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $response['sms_result']['api_response']); ?></pre>
+                                            </div>
+                                        </details>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(isset($response['sms_result']['raw_response']) && $response['sms_result']['raw_response']): ?>
+                                        <details style="margin-top: 8px;">
+                                            <summary style="cursor: pointer; color: #3b82f6; font-weight: 600; font-size: 13px; padding: 8px; background: #dbeafe; border-radius: 6px;">
+                                                <i class="fas fa-file-code" style="margin-left: 6px;"></i>
+                                                <strong>پاسخ خام (Raw Response)</strong>
+                                            </summary>
+                                            <div style="margin-top: 8px; padding: 12px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
+                                                <pre style="margin: 0; font-size: 11px; color: #374151; direction: ltr; text-align: left; max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #e5e7eb; white-space: pre-wrap; word-wrap: break-word;"><?php echo e(is_array($response['sms_result']['raw_response']) ? json_encode($response['sms_result']['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $response['sms_result']['raw_response']); ?></pre>
+                                            </div>
+                                        </details>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                    </div>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </div>
+                        <?php else: ?>
+                            <div style="text-align: center; padding: 40px; color: #64748b;">
+                                <i class="fas fa-info-circle" style="font-size: 48px; margin-bottom: 16px; color: #94a3b8;"></i>
+                                <p style="margin: 0; font-size: 16px;">هیچ پاسخی برای نمایش وجود ندارد</p>
+                            </div>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="background: #f8f9fa; padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
+                        <button type="button" wire:click="closeSmsResponseModal" style="background: #667eea; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#5568d3'" onmouseout="this.style.background='#667eea'">
+                            <i class="fas fa-times" style="margin-left: 8px;"></i>
+                            بستن
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+</div>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/residents/units.blade.php ENDPATH**/ ?>

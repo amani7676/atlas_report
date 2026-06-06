@@ -13,33 +13,53 @@ use App\Livewire\Residents\ResidentReports;
 use App\Livewire\Residents\Units;
 use App\Livewire\Residents\ExpiredToday;
 use App\Livewire\Admin\CardThresholds;
+use App\Livewire\Auth\Login;
+use App\Livewire\Auth\Register;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', Dashboard::class)->name('dashboard');
-Route::get('/reports', ReportsIndex::class)->name('reports.index');
-Route::get('/reports/create', ReportsCreate::class)->name('reports.create');
-Route::get('/reports/edit/{id}', ReportsEdit::class)->name('reports.edit');
-Route::get('/categories', CategoriesIndex::class)->name('categories.index');
-Route::get('/categories/create', CategoriesCreate::class)->name('categories.create');
-Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edit');
+// Authentication routes
+Route::get('/login', Login::class)->name('login')->middleware('guest');
+Route::get('/register', Register::class)->name('register')->middleware('guest');
+Route::post('/logout', function () {
+    auth()->logout();
+    session()->invalidate();
+    session()->regenerateToken();
+    return redirect()->route('login');
+})->name('logout');
 
-Route::get('/residents', Units::class)->name('residents.units');
-Route::get('/resident-reports', ResidentReports::class)->name('residents.reports');
-Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports');
-Route::get('/residents/expired-today', ExpiredToday::class)->name('residents.expired-today');
-Route::get('/residents/group-sms', \App\Livewire\Residents\GroupSms::class)->name('residents.group-sms');
-Route::get('/reports/violations', \App\Livewire\Reports\Violations::class)->name('reports.violations');
-Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index');
-Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index');
-Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create');
-Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index');
-Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create');
-Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index');
-Route::get('/api-keys', \App\Livewire\Admin\ApiKeyManager::class)->name('api-keys.index');
-Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index');
-Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index');
-Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.index');
-Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent');
+// Redirect root to login if not authenticated, otherwise to dashboard
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+    return redirect()->route('login');
+})->name('home');
+
+Route::get('/dashboard', Dashboard::class)->name('dashboard')->middleware('auth');
+Route::get('/reports', ReportsIndex::class)->name('reports.index')->middleware('auth');
+Route::get('/reports/create', ReportsCreate::class)->name('reports.create')->middleware('auth');
+Route::get('/reports/edit/{id}', ReportsEdit::class)->name('reports.edit')->middleware('auth');
+Route::get('/categories', CategoriesIndex::class)->name('categories.index')->middleware('auth');
+Route::get('/categories/create', CategoriesCreate::class)->name('categories.create')->middleware('auth');
+Route::get('/categories/edit/{id}', CategoriesEdit::class)->name('categories.edit')->middleware('auth');
+
+Route::get('/residents', Units::class)->name('residents.units')->middleware('auth');
+Route::get('/resident-reports', ResidentReports::class)->name('residents.reports')->middleware('auth');
+Route::get('/resident-reports/notifications', \App\Livewire\Residents\NotificationReports::class)->name('residents.notification-reports')->middleware('auth');
+Route::get('/residents/expired-today', ExpiredToday::class)->name('residents.expired-today')->middleware('auth');
+Route::get('/residents/group-sms', \App\Livewire\Residents\GroupSms::class)->name('residents.group-sms')->middleware('auth');
+Route::get('/reports/violations', \App\Livewire\Reports\Violations::class)->name('reports.violations')->middleware('auth');
+Route::get('/blacklists', \App\Livewire\Blacklists\Index::class)->name('blacklists.index')->middleware('auth');
+Route::get('/patterns', \App\Livewire\Patterns\Index::class)->name('patterns.index')->middleware('auth');
+Route::get('/patterns/create', \App\Livewire\Patterns\Index::class)->name('patterns.create')->middleware('auth');
+Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.index')->middleware('auth');
+Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create')->middleware('auth');
+Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index')->middleware('auth');
+Route::get('/api-keys', \App\Livewire\Admin\ApiKeyManager::class)->name('api-keys.index')->middleware('auth');
+Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index')->middleware('auth');
+Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index')->middleware('auth');
+Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.index')->middleware('auth');
+Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent')->middleware('auth');
 
 
 // Test endpoint
