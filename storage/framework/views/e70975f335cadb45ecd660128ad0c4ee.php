@@ -1,0 +1,1104 @@
+<div>
+
+    <!-- Bootstrap CSS برای Pagination -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* Custom Pagination (مشابه گزارش تخلفی) */
+        .custom-pagination .page-link {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 3px;
+            border: 1px solid #dee2e6;
+            color: #0d6efd;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+        }
+
+        .custom-pagination .page-link:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4);
+        }
+
+        .custom-pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+        }
+
+        .custom-pagination .page-link i {
+            font-size: 0.75rem;
+        }
+        
+        /* استایل برای ردیف‌های انتخاب شده */
+        .table tbody tr.selected-row {
+            background-color: #D9E9CF !important;
+            box-shadow: inset 0 0 0 2px rgba(39, 174, 96, 0.2);
+        }
+        
+        .table tbody tr.selected-row:hover {
+            background-color: #C5E1A5 !important;
+        }
+        
+        .table tbody tr.selected-row td {
+            background-color: transparent !important;
+        }
+        
+        /* استایل برای چک‌باکس در ردیف انتخاب شده */
+        .table tbody tr.selected-row input[type="checkbox"]:checked {
+            background-color: #27AE60;
+            border-color: #27AE60;
+        }
+        
+        /* استایل برای ردیف‌های غیرفعال */
+        .table tbody tr.disabled-row {
+            opacity: 0.5;
+            background-color: #f8f9fa !important;
+        }
+        
+        .table tbody tr.disabled-row:hover {
+            background-color: #f8f9fa !important;
+        }
+
+        /* Responsive Styles - Global */
+        .table-responsive {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 992px) {
+            .card {
+                padding: 15px;
+            }
+
+            .row > [class*="col-"] {
+                margin-bottom: 15px;
+            }
+
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .d-flex.justify-content-between > * {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .card {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+
+            .card h4 {
+                font-size: 18px;
+                line-height: 1.4;
+            }
+
+            .card h6 {
+                font-size: 14px;
+            }
+
+            .custom-pagination .page-link {
+                width: 32px;
+                height: 32px;
+                font-size: 12px;
+            }
+
+            .table {
+                font-size: 12px;
+                min-width: 800px;
+            }
+
+            .table th,
+            .table td {
+                padding: 8px 6px;
+                white-space: nowrap;
+            }
+
+            .btn {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 14px;
+            }
+
+            .form-label {
+                font-size: 13px;
+            }
+
+            /* Force columns to full width on mobile */
+            .row > [class*="col-md-"],
+            .row > [class*="col-lg-"],
+            .row > [class*="col-xl-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
+            /* Search and filter section */
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .d-flex.justify-content-between > * {
+                width: 100%;
+            }
+
+            /* Card body responsive */
+            .card-body {
+                padding: 12px;
+            }
+
+            /* Badge responsive */
+            .badge {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+
+            /* Input group responsive */
+            .input-group {
+                width: 100%;
+            }
+
+            .input-group-text {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            /* Table container responsive */
+            .table-container {
+                margin: 0 -12px;
+                padding: 0 12px;
+            }
+
+            /* Button in table header */
+            .table th button {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .card {
+                padding: 10px;
+            }
+
+            .card h4 {
+                font-size: 16px;
+            }
+
+            .card h6 {
+                font-size: 13px;
+            }
+
+            .table {
+                font-size: 11px;
+                min-width: 700px;
+            }
+
+            .table th,
+            .table td {
+                padding: 6px 4px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .btn-sm {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+
+            .form-label {
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+
+            .badge {
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+
+            .custom-pagination .page-link {
+                width: 28px;
+                height: 28px;
+                font-size: 11px;
+            }
+
+            /* Stack all columns */
+            .row > [class*="col-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin-bottom: 10px;
+            }
+
+            /* Button full width on mobile */
+            .btn.w-100 {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 8px;
+            }
+
+            .card h4 {
+                font-size: 14px;
+            }
+
+            .table {
+                font-size: 10px;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 5px 3px;
+            }
+
+            .btn {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+
+            .form-control,
+            .form-select {
+                font-size: 12px;
+                padding: 5px 8px;
+            }
+
+            .badge {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            .btn-sm {
+                padding: 4px 8px;
+                font-size: 10px;
+            }
+
+            .input-group-text {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .table-container {
+                margin: 0 -8px;
+                padding: 0 8px;
+            }
+
+            .table th button {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+
+            .card h6 {
+                font-size: 12px;
+            }
+        }
+    </style>
+
+        <?php
+        $__scriptKey = '130190164-0';
+        ob_start();
+    ?>
+    <script>
+        // showAlert غیرفعال شده - دیگر نمایش داده نمی‌شود
+    </script>
+        <?php
+        $__output = ob_get_clean();
+
+        \Livewire\store($this)->push('scripts', $__output, $__scriptKey)
+    ?>
+
+    <!-- آلارم برای عدم وجود گزارش -->
+    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($patternReportWarning): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert" style="position: fixed; top: 70px; right: 20px; z-index: 1050; min-width: 300px; max-width: 500px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong><?php echo e($patternReportWarning); ?></strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" wire:click="$set('patternReportWarning', null)"></button>
+        </div>
+    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+    <div class="card">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h4 class="mb-0" style="flex: 1; min-width: 200px;">
+                <i class="fas fa-calendar-times text-danger"></i>
+                <span class="d-none d-md-inline">اقامت‌گران با سررسید گذشته (امروز و قبل از امروز)</span>
+                <span class="d-md-none">سررسید گذشته</span>
+            </h4>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="badge bg-danger">
+                    <?php echo e($residents->total()); ?> مورد
+                </div>
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($selectedResidents) && count($selectedResidents) > 0): ?>
+                    <div class="badge bg-primary">
+                        <?php echo e(count($selectedResidents)); ?> انتخاب شده
+                    </div>
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            </div>
+        </div>
+
+        <!-- بخش انتخاب الگو و ارسال -->
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($selectedResidents) && count($selectedResidents) > 0): ?>
+            <div class="card mb-3" style="background: #f8f9fa; border: 1px solid #dee2e6;">
+                <div class="card-body">
+                    <h6 class="mb-3">
+                        <i class="fas fa-paper-plane text-primary"></i>
+                        ارسال پیامک به <?php echo e(count($selectedResidents)); ?> نفر انتخاب شده
+                    </h6>
+                    
+                    <div class="row g-3">
+                        <!-- انتخاب الگو -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">
+                                <i class="fas fa-file-alt"></i>
+                                انتخاب الگو
+                            </label>
+                            <select 
+                                wire:model="selectedPattern" 
+                                class="form-select"
+                                style="font-size: 14px;"
+                            >
+                                <option value="">-- انتخاب الگو --</option>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $patterns; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $pattern): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <option value="<?php echo e($pattern->id); ?>">
+                                        <?php echo e($pattern->title); ?>
+
+                                    </option>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </select>
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedPattern): ?>
+                                <?php
+                                    $selectedPatternObj = \App\Models\Pattern::find($selectedPattern);
+                                ?>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($selectedPatternObj): ?>
+                                    <div class="mt-2 p-3 bg-light rounded" style="font-size: 12px; border: 1px solid #dee2e6;">
+                                        <strong><i class="fas fa-eye"></i> متن پیام:</strong>
+                                        <div class="mt-2 p-2 bg-white rounded border" style="min-height: 60px;">
+                                            <small class="text-muted"><?php echo e($selectedPatternObj->text); ?></small>
+                                        </div>
+                                    </div>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        </div>
+
+                        <!-- دکمه ارسال -->
+                        <div class="col-12 col-md-6 d-flex align-items-end">
+                            <button 
+                                type="button"
+                                onclick="startSendingProcess()"
+                                wire:loading.attr="disabled"
+                                wire:target="startSending,sendPatternSms"
+                                wire:disabled="<?php echo e(!$this->canSend ? 'true' : 'false'); ?>"
+                                class="btn btn-success w-100"
+                                id="send-sms-btn"
+                                style="
+                                    <?php if(!$this->canSend): ?>
+                                        opacity: 0.6; 
+                                        cursor: not-allowed;
+                                        background: #6c757d;
+                                    <?php else: ?>
+                                        cursor: pointer; 
+                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                        border: none; 
+                                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); 
+                                        transition: all 0.3s ease;
+                                    <?php endif; ?>
+                                "
+                                <?php if($this->canSend): ?>
+                                    onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.6)';"
+                                    onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.4)';"
+                                <?php endif; ?>
+                            >
+                                <span wire:loading.remove wire:target="sendPatternSms">
+                                    <i class="fas fa-paper-plane"></i>
+                                    ارسال
+                                </span>
+                                <span wire:loading wire:target="sendPatternSms">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    در حال ارسال...
+                                </span>
+                            </button>
+                        </div>
+                        
+                        <script>
+                            function updateSendButton() {
+                                const btn = document.getElementById('send-sms-btn');
+                                if (!btn) return;
+                                
+                                // بررسی از طریق Livewire
+                                window.Livewire.find('<?php echo e($_instance->getId()); ?>').get('selectedResidents').then(selectedResidents => {
+                                    window.Livewire.find('<?php echo e($_instance->getId()); ?>').get('selectedPattern').then(selectedPattern => {
+                                        const hasSelection = Array.isArray(selectedResidents) && selectedResidents.length > 0;
+                                        const hasPattern = selectedPattern !== null && selectedPattern !== '';
+                                        const canSend = hasSelection && hasPattern;
+                                        
+                                        if (canSend) {
+                                            btn.disabled = false;
+                                            btn.removeAttribute('disabled');
+                                            btn.style.opacity = '1';
+                                            btn.style.cursor = 'pointer';
+                                            btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                                            btn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                                        } else {
+                                            btn.disabled = true;
+                                            btn.setAttribute('disabled', 'disabled');
+                                            btn.style.opacity = '0.6';
+                                            btn.style.cursor = 'not-allowed';
+                                            btn.style.background = '#6c757d';
+                                            btn.style.boxShadow = 'none';
+                                        }
+                                    });
+                                });
+                            }
+                            
+                            document.addEventListener('livewire:init', () => {
+                                // به‌روزرسانی دکمه بعد از هر تغییر
+                                Livewire.hook('morph.updated', () => {
+                                    setTimeout(updateSendButton, 100);
+                                });
+                                
+                                Livewire.on('updateSendButton', () => {
+                                    setTimeout(updateSendButton, 100);
+                                });
+                                
+                                // به‌روزرسانی اولیه
+                                setTimeout(updateSendButton, 500);
+                            });
+                            
+                            // به‌روزرسانی بعد از هر تغییر در checkbox یا select
+                            document.addEventListener('change', (e) => {
+                                if (e.target.matches('input[type="checkbox"]') || e.target.matches('select')) {
+                                    setTimeout(updateSendButton, 200);
+                                }
+                            });
+                        </script>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($isSending): ?>
+                        <div class="mt-3">
+                            <div class="progress" style="height: 25px;">
+                                <?php
+                                    $progressPercent = $sendingProgress['total'] > 0 
+                                        ? ($sendingProgress['sent'] + $sendingProgress['failed']) / $sendingProgress['total'] * 100 
+                                        : 0;
+                                ?>
+                                <div 
+                                    class="progress-bar progress-bar-striped progress-bar-animated" 
+                                    role="progressbar" 
+                                    style="width: <?php echo e($progressPercent); ?>%"
+                                >
+                                    <?php echo e($sendingProgress['sent'] + $sendingProgress['failed']); ?> / <?php echo e($sendingProgress['total']); ?>
+
+                                </div>
+                            </div>
+                            <div class="mt-2 text-center" style="font-size: 12px;">
+                                <span class="badge bg-success"><?php echo e($sendingProgress['sent']); ?> موفق</span>
+                                <span class="badge bg-danger"><?php echo e($sendingProgress['failed']); ?> ناموفق</span>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($sendingProgress['current']): ?>
+                                    <span class="badge bg-info">در حال ارسال: <?php echo e($sendingProgress['current']); ?></span>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+        <!-- جستجو -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    placeholder="جستجو بر اساس نام یا تلفن..."
+                    wire:model.live.debounce.300ms="search"
+                >
+            </div>
+        </div>
+
+        <!-- دکمه‌های انتخاب - بالای جدول -->
+        <div class="mb-3">
+            <div class="d-flex gap-2 flex-wrap justify-content-between align-items-center">
+                <div class="d-flex gap-2 flex-wrap">
+                    <!-- دکمه انتخاب همه -->
+                    <button 
+                        type="button"
+                        wire:click="toggleSelectAll"
+                        wire:key="select-all-button"
+                        class="btn btn-sm"
+                        style="
+                            background: <?php echo e($selectAll ? 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'); ?>;
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 8px 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i class="fas <?php echo e($selectAll ? 'fa-times-square' : 'fa-check-square'); ?>"></i>
+                        <?php echo e($selectAll ? 'انتخاب همه' : 'حذف انتخاب'); ?>
+
+                    </button>
+                    
+                    <!-- دکمه انتخاب سررسیدهای امروز -->
+                    <button 
+                        type="button"
+                        wire:click="selectTodayOnly"
+                        wire:key="select-today-button"
+                        class="btn btn-sm"
+                        style="
+                            background: <?php echo e($selectAllToday ? 'linear-gradient(135deg, #00b894 0%, #00cec9 100%)' : 'linear-gradient(135deg, #55efc4 0%, #00b894 100%)'); ?>;
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 8px 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 2px 8px rgba(0,184,148,0.15);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i class="fas fa-calendar-day"></i>
+                        <?php echo e($selectAllToday ? 'لغو امروز و دیروز' : 'امروز و دیروز'); ?>
+
+                    </button>
+                    
+                    <!-- دکمه انتخاب سررسیدهای گذشته -->
+                    <button 
+                        type="button"
+                        wire:click="selectPastOnly"
+                        wire:key="select-past-button"
+                        class="btn btn-sm"
+                        style="
+                            background: <?php echo e($selectAllPast ? 'linear-gradient(135deg, #ee5a24 0%, #f79f1f 100%)' : 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)'); ?>;
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 8px 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 2px 8px rgba(238,90,36,0.15);
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i class="fas fa-calendar-times"></i>
+                        <?php echo e($selectAllPast ? 'لغو گذشته' : 'گذشته'); ?>
+
+                    </button>
+                </div>
+                
+                <div class="text-muted small">
+                    <?php echo e(count($selectedResidents)); ?> نفر انتخاب شده
+                </div>
+            </div>
+        </div>
+
+        <!-- جدول -->
+        <div class="table-responsive table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">
+                            <input type="checkbox" 
+                                   wire:click="toggleSelectAll" 
+                                   <?php echo e($selectAll ? 'checked' : ''); ?>
+
+                                   title="انتخاب/لغو انتخاب همه">
+                        </th>
+                        <th>ردیف</th>
+                        <th>نام</th>
+                        <th>تلفن</th>
+                        <th>واحد</th>
+                        <th>اتاق</th>
+                        <th>تخت</th>
+                        <th>تاریخ سررسید پرداخت</th>
+                        <th>روزهای گذشته از سررسید</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__empty_1 = true; $__currentLoopData = $residents; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $index => $resident): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                        <?php
+                            $disabledInfo = $this->isResidentDisabled($resident);
+                            $isDisabled = $disabledInfo['disabled'];
+                            $disabledReason = $disabledInfo['reason'];
+                            $isSelected = is_array($this->selectedResidents) && in_array((int)$resident->id, array_map('intval', $this->selectedResidents));
+                        ?>
+                        <tr class="<?php echo e($isSelected ? 'selected-row' : ''); ?> <?php echo e($isDisabled ? 'disabled-row' : ''); ?>" 
+                            title="<?php echo e($isDisabled ? $disabledReason : ($isSelected ? 'انتخاب شده' : '')); ?>">
+                            <td>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($isDisabled): ?>
+                                    <input 
+                                        type="checkbox" 
+                                        disabled
+                                        style="cursor: not-allowed; opacity: 0.5;"
+                                    >
+                                <?php else: ?>
+                                    <input 
+                                        type="checkbox" 
+                                        wire:model.live="selectedResidents"
+                                        value="<?php echo e($resident->id); ?>"
+                                        wire:key="resident-checkbox-<?php echo e($resident->id); ?>-<?php echo e($loop->index); ?>"
+                                        style="cursor: pointer;"
+                                    >
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </td>
+                            <td><?php echo e($residents->firstItem() + $index); ?></td>
+                            <td>
+                                <strong><?php echo e($resident->resident_full_name ?? 'نامشخص'); ?></strong>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($isDisabled): ?>
+                                    <br>
+                                    <small class="text-danger" style="font-size: 11px;">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <?php echo e($disabledReason); ?>
+
+                                    </small>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </td>
+                            <td><?php echo e($resident->resident_phone ?? '-'); ?></td>
+                            <td><?php echo e($resident->unit_name ?? '-'); ?></td>
+                            <td><?php echo e($resident->room_name ?? '-'); ?></td>
+                            <td><?php echo e($resident->bed_name ?? '-'); ?></td>
+                            <td>
+                                <span class="badge bg-danger">
+                                    <?php echo e($resident->contract_payment_date_jalali ?? ($resident->contract_payment_date ? \Morilog\Jalali\Jalalian::fromCarbon($resident->contract_payment_date)->format('Y/m/d') : '-')); ?>
+
+                                </span>
+                            </td>
+                            <td>
+                                <?php
+                                    $daysPast = $this->getDaysPastDue($resident->contract_payment_date_jalali);
+                                ?>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($daysPast == 0): ?>
+                                    <span class="badge bg-warning" style="font-size: 13px;">
+                                        امروز (0 روز)
+                                    </span>
+                                <?php elseif($daysPast == 1): ?>
+                                    <span class="badge bg-danger" style="font-size: 13px;">
+                                        1 روز گذشته
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-danger" style="font-size: 13px;">
+                                        <?php echo e($daysPast); ?> روز گذشته
+                                    </span>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-2x mb-2"></i>
+                                <p>هیچ اقامت‌گری با سررسید گذشته یافت نشد</p>
+                            </td>
+                        </tr>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- صفحه‌بندی (مشابه گزارش تخلفی) -->
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($residents->hasPages()): ?>
+            <div class="card-footer d-flex justify-content-between align-items-center flex-wrap">
+                <div class="text-muted small mb-2 mb-sm-0">
+                    نمایش
+                    <?php echo e($residents->firstItem() ?? 0); ?>
+
+                    تا
+                    <?php echo e($residents->lastItem() ?? 0); ?>
+
+                    از
+                    <?php echo e($residents->total()); ?>
+
+                    نتیجه
+                </div>
+                
+                <nav aria-label="Page navigation">
+                    <ul class="pagination custom-pagination mb-0">
+                        
+                        <li class="page-item <?php echo e($residents->onFirstPage() ? 'disabled' : ''); ?>">
+                            <a class="page-link" href="#" wire:click="previousPage()" tabindex="-1"
+                                aria-disabled="<?php echo e($residents->onFirstPage() ? 'true' : 'false'); ?>">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+
+                        
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $residents->getUrlRange(1, $residents->lastPage()); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $page => $url): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($page == $residents->currentPage()): ?>
+                                <li class="page-item active">
+                                    <span class="page-link"><?php echo e($page); ?></span>
+                                </li>
+                            <?php else: ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="#"
+                                        wire:click="gotoPage(<?php echo e($page); ?>)"><?php echo e($page); ?></a>
+                                </li>
+                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                        
+                        <li class="page-item <?php echo e(!$residents->hasMorePages() ? 'disabled' : ''); ?>">
+                            <a class="page-link" href="#" wire:click="nextPage()"
+                                aria-disabled="<?php echo e(!$residents->hasMorePages() ? 'true' : 'false'); ?>">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+    </div>
+
+    <!-- مدال پیشرفت ارسال پیام -->
+    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($showProgressModal || $isSending): ?>
+    <div class="modal fade show d-block" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="false" style="display: block !important; background: rgba(0,0,0,0.5); z-index: 9999;" wire:key="progress-modal-<?php echo e($sendingProgress['total'] ?? 0); ?>">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="progressModalLabel">
+                        <i class="fas fa-paper-plane me-2"></i>
+                        در حال ارسال پیام‌ها...
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <!-- آمار کلی -->
+                    <div class="row mb-4">
+                        <div class="col-12 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="mb-2">آمار کلی</h6>
+                                    <div class="d-flex justify-content-around">
+                                        <div>
+                                            <div class="text-muted small">کل پیام‌ها</div>
+                                            <div class="h5 mb-0 text-primary"><?php echo e($sendingProgress['total'] ?? 0); ?></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small">ارسال شده</div>
+                                            <div class="h5 mb-0 text-success"><?php echo e($sendingProgress['sent'] ?? 0); ?></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small">خطا</div>
+                                            <div class="h5 mb-0 text-danger"><?php echo e($sendingProgress['failed'] ?? 0); ?></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small">مانده</div>
+                                            <div class="h5 mb-0 text-warning"><?php echo e(($sendingProgress['total'] ?? 0) - ($sendingProgress['sent'] ?? 0) - ($sendingProgress['failed'] ?? 0)); ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- نوار پیشرفت -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small text-muted">پیشرفت</span>
+                            <span class="small text-muted">
+                                <?php echo e($sendingProgress['current_index'] ?? 0); ?> از <?php echo e($sendingProgress['total'] ?? 0); ?>
+
+                            </span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <?php
+                                $progressPercent = ($sendingProgress['total'] ?? 0) > 0 
+                                    ? ((($sendingProgress['sent'] ?? 0) + ($sendingProgress['failed'] ?? 0)) / ($sendingProgress['total'] ?? 1)) * 100 
+                                    : 0;
+                            ?>
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                 role="progressbar" 
+                                 style="width: <?php echo e($progressPercent); ?>%"
+                                 aria-valuenow="<?php echo e($progressPercent); ?>" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                <?php echo e(number_format($progressPercent, 1)); ?>%
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- اقامت‌گر فعلی (فقط در حین ارسال) -->
+                    <!-- پیش‌نمایش پیام -->
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($previewMessage): ?>
+                    <div class="alert alert-info mb-3">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-eye me-2 mt-1"></i>
+                            <div style="width: 100%;">
+                                <strong>پیش‌نمایش پیام برای اولین گیرنده:</strong>
+                                <div class="mt-2 p-2 bg-light rounded" style="border: 1px solid #dee2e6;">
+                                    <small class="text-muted"><?php echo e($previewMessage); ?></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(($sendingProgress['current'] ?? null) && !($sendingProgress['completed'] ?? false)): ?>
+                    <div class="alert alert-info mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div>
+                                <strong>در حال ارسال به:</strong>
+                                <div class="mt-1"><?php echo e($sendingProgress['current']); ?></div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+                    <!-- نتیجه ارسال (بعد از اتمام) -->
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($sendingProgress['completed'] ?? false): ?>
+                    <div class="alert <?php echo e(($sendingProgress['failed'] ?? 0) > 0 ? 'alert-warning' : 'alert-success'); ?> mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas <?php echo e(($sendingProgress['failed'] ?? 0) > 0 ? 'fa-exclamation-triangle' : 'fa-check-circle'); ?> me-2"></i>
+                            <div style="width: 100%;">
+                                <strong>نتیجه ارسال:</strong>
+                                <div class="mt-1"><?php echo e($sendingProgress['result_message'] ?? 'ارسال انجام شد'); ?></div>
+                                
+                                <!-- نمایش جزئیات خطاها -->
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(($sendingProgress['failed'] ?? 0) > 0 && !empty($sendingProgress['errors'] ?? [])): ?>
+                                <div class="mt-3">
+                                    <strong class="text-danger">جزئیات خطاها:</strong>
+                                    <div class="mt-2" style="max-height: 300px; overflow-y: auto;">
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__currentLoopData = $sendingProgress['errors']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                        <div class="card mb-2" style="background: #fff3cd; border: 1px solid #ffc107;">
+                                            <div class="card-body p-2">
+                                                <div class="small">
+                                                    <strong class="text-danger">
+                                                        <i class="fas fa-user"></i> <?php echo e($error['resident_name'] ?? 'نامشخص'); ?>
+
+                                                    </strong>
+                                                    <br>
+                                                    <span class="text-muted">
+                                                        <i class="fas fa-phone"></i> <?php echo e($error['phone'] ?? 'نامشخص'); ?>
+
+                                                    </span>
+                                                    <br>
+                                                    <span class="text-danger mt-1 d-block">
+                                                        <i class="fas fa-exclamation-circle"></i> 
+                                                        <strong>خطا:</strong> <?php echo e($error['error_message'] ?? 'خطای نامشخص'); ?>
+
+                                                    </span>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($error['response_code']) && $error['response_code'] !== 'نامشخص'): ?>
+                                                    <br>
+                                                    <span class="text-muted small">
+                                                        <i class="fas fa-code"></i> 
+                                                        <strong>کد پاسخ:</strong> <?php echo e($error['response_code']); ?>
+
+                                                    </span>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($error['http_status_code'])): ?>
+                                                    <br>
+                                                    <span class="text-muted small">
+                                                        <i class="fas fa-server"></i> 
+                                                        <strong>HTTP Status:</strong> <?php echo e($error['http_status_code']); ?>
+
+                                                    </span>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($error['status'])): ?>
+                                                    <br>
+                                                    <span class="text-muted small">
+                                                        <i class="fas fa-info-circle"></i> 
+                                                        <strong>وضعیت:</strong> <?php echo e($error['status']); ?>
+
+                                                    </span>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($error['raw_response']) && strlen($error['raw_response']) < 200): ?>
+                                                    <br>
+                                                    <span class="text-muted small" style="word-break: break-word;">
+                                                        <i class="fas fa-file-alt"></i> 
+                                                        <strong>پاسخ خام:</strong> <?php echo e($error['raw_response']); ?>
+
+                                                    </span>
+                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </div>
+                <div class="modal-footer">
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!($sendingProgress['completed'] ?? false)): ?>
+                    <button type="button" 
+                            class="btn btn-danger" 
+                            wire:click="cancelSending"
+                            wire:loading.attr="disabled">
+                        <i class="fas fa-times me-1"></i>
+                        لغو ارسال
+                    </button>
+                    <?php else: ?>
+                    <button type="button" 
+                            class="btn btn-primary" 
+                            wire:click="closeProgressModal"
+                            wire:loading.attr="disabled">
+                        <i class="fas fa-check me-1"></i>
+                        بستن
+                    </button>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- قفل صفحه هنگام ارسال -->
+    <div class="modal-backdrop fade show" style="z-index: 9998; pointer-events: all;"></div>
+    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+
+    <!-- راهنمای کاربر -->
+    <div class="mt-4">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    راهنمای استفاده از دکمه‌های انتخاب
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12 col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-calendar-day me-2"></i>
+                            دکمه "امروز و دیروز"
+                        </h6>
+                        <ul class="small">
+                            <li>اقامتگرانی که امروز و دیروز سررسیدشان است انتخاب می‌شوند (0 و 1 روز گذشته)</li>
+                            <li>الگوی پیامک حاوی "سررسید" به صورت خودکار انتخاب می‌شود</li>
+                            <li>مناسب برای یادآوری پرداخت روز سررسید و روز بعد</li>
+                        </ul>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <h6 class="text-danger">
+                            <i class="fas fa-calendar-times me-2"></i>
+                            دکمه "گذشته"
+                        </h6>
+                        <ul class="small">
+                            <li>فقط اقامتگرانی که 2+ روز از سررسیدشان گذشته انتخاب می‌شوند</li>
+                            <li>الگوی پیامک حاوی "دیرکرد" به صورت خودکار انتخاب می‌شود</li>
+                            <li>مناسب برای پیگیری پرداخت‌های معوقه</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h6 class="text-secondary">
+                        <i class="fas fa-check-square me-2"></i>
+                        دکمه "انتخاب همه"
+                    </h6>
+                    <ul class="small">
+                        <li>وقتی چیزی انتخاب نشده: همه اقامتگران فعال را انتخاب می‌کند</li>
+                        <li>وقتی چیزی انتخاب شده: همه انتخاب‌ها را لغو می‌کند</li>
+                        <li>دکمه متن "حذف انتخاب" را نمایش می‌دهد وقتی انتخابی وجود دارد</li>
+                        <li>الگوی پیامک تغییر نمی‌کند (الگوی قبلی حفظ می‌شود)</li>
+                    </ul>
+                </div>
+                <div class="alert alert-light mt-3 mb-0">
+                    <small class="text-muted">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        <strong>نکته:</strong> شما می‌توانید پس از انتخاب گروه مورد نظر، الگوی پیامک را به صورت دستی تغییر دهید.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <?php
+        $__scriptKey = '130190164-1';
+        ob_start();
+    ?>
+    <script>
+        // شروع فرآیند ارسال
+        window.startSendingProcess = function() {
+            // ابتدا مدال را نمایش بده
+            window.Livewire.find('<?php echo e($_instance->getId()); ?>').call('startSending').then(() => {
+                // بعد از نمایش مدال، ارسال را شروع کن
+                setTimeout(() => {
+                    window.Livewire.find('<?php echo e($_instance->getId()); ?>').call('sendPatternSms');
+                }, 200);
+            });
+        };
+        
+        // گوش دادن به event برای باز/بسته کردن مدال و قفل صفحه
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('show-progress-modal', () => {
+                // قفل صفحه
+                document.body.style.overflow = 'hidden';
+                
+                // اطمینان از نمایش مدال Livewire
+                setTimeout(() => {
+                    const livewireModal = document.querySelector('[wire\\:key*="progress-modal"]');
+                    if (livewireModal) {
+                        livewireModal.style.display = 'block';
+                        livewireModal.classList.add('show', 'd-block');
+                    }
+                }, 50);
+            });
+            
+            Livewire.on('hide-progress-modal', () => {
+                // باز کردن صفحه
+                document.body.style.overflow = '';
+            });
+        });
+    </script>
+        <?php
+        $__output = ob_get_clean();
+
+        \Livewire\store($this)->push('scripts', $__output, $__scriptKey)
+    ?>
+</div>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/residents/expired-today.blade.php ENDPATH**/ ?>

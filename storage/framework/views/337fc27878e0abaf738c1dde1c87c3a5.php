@@ -17,9 +17,16 @@
                 placeholder="example@email.com"
                 required
             >
-            @error('email')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-            @enderror
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['email'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                <p class="text-red-500 text-xs mt-1"><?php echo e($message); ?></p>
+            <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
         </div>
 
         <div class="mb-4">
@@ -34,9 +41,16 @@
                 placeholder="••••••••"
                 required
             >
-            @error('password')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-            @enderror
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['password'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                <p class="text-red-500 text-xs mt-1"><?php echo e($message); ?></p>
+            <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
         </div>
 
         <div class="mb-6">
@@ -57,9 +71,10 @@
     <div class="mt-6 text-center">
         <!-- <p class="text-gray-600">
             حساب کاربری ندارید؟
-            <a href="{{ route('register') }}" class="text-blue-600 hover:text-blue-800 font-bold">
+            <a href="<?php echo e(route('register')); ?>" class="text-blue-600 hover:text-blue-800 font-bold">
                 ثبت نام کنید
             </a>
         </p> -->
     </div>
 </div>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/auth/login.blade.php ENDPATH**/ ?>
