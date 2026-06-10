@@ -92,6 +92,26 @@
         .table-striped tbody tr.selected-resident-row:nth-of-type(even) td {
             background-color: #C1E59F !important;
         }
+
+        .search-highlight {
+            background-color: #ffd700 !important;
+            animation: highlight-pulse 2s ease-in-out;
+        }
+
+        .search-highlight td {
+            background-color: #ffd700 !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+        }
+
+        @keyframes highlight-pulse {
+            0%, 100% {
+                background-color: #ffd700;
+            }
+            50% {
+                background-color: #ffeb3b;
+            }
+        }
     </style>
 
     <div class="container-fluid py-3" dir="rtl">
@@ -362,7 +382,7 @@
                                                                 $residentKey = $unitIndex . '_' . $roomIndex . '_' . $bed['id'];
                                                                 $isSelected = isset($selectedResidents[$residentKey]);
                                                             ?>
-                                                            <tr wire:key="resident-row-<?php echo e($residentKey); ?>" class="<?php echo e($isSelected ? 'selected-resident-row' : ''); ?>">
+                                                            <tr wire:key="resident-row-<?php echo e($residentKey); ?>" class="<?php echo e($isSelected ? 'selected-resident-row' : ''); ?> <?php echo e($searchResidentId && $bed['resident']['id'] == $searchResidentId ? 'search-highlight' : ''); ?>">
                                                                 <td>
                                                                     <input
                                                                         class="form-check-input"
@@ -376,7 +396,7 @@
                                                                 <td>
                                                                     <?php
                                                                         $colorData = $this->getViolationCardColor($bed['resident']['id'] ?? null);
-                                                                        $violationScore = $this->getViolationReportsCount($bed['resident']['id'] ?? null);
+                                                                        $violationScore = $this->getTotalViolationScore($bed['resident']['id'] ?? null);
                                                                         $yellowThreshold = 15; // Default, will be updated dynamically
                                                                         $redThreshold = 25; // Default, will be updated dynamically
                                                                     ?>

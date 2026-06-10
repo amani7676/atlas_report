@@ -45,6 +45,7 @@ class Units extends Component
     public $showSmsResponseModal = false; // نمایش modal پاسخ SMS
     public $smsResponses = []; // پاسخ‌های SMS برای نمایش در modal
     public $patternMessage = null; // پیام الگو با مقداردهی کدها
+    public $searchResidentId = null; // ID اقامت‌گر پیدا شده برای highlight
 
     /**
      * Listener برای event residents-synced
@@ -58,6 +59,52 @@ class Units extends Component
     public function refreshData()
     {
         $this->loadUnits();
+    }
+
+    /**
+     * وقتی جستجو تغییر می‌کند، موقعیت اقامت‌گر را پیدا کن
+     */
+    public function updatedSearch($value)
+    {
+        if (!empty($value)) {
+            $this->findResidentPosition($value);
+        } else {
+            $this->searchResidentId = null;
+        }
+    }
+
+    /**
+     * پیدا کردن موقعیت اقامت‌گر بر اساس جستجو
+     */
+    private function findResidentPosition($searchTerm)
+    {
+        $searchTerm = strtolower($searchTerm);
+
+        foreach ($this->units as $unitIndex => $unit) {
+            foreach ($unit['rooms'] as $roomIndex => $room) {
+                foreach ($room['beds'] as $bed) {
+                    if ($bed['resident'] && (
+                        strpos(strtolower($bed['resident']['full_name']), $searchTerm) !== false ||
+                        strpos(strtolower($bed['resident']['phone']), $searchTerm) !== false
+                    )) {
+                        // اقامت‌گر پیدا شد
+                        $this->searchResidentId = $bed['resident']['id'];
+
+                        // انتقال این واحد به ابتدای لیست
+                        $foundUnit = $this->units[$unitIndex];
+                        array_splice($this->units, $unitIndex, 1);
+                        array_unshift($this->units, $foundUnit);
+
+                        // باز کردن واحد اگر بسته است
+                        $this->expandedUnits = [0];
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        $this->searchResidentId = null;
     }
 
     public function mount()
