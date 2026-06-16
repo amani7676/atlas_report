@@ -1,6 +1,6 @@
 <div>
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <h2>لیست گزارش‌ها</h2>
             <a href="/reports/create" class="btn btn-primary">
                 <i class="fas fa-plus"></i>
@@ -11,12 +11,12 @@
         <!-- Bulk Actions -->
         @if(count($selectedReports) > 0)
             <div style="background: #e8f4fd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="d-flex justify-content-between align-items-center" style="flex-wrap: wrap; gap: 15px;">
                     <div>
                         <strong>{{ count($selectedReports) }}</strong> گزارش انتخاب شده است
                     </div>
-                    <div style="display: flex; gap: 10px;">
-                        <select wire:model="bulkAction" class="form-control" style="width: 150px;">
+                    <div class="d-flex gap-2" style="flex-wrap: wrap;">
+                        <select wire:model="bulkAction" class="form-control">
                             <option value="">عملیات گروهی</option>
                             <option value="delete">حذف انتخاب‌شده‌ها</option>
                         </select>
@@ -32,20 +32,19 @@
         @endif
 
         <!-- Search and Filters -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <div class="d-flex align-items-center gap-2" style="flex: 1; min-width: 200px;">
                 <i class="fas fa-search" style="color: #666;"></i>
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
                     placeholder="جستجوی گزارش..."
                     class="form-control"
-                    style="width: 250px;"
                 >
             </div>
 
-            <div style="display: flex; gap: 10px;">
-                <select wire:model.live="perPage" class="form-control" style="width: 120px;">
+            <div class="d-flex gap-2">
+                <select wire:model.live="perPage" class="form-control">
                     <option value="5">5 در صفحه</option>
                     <option value="10">10 در صفحه</option>
                     <option value="25">25 در صفحه</option>
@@ -118,7 +117,7 @@
                             </td>
                             <td>{{ $report->increase_coefficient }}</td>
                             <td>
-                                <div style="display: flex; gap: 10px;">
+                                <div class="d-flex gap-2" style="flex-wrap: wrap;">
                                     <a href="/reports/edit/{{ $report->id }}" class="btn" style="background: #4cc9f0; color: white;" title="ویرایش">
                                         <i class="fas fa-edit"></i>
                                     </a>

@@ -214,6 +214,19 @@ class NotificationReports extends Component
         ]);
     }
 
+    public function deleteAllNotificationReports()
+    {
+        $count = ResidentReport::whereHas('report', function($q) {
+            $q->where('category_id', 2); // دسته‌بندی اطلاع‌رسانی
+        })->delete();
+        
+        $this->dispatch('showAlert', [
+            'type' => 'success',
+            'title' => 'موفقیت!',
+            'text' => "{$count} گزارش اطلاع‌رسانی حذف شد."
+        ]);
+    }
+
     public function render()
     {
         $reports = $this->reportsQuery->paginate($this->perPage);

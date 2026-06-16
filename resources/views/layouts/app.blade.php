@@ -343,6 +343,22 @@
             .table {
                 min-width: 450px;
             }
+
+            /* Always show the operations column (last column) */
+            .table th:last-child,
+            .table td:last-child {
+                display: table-cell !important;
+                position: sticky;
+                right: 0;
+                background: white;
+                z-index: 10;
+                box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            }
+
+            .table th:last-child {
+                background: #f8f9fa;
+                z-index: 11;
+            }
         }
 
         /* Force all grid layouts to be responsive */
@@ -641,6 +657,22 @@
                 font-size: 10px !important;
             }
 
+            /* Always show the operations column (last column) */
+            .table th:last-child,
+            .table td:last-child {
+                display: table-cell !important;
+                position: sticky;
+                right: 0;
+                background: white;
+                z-index: 10;
+                box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            }
+
+            .table th:last-child {
+                background: #f8f9fa;
+                z-index: 11;
+            }
+
             /* Forms */
             .form-control,
             .form-select {
@@ -652,6 +684,28 @@
             .btn {
                 padding: 5px 10px !important;
                 font-size: 11px !important;
+            }
+
+            /* Override all inline width styles */
+            [style*="width:"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: auto !important;
+            }
+
+            /* Make flex containers stack */
+            [style*="display: flex"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            /* Button groups should wrap */
+            .btn-group {
+                flex-wrap: wrap !important;
+            }
+
+            .btn-group .btn {
+                margin-bottom: 5px !important;
             }
         }
 
@@ -885,7 +939,7 @@
             .sidebar.open {
                 transform: translateX(0);
             }
-            
+
             /* پیش‌فرض منو بسته باشد */
             .sidebar:not(.open) {
                 transform: translateX(100%);
@@ -1088,6 +1142,54 @@
             .modal-footer {
                 padding: 10px 15px;
             }
+
+            /* Override inline styles for better mobile experience */
+            [style*="display: flex"] {
+                flex-wrap: wrap !important;
+            }
+
+            [style*="width: 250px"],
+            [style*="width:250px"],
+            [style*="width: 200px"],
+            [style*="width:200px"],
+            [style*="width: 150px"],
+            [style*="width:150px"],
+            [style*="width: 120px"],
+            [style*="width:120px"] {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            /* Button groups should wrap */
+            .btn-group {
+                flex-wrap: wrap !important;
+            }
+
+            .btn-group .btn {
+                margin-bottom: 5px !important;
+            }
+
+            /* Hide some table columns on tablets */
+            .table th:nth-child(n+7):nth-child(-n+9),
+            .table td:nth-child(n+7):nth-child(-n+9) {
+                display: none;
+            }
+
+            /* Always show the operations column (last column) */
+            .table th:last-child,
+            .table td:last-child {
+                display: table-cell !important;
+                position: sticky;
+                right: 0;
+                background: white;
+                z-index: 10;
+                box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            }
+
+            .table th:last-child {
+                background: #f8f9fa;
+                z-index: 11;
+            }
         }
 
         @media (max-width: 576px) {
@@ -1169,6 +1271,22 @@
                 font-size: 10px;
             }
 
+            /* Always show the operations column (last column) */
+            .table th:last-child,
+            .table td:last-child {
+                display: table-cell !important;
+                position: sticky;
+                right: 0;
+                background: white;
+                z-index: 10;
+                box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            }
+
+            .table th:last-child {
+                background: #f8f9fa;
+                z-index: 11;
+            }
+
             .btn {
                 padding: 6px 12px;
                 font-size: 12px;
@@ -1197,6 +1315,28 @@
                 font-size: 11px;
             }
 
+            /* Override all inline width styles */
+            [style*="width:"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: auto !important;
+            }
+
+            /* Make flex containers stack vertically */
+            [style*="display: flex"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            /* Button groups should wrap */
+            .btn-group {
+                flex-wrap: wrap !important;
+            }
+
+            .btn-group .btn {
+                margin-bottom: 5px !important;
+            }
+
             .page-link {
                 padding: 5px 8px;
                 font-size: 11px;
@@ -1214,6 +1354,12 @@
                 width: 100% !important;
                 max-width: 100% !important;
                 flex: 0 0 100% !important;
+            }
+
+            /* Hide less important table columns on very small screens */
+            .table th:nth-child(n+5):nth-child(-n+8),
+            .table td:nth-child(n+5):nth-child(-n+8) {
+                display: none;
             }
         }
 
@@ -1233,6 +1379,22 @@
             .table {
                 font-size: 10px;
                 min-width: 450px;
+            }
+
+            /* Always show the operations column (last column) */
+            .table th:last-child,
+            .table td:last-child {
+                display: table-cell !important;
+                position: sticky;
+                right: 0;
+                background: white;
+                z-index: 10;
+                box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            }
+
+            .table th:last-child {
+                background: #f8f9fa;
+                z-index: 11;
             }
 
             .btn {

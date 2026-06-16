@@ -190,58 +190,49 @@
                                 
                                 <!-- پاسخ ملی پیامک -->
                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result'])): ?>
-                                    <div style="background: <?php echo e($submittedReport['sms_result']['success'] ? '#f0fdf4' : '#fef2f2'); ?>; padding: 12px; border-radius: 8px; border-right: 4px solid <?php echo e($submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>;">
-                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                            <i class="fas fa-sms" style="color: <?php echo e($submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444'); ?>; font-size: 16px;"></i>
-                                            <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($submittedReport['sms_result']['status'] === 'pending'): ?>
+                                        <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #f59e0b;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <i class="fas fa-clock" style="color: #f59e0b; font-size: 16px;"></i>
+                                                <span style="color: #92400e; font-size: 13px;"><?php echo e($submittedReport['sms_result']['message'] ?? 'پیامک در صف ارسال قرار گرفت'); ?></span>
+                                            </div>
                                         </div>
-                                        <div style="color: <?php echo e($submittedReport['sms_result']['success'] ? '#059669' : '#dc2626'); ?>; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
-                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($submittedReport['sms_result']['success']): ?>
+                                    <?php elseif($submittedReport['sms_result']['success']): ?>
+                                        <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; border-right: 4px solid #10b981;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                                <i class="fas fa-sms" style="color: #10b981; font-size: 16px;"></i>
+                                                <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                            </div>
+                                            <div style="color: #059669; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
                                                 <i class="fas fa-check-circle" style="margin-left: 6px;"></i>
                                                 <?php echo e($submittedReport['sms_result']['message'] ?? 'پیامک با موفقیت ارسال شد'); ?>
 
                                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['rec_id'])): ?>
                                                     <span style="color: #64748b; margin-right: 8px;">(RecId: <?php echo e($submittedReport['sms_result']['rec_id']); ?>)</span>
                                                 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                                            <?php else: ?>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <div style="background: #fef2f2; padding: 12px; border-radius: 8px; border-right: 4px solid #ef4444;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                                <i class="fas fa-sms" style="color: #ef4444; font-size: 16px;"></i>
+                                                <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                            </div>
+                                            <div style="color: #dc2626; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
                                                 <i class="fas fa-times-circle" style="margin-left: 6px;"></i>
                                                 <?php echo e($submittedReport['sms_result']['message'] ?? $submittedReport['sms_result']['error_message'] ?? 'خطا در ارسال پیامک'); ?>
 
                                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['response_code'])): ?>
                                                     <span style="color: #64748b; margin-right: 8px;">(کد خطا: <?php echo e($submittedReport['sms_result']['response_code']); ?>)</span>
                                                 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                                        </div>
-                                        
-                                        <!-- نمایش پاسخ دقیق API -->
-                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['raw_response']) || !empty($submittedReport['sms_result']['api_response'])): ?>
-                                            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 8px; border: 1px solid #e5e7eb;">
-                                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-                                                    <i class="fas fa-code" style="color: #64748b; font-size: 14px;"></i>
-                                                    <strong style="color: #1e293b; font-size: 13px;">پاسخ دقیق API:</strong>
-                                                </div>
-                                                <div style="background: #1e293b; color: #10b981; padding: 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; direction: ltr; text-align: left;">
-                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['raw_response'])): ?>
-                                                        <div style="margin-bottom: 6px;">
-                                                            <span style="color: #94a3b8; font-size: 11px;">Raw Response:</span><br>
-                                                            <span style="color: #10b981;"><?php echo e(is_string($submittedReport['sms_result']['raw_response']) ? $submittedReport['sms_result']['raw_response'] : json_encode($submittedReport['sms_result']['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></span>
-                                                        </div>
-                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!empty($submittedReport['sms_result']['api_response'])): ?>
-                                                        <div>
-                                                            <span style="color: #94a3b8; font-size: 11px;">API Response:</span><br>
-                                                            <span style="color: #10b981;"><?php echo e(is_string($submittedReport['sms_result']['api_response']) ? $submittedReport['sms_result']['api_response'] : json_encode($submittedReport['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></span>
-                                                        </div>
-                                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                                                </div>
                                             </div>
-                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
-                                    </div>
+                                        </div>
+                                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                 <?php else: ?>
-                                    <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #f59e0b;">
+                                    <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; border-right: 4px solid #9ca3af;">
                                         <div style="display: flex; align-items: center; gap: 8px;">
-                                            <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 16px;"></i>
-                                            <span style="color: #92400e; font-size: 13px;">پیامک ارسال نشد یا الگویی برای این گزارش تنظیم نشده است</span>
+                                            <i class="fas fa-info-circle" style="color: #6b7280; font-size: 16px;"></i>
+                                            <span style="color: #4b5563; font-size: 13px;">پیامکی برای این گزارش ارسال نشد</span>
                                         </div>
                                     </div>
                                 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
@@ -343,12 +334,6 @@
                                         </h6>
                                         <div>
                                             <button
-                                                class="btn btn-sm btn-light me-2"
-                                                wire:click="selectAllInRoom(<?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
-                                            >
-                                                <i class="fas fa-check-square"></i>
-                                            </button>
-                                            <button
                                                 class="btn btn-sm btn-warning"
                                                 wire:click="openGroupReportFromRoom(<?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
                                             >
@@ -365,7 +350,6 @@
                                                             <input
                                                                 class="form-check-input"
                                                                 type="checkbox"
-                                                                wire:click="selectAllInRoom(<?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
                                                             >
                                                         </th>
                                                         <th>نام</th>
@@ -387,7 +371,8 @@
                                                                     <input
                                                                         class="form-check-input"
                                                                         type="checkbox"
-                                                                        wire:model="selectedResidents.<?php echo e($residentKey); ?>"
+                                                                        <?php echo e($isSelected ? 'checked' : ''); ?>
+
                                                                         wire:click="toggleSelectResident('<?php echo e($residentKey); ?>', <?php echo e(json_encode($bed['resident'])); ?>, <?php echo e(json_encode($bed)); ?>, <?php echo e($unitIndex); ?>, <?php echo e($roomIndex); ?>)"
                                                                     >
                                                                 </td>

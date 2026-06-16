@@ -50,13 +50,6 @@
                             <div class="card" style="border: 1px solid #ddd;">
                                 <div style="background: #4361ee; color: white; padding: 10px; border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center;">
                                     <strong>{{ $room['name'] }}</strong> - {{ $unit['unit']['name'] }}
-                                    <button
-                                        wire:click="selectAllInRoom({{ $unitIndex }}, {{ $roomIndex }})"
-                                        class="btn btn-sm"
-                                        style="background: rgba(255,255,255,0.2); color: white; font-size: 12px;"
-                                    >
-                                        انتخاب همه
-                                    </button>
                                 </div>
                                 <div style="padding: 15px;">
                                     @foreach($room['beds'] as $bedIndex => $bed)

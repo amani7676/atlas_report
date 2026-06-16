@@ -213,10 +213,13 @@
                         <i class="fas fa-chart-line me-1"></i>
                         مجموع نمرات منفی: {{ $totalScore }}
                     </span>
-                    <span class="badge bg-info">
+                    <span class="badge bg-info mb-1 mb-md-0 me-md-2">
                         <i class="fas fa-file-alt me-1"></i>
                         {{ $totalReportsCount }} گزارش
                     </span>
+                    <button onclick="confirmDeleteAllReports()" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i> حذف همه گزارش‌ها
+                    </button>
                 </div>
             </div>
         </div>
@@ -622,6 +625,24 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     @this.deleteReport(id);
+                }
+            });
+        }
+
+        function confirmDeleteAllReports() {
+            Swal.fire({
+                title: 'حذف همه گزارش‌ها',
+                text: 'آیا مطمئن هستید که می‌خواهید همه گزارش‌های اطلاع‌رسانی را حذف کنید؟ این عملیات قابل بازگشت نیست!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'بله، حذف همه',
+                cancelButtonText: 'لغو',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.deleteAllNotificationReports();
                 }
             });
         }

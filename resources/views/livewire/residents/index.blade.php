@@ -15,20 +15,20 @@
                 <div class="card-body">
                     <!-- Search -->
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-6 col-sm-12">
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="fas fa-search"></i>
                                 </span>
-                                <input 
-                                    type="text" 
-                                    class="form-control" 
+                                <input
+                                    type="text"
+                                    class="form-control"
                                     placeholder="جستجو بر اساس نام، تلفن، واحد، اتاق یا تخت..."
                                     wire:model.live="search"
                                 >
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 col-sm-6">
                             <select class="form-select" wire:model.live="perPage">
                                 <option value="10">10 رکورد</option>
                                 <option value="20">20 رکورد</option>
@@ -36,7 +36,7 @@
                                 <option value="100">100 رکورد</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-3 col-sm-6">
                             <div class="text-muted">
                                 تعداد کل: {{ $residents->total() }} اقامت‌گر
                             </div>

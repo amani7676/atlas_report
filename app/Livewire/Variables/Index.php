@@ -42,7 +42,7 @@ class Index extends Component
     public $selectedPatterns = [];
     public $patternTexts = [];
     public $patternVariables = [];
-    public $variableAssignments = []; // [pattern_id][variable_code] = table_field
+    public $variableAssignments = []; // [variable_code] = table_field (consolidated for all patterns)
     
     // Table fields
     public $availableTableFields = [];
@@ -62,7 +62,7 @@ class Index extends Component
         'selectedPatterns' => 'required|array|min:1',
         'selectedPatterns.*' => 'exists:patterns,id',
         'variableAssignments' => 'required|array',
-        'variableAssignments.*.*' => 'required|string',
+        'variableAssignments.*' => 'required|string',
     ];
 
     protected $messages = [
@@ -71,7 +71,7 @@ class Index extends Component
         'selectedPatterns.min' => 'انتخاب حداقل یک الگو الزامی است',
         'selectedPatterns.*.exists' => 'الگوی انتخاب شده معتبر نیست',
         'variableAssignments.required' => 'تخصیص متغیرها به الگوها الزامی است',
-        'variableAssignments.*.*.required' => 'برای هر کد متغیر باید یک فیلد انتخاب کنید',
+        'variableAssignments.*.required' => 'برای هر کد متغیر باید یک فیلد انتخاب کنید',
     ];
 
     public function mount()
@@ -97,6 +97,7 @@ class Index extends Component
     {
         $variable = PatternVariable::findOrFail($id);
         $this->editingId = $id;
+        $this->isEditing = true; // تنظیم زودتر isEditing
         $this->title = $variable->title;
         $this->pattern_code = $variable->pattern_code; // تغییر از table_field به pattern_code
         $this->table_name = $variable->table_name ?? '';
@@ -104,7 +105,6 @@ class Index extends Component
         $this->description = $variable->description ?? '';
         $this->is_active = $variable->is_active;
         $this->sort_order = $variable->sort_order;
-        $this->isEditing = true;
         $this->loadTableFields();
         $this->selectedTableField = $variable->pattern_code ?? '';
         
@@ -118,12 +118,10 @@ class Index extends Component
         // بارگذاری داده‌های الگوها
         $this->loadPatternData();
         
-        // بارگذاری تخصیص‌های موجود
+        // بارگذاری تخصیص‌های موجود (consolidated)
         foreach ($patternConnections as $connection) {
-            if (isset($this->variableAssignments[$connection->pattern_id])) {
-                // استفاده از فیلد table_field از جدول اتصال که فیلد مربوط به کد متغیر را ذخیره می‌کند
-                $this->variableAssignments[$connection->pattern_id][$connection->variable_code] = $connection->table_field;
-            }
+            // استفاده از فیلد table_field از جدول اتصال که فیلد مربوط به کد متغیر را ذخیره می‌کند
+            $this->variableAssignments[$connection->variable_code] = $connection->table_field;
         }
         
         $this->showModal = true;
@@ -174,8 +172,8 @@ class Index extends Component
     {
         $this->loadPatternData();
         
-        // اگر فقط یک الگو انتخاب شده، عنوان متغیر و کد الگو را با نام و کد الگو یکی کن
-        if (count($this->selectedPatterns) === 1) {
+        // فقط در حالت ایجاد (نه ویرایش)، اگر فقط یک الگو انتخاب شده، عنوان متغیر و کد الگو را با نام و کد الگو یکی کن
+        if (!$this->isEditing && count($this->selectedPatterns) === 1) {
             $patternId = $this->selectedPatterns[0];
             $pattern = Pattern::find($patternId);
             if ($pattern) {
@@ -210,10 +208,11 @@ class Index extends Component
                 }
                 $this->patternVariables[$patternId] = $variables;
                 
-                // مقداردهی اولیه variableAssignments
-                $this->variableAssignments[$patternId] = [];
+                // مقداردهی اولیه variableAssignments (consolidated)
                 foreach ($variables as $code) {
-                    $this->variableAssignments[$patternId][$code] = '';
+                    if (!isset($this->variableAssignments[$code])) {
+                        $this->variableAssignments[$code] = '';
+                    }
                 }
             }
         }
@@ -504,15 +503,27 @@ class Index extends Component
 
             // ایجاد اتصالات به الگوها با متغیرهای اختصاصی
             foreach ($this->selectedPatterns as $patternId) {
-                if (isset($this->variableAssignments[$patternId])) {
-                    foreach ($this->variableAssignments[$patternId] as $variableCode => $tableField) {
+                $pattern = Pattern::find($patternId);
+                if ($pattern) {
+                    // استخراج متغیرها از متن الگو
+                    preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+                    $variables = [];
+                    if (!empty($matches[0])) {
+                        foreach ($matches[0] as $code) {
+                            $variables[] = $code;
+                        }
+                    }
+                    
+                    // ایجاد اتصال برای هر متغیر در این الگو
+                    foreach ($variables as $variableCode) {
+                        $tableField = $this->variableAssignments[$variableCode] ?? '';
                         if (!empty($tableField)) {
                             // بررسی تکراری نبودن کد متغیر برای این الگو
                             if (DB::table('pattern_pattern_variables')
                                 ->where('pattern_id', $patternId)
                                 ->where('variable_code', $variableCode)
                                 ->exists()) {
-                                $this->addError('variableAssignments.' . $patternId . '.' . $variableCode, "کد متغیر {$variableCode} برای این الگو قبلاً استفاده شده است");
+                                $this->addError('variableAssignments.' . $variableCode, "کد متغیر {$variableCode} برای این الگو قبلاً استفاده شده است");
                                 DB::rollBack();
                                 return;
                             }
@@ -582,8 +593,20 @@ class Index extends Component
 
             // ایجاد اتصالات جدید به الگوها با متغیرهای اختصاصی
             foreach ($this->selectedPatterns as $patternId) {
-                if (isset($this->variableAssignments[$patternId])) {
-                    foreach ($this->variableAssignments[$patternId] as $variableCode => $tableField) {
+                $pattern = Pattern::find($patternId);
+                if ($pattern) {
+                    // استخراج متغیرها از متن الگو
+                    preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+                    $variables = [];
+                    if (!empty($matches[0])) {
+                        foreach ($matches[0] as $code) {
+                            $variables[] = $code;
+                        }
+                    }
+                    
+                    // ایجاد اتصال برای هر متغیر در این الگو
+                    foreach ($variables as $variableCode) {
+                        $tableField = $this->variableAssignments[$variableCode] ?? '';
                         if (!empty($tableField)) {
                             // بررسی تکراری نبودن کد متغیر برای این الگو
                             if (DB::table('pattern_pattern_variables')
@@ -591,7 +614,7 @@ class Index extends Component
                                 ->where('variable_code', $variableCode)
                                 ->where('pattern_variable_id', '!=', $this->editingId)
                                 ->exists()) {
-                                $this->addError('variableAssignments.' . $patternId . '.' . $variableCode, "کد متغیر {$variableCode} برای این الگو قبلاً استفاده شده است");
+                                $this->addError('variableAssignments.' . $variableCode, "کد متغیر {$variableCode} برای این الگو قبلاً استفاده شده است");
                                 DB::rollBack();
                                 return;
                             }

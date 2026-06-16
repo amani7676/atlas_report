@@ -252,45 +252,19 @@ class CreateResidentReport extends Component
         }
         
         $report = Report::find($this->report_id);
-        $createdReports = [];
         
-        foreach ($residents as $resident) {
-            // Check if report already exists for this resident
-            $existingReport = ResidentReport::where('resident_id', $resident->resident_id)
-                ->where('report_id', $this->report_id)
-                ->first();
-            
-            if ($existingReport) {
-                \Log::warning('Report already exists for resident', [
-                    'resident_id' => $resident->resident_id,
-                    'report_id' => $this->report_id
-                ]);
-                continue;
-            }
-            
-            // Create new report
-            $newReport = ResidentReport::create([
-                'resident_id' => $resident->resident_id,
-                'report_id' => $this->report_id,
-                'unit_id' => $resident->unit_id ?? null,
-                'room_id' => $resident->room_id ?? null,
-                'bed_id' => $resident->bed_id ?? null,
-                'notes' => $this->notes,
-                'description' => $this->description,
-                'has_been_sent' => false,
-                'is_checked' => false,
-            ]);
-            
-            $createdReports[] = $newReport;
-            
-            \Log::info('ResidentReport created successfully', [
-                'id' => $newReport->id,
-                'resident_id' => $resident->resident_id,
-                'resident_name' => $resident->resident_full_name
-            ]);
-        }
+        // Check for existing reports in a single query for performance
+        $existingReportIds = ResidentReport::whereIn('resident_id', $residents->pluck('resident_id'))
+            ->where('report_id', $this->report_id)
+            ->pluck('resident_id')
+            ->toArray();
         
-        if (empty($createdReports)) {
+        // Filter out residents with existing reports
+        $residentsToCreate = $residents->reject(function ($resident) use ($existingReportIds) {
+            return in_array($resident->resident_id, $existingReportIds);
+        });
+        
+        if ($residentsToCreate->isEmpty()) {
             $this->dispatch('showAlert', [
                 'type' => 'error',
                 'message' => 'همه گزارش‌ها قبلاً برای این اقامت‌گران ثبت شده است'
@@ -298,9 +272,46 @@ class CreateResidentReport extends Component
             return;
         }
         
+        // Prepare batch insert data
+        $reportsToInsert = [];
+        foreach ($residentsToCreate as $resident) {
+            $reportsToInsert[] = [
+                'resident_id' => $resident->resident_id,
+                'report_id' => $this->report_id,
+                'unit_id' => $resident->unit_id ?? null,
+                'room_id' => $resident->room_id ?? null,
+                'bed_id' => $resident->bed_id ?? null,
+                'notes' => $this->notes,
+                'description' => $this->description,
+                'has_been_sent' => $this->sendSms,
+                'is_checked' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        
+        // Batch insert for better performance
+        ResidentReport::insert($reportsToInsert);
+        
+        // Retrieve the created reports to trigger events for grant deactivation
+        $createdReports = ResidentReport::whereIn('resident_id', $residentsToCreate->pluck('resident_id'))
+            ->where('report_id', $this->report_id)
+            ->where('has_been_sent', $this->sendSms)
+            ->get();
+        
+        // Manually trigger events for grant deactivation
+        foreach ($createdReports as $createdReport) {
+            event(new \App\Events\ResidentReportCreated($createdReport));
+        }
+        
+        \Log::info('ResidentReports batch created', [
+            'count' => count($reportsToInsert),
+            'sendSms' => $this->sendSms
+        ]);
+        
         // Handle SMS sending if enabled
         if ($this->sendSms && $this->patternMessage && $this->patternMessage['success']) {
-            $this->sendSmsToResidents($residents, $report);
+            $this->sendSmsToResidents($residentsToCreate, $report);
         }
         
         // Reset form
@@ -310,8 +321,8 @@ class CreateResidentReport extends Component
         $this->dispatch('reportCreated');
         
         // Show success message
-        $message = $residents->count() > 1 
-            ? "{$residents->count()} گزارش با موفقیت ثبت شد"
+        $message = $residentsToCreate->count() > 1 
+            ? "{$residentsToCreate->count()} گزارش با موفقیت ثبت شد"
             : 'گزارش با موفقیت ثبت شد';
             
         $this->dispatch('showAlert', [
@@ -324,6 +335,30 @@ class CreateResidentReport extends Component
     {
         $pattern = $this->patternMessage['pattern'];
         
+        // Cache pattern variables and pivot data outside the loop for performance
+        preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
+        $variableCodes = $matches[0];
+        
+        // Get all pivot data at once
+        $pivotDataMap = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
+            ->where('pattern_id', $pattern->id)
+            ->whereIn('variable_code', $variableCodes)
+            ->get()
+            ->keyBy('variable_code');
+        
+        // Get pattern variable once
+        $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
+            ->where('is_active', true)
+            ->first();
+        
+        // Get sender number once
+        $senderNumber = \App\Models\SenderNumber::getActivePatternNumbers()->first();
+        $senderNumberValue = $senderNumber ? $senderNumber->number : null;
+        $apiKey = $senderNumber ? $senderNumber->api_key : null;
+        
+        $bodyId = (int)$pattern->pattern_code;
+        $melipayamakService = new \App\Services\MelipayamakService();
+        
         foreach ($residents as $resident) {
             if (empty($resident->resident_phone)) {
                 continue;
@@ -333,26 +368,14 @@ class CreateResidentReport extends Component
                 // Generate personalized message
                 $finalMessage = $this->generatePersonalizedMessage($pattern, $resident);
                 
-                // Extract variables for SMS
-                preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
-                $variableCodes = $matches[0];
-                
+                // Extract variables for SMS using cached data
                 $variables = [];
                 foreach ($variableCodes as $code) {
-                    $pivotData = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
-                        ->where('pattern_id', $pattern->id)
-                        ->where('variable_code', $code)
-                        ->first();
+                    $pivot = $pivotDataMap->get($code);
                     
-                    if ($pivotData && $pivotData->table_field) {
-                        $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
-                            ->where('is_active', true)
-                            ->first();
-                        
-                        if ($patternVariable) {
-                            $value = $this->getVariableValue($patternVariable->table_name, $pivotData->table_field, $resident, $report);
-                            $variables[] = $value;
-                        }
+                    if ($pivot && $pivot->table_field && $patternVariable) {
+                        $value = $this->getVariableValue($patternVariable->table_name, $pivot->table_field, $resident, $report);
+                        $variables[] = $value;
                     }
                 }
                 
@@ -371,15 +394,7 @@ class CreateResidentReport extends Component
                     'status' => 'pending',
                 ]);
                 
-                // Send SMS using sendByBaseNumber (same as individual sending)
-                $melipayamakService = new \App\Services\MelipayamakService();
-                $bodyId = (int)$pattern->pattern_code;
-                
-                // Get sender number and API key
-                $senderNumber = \App\Models\SenderNumber::getActivePatternNumbers()->first();
-                $senderNumberValue = $senderNumber ? $senderNumber->number : null;
-                $apiKey = $senderNumber ? $senderNumber->api_key : null;
-                
+                // Send SMS using sendByBaseNumber
                 $result = $melipayamakService->sendByBaseNumber(
                     $resident->resident_phone,
                     $bodyId,

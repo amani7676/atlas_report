@@ -184,56 +184,47 @@
                                 
                                 <!-- پاسخ ملی پیامک -->
                                 @if(!empty($submittedReport['sms_result']))
-                                    <div style="background: {{ $submittedReport['sms_result']['success'] ? '#f0fdf4' : '#fef2f2' }}; padding: 12px; border-radius: 8px; border-right: 4px solid {{ $submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444' }};">
-                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                            <i class="fas fa-sms" style="color: {{ $submittedReport['sms_result']['success'] ? '#10b981' : '#ef4444' }}; font-size: 16px;"></i>
-                                            <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                    @if($submittedReport['sms_result']['status'] === 'pending')
+                                        <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #f59e0b;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <i class="fas fa-clock" style="color: #f59e0b; font-size: 16px;"></i>
+                                                <span style="color: #92400e; font-size: 13px;">{{ $submittedReport['sms_result']['message'] ?? 'پیامک در صف ارسال قرار گرفت' }}</span>
+                                            </div>
                                         </div>
-                                        <div style="color: {{ $submittedReport['sms_result']['success'] ? '#059669' : '#dc2626' }}; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
-                                            @if($submittedReport['sms_result']['success'])
+                                    @elseif($submittedReport['sms_result']['success'])
+                                        <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; border-right: 4px solid #10b981;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                                <i class="fas fa-sms" style="color: #10b981; font-size: 16px;"></i>
+                                                <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                            </div>
+                                            <div style="color: #059669; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
                                                 <i class="fas fa-check-circle" style="margin-left: 6px;"></i>
                                                 {{ $submittedReport['sms_result']['message'] ?? 'پیامک با موفقیت ارسال شد' }}
                                                 @if(!empty($submittedReport['sms_result']['rec_id']))
                                                     <span style="color: #64748b; margin-right: 8px;">(RecId: {{ $submittedReport['sms_result']['rec_id'] }})</span>
                                                 @endif
-                                            @else
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div style="background: #fef2f2; padding: 12px; border-radius: 8px; border-right: 4px solid #ef4444;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                                <i class="fas fa-sms" style="color: #ef4444; font-size: 16px;"></i>
+                                                <strong style="color: #1e293b; font-size: 14px;">پاسخ ملی پیامک:</strong>
+                                            </div>
+                                            <div style="color: #dc2626; font-size: 13px; margin-right: 24px; margin-bottom: 8px;">
                                                 <i class="fas fa-times-circle" style="margin-left: 6px;"></i>
                                                 {{ $submittedReport['sms_result']['message'] ?? $submittedReport['sms_result']['error_message'] ?? 'خطا در ارسال پیامک' }}
                                                 @if(!empty($submittedReport['sms_result']['response_code']))
                                                     <span style="color: #64748b; margin-right: 8px;">(کد خطا: {{ $submittedReport['sms_result']['response_code'] }})</span>
                                                 @endif
-                                            @endif
-                                        </div>
-                                        
-                                        <!-- نمایش پاسخ دقیق API -->
-                                        @if(!empty($submittedReport['sms_result']['raw_response']) || !empty($submittedReport['sms_result']['api_response']))
-                                            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 8px; border: 1px solid #e5e7eb;">
-                                                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-                                                    <i class="fas fa-code" style="color: #64748b; font-size: 14px;"></i>
-                                                    <strong style="color: #1e293b; font-size: 13px;">پاسخ دقیق API:</strong>
-                                                </div>
-                                                <div style="background: #1e293b; color: #10b981; padding: 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; direction: ltr; text-align: left;">
-                                                    @if(!empty($submittedReport['sms_result']['raw_response']))
-                                                        <div style="margin-bottom: 6px;">
-                                                            <span style="color: #94a3b8; font-size: 11px;">Raw Response:</span><br>
-                                                            <span style="color: #10b981;">{{ is_string($submittedReport['sms_result']['raw_response']) ? $submittedReport['sms_result']['raw_response'] : json_encode($submittedReport['sms_result']['raw_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</span>
-                                                        </div>
-                                                    @endif
-                                                    @if(!empty($submittedReport['sms_result']['api_response']))
-                                                        <div>
-                                                            <span style="color: #94a3b8; font-size: 11px;">API Response:</span><br>
-                                                            <span style="color: #10b981;">{{ is_string($submittedReport['sms_result']['api_response']) ? $submittedReport['sms_result']['api_response'] : json_encode($submittedReport['sms_result']['api_response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</span>
-                                                        </div>
-                                                    @endif
-                                                </div>
                                             </div>
-                                        @endif
-                                    </div>
+                                        </div>
+                                    @endif
                                 @else
-                                    <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #f59e0b;">
+                                    <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; border-right: 4px solid #9ca3af;">
                                         <div style="display: flex; align-items: center; gap: 8px;">
-                                            <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 16px;"></i>
-                                            <span style="color: #92400e; font-size: 13px;">پیامک ارسال نشد یا الگویی برای این گزارش تنظیم نشده است</span>
+                                            <i class="fas fa-info-circle" style="color: #6b7280; font-size: 16px;"></i>
+                                            <span style="color: #4b5563; font-size: 13px;">پیامکی برای این گزارش ارسال نشد</span>
                                         </div>
                                     </div>
                                 @endif
@@ -333,12 +324,6 @@
                                         </h6>
                                         <div>
                                             <button
-                                                class="btn btn-sm btn-light me-2"
-                                                wire:click="selectAllInRoom({{ $unitIndex }}, {{ $roomIndex }})"
-                                            >
-                                                <i class="fas fa-check-square"></i>
-                                            </button>
-                                            <button
                                                 class="btn btn-sm btn-warning"
                                                 wire:click="openGroupReportFromRoom({{ $unitIndex }}, {{ $roomIndex }})"
                                             >
@@ -355,7 +340,6 @@
                                                             <input
                                                                 class="form-check-input"
                                                                 type="checkbox"
-                                                                wire:click="selectAllInRoom({{ $unitIndex }}, {{ $roomIndex }})"
                                                             >
                                                         </th>
                                                         <th>نام</th>
@@ -377,7 +361,7 @@
                                                                     <input
                                                                         class="form-check-input"
                                                                         type="checkbox"
-                                                                        wire:model="selectedResidents.{{ $residentKey }}"
+                                                                        {{ $isSelected ? 'checked' : '' }}
                                                                         wire:click="toggleSelectResident('{{ $residentKey }}', {{ json_encode($bed['resident']) }}, {{ json_encode($bed) }}, {{ $unitIndex }}, {{ $roomIndex }})"
                                                                     >
                                                                 </td>

@@ -1,11 +1,11 @@
 <div>
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <div>
                 <h2 style="margin: 0;">داشبورد مدیریت</h2>
                 <p style="margin: 5px 0 0 0;">سیستم گزارش‌گیری اقامت‌گران</p>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="d-flex align-items-center gap-2" style="flex-wrap: wrap;">
                 @if($orphanedRecordsCount > 0)
                     <span style="background: #dc3545; color: white; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold;">
                         {{ $orphanedRecordsCount }}
@@ -15,7 +15,7 @@
                         0
                     </span>
                 @endif
-                <button wire:click="cleanupOrphanedRecords" wire:loading.attr="disabled" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;">
+                <button wire:click="cleanupOrphanedRecords" wire:loading.attr="disabled" class="btn btn-primary d-flex align-items-center gap-2">
                     <i class="fas fa-trash-alt" wire:loading.class="fa-spin"></i>
                     <span wire:loading.remove>نیاز به حذف اطلاعات به درد نخور</span>
                     <span wire:loading>در حال پردازش...</span>
@@ -70,15 +70,15 @@
     </div>
 
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <h3 style="margin: 0;">آخرین پیام‌های ارسال شده</h3>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="d-flex align-items-center gap-2" style="flex-wrap: wrap;">
                 @if($lastDeliveryCheck)
                     <span style="color: #666; font-size: 12px;">
                         آخرین بررسی دلیوری: {{ jalaliDate($lastDeliveryCheck, 'Y/m/d H:i') }}
                     </span>
                 @endif
-                <button wire:click="updateDeliveryStatus" wire:loading.attr="disabled" class="btn btn-info btn-sm" style="display: flex; align-items: center; gap: 8px;">
+                <button wire:click="updateDeliveryStatus" wire:loading.attr="disabled" class="btn btn-info btn-sm d-flex align-items-center gap-2">
                     <i class="fas fa-sync" wire:loading.class="fa-spin"></i>
                     <span wire:loading.remove>بررسی وضعیت دلیوری</span>
                     <span wire:loading>در حال بررسی...</span>

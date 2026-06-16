@@ -320,64 +320,80 @@
                         <div class="form-group">
                             <label class="form-label">تخصیص متغیرها به الگوها</label>
                             <div style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                                <!-- نمایش متن الگوها -->
                                 @foreach($selectedPatterns as $patternId)
                                     @php
                                         $pattern = \App\Models\Pattern::find($patternId);
                                         if(!$pattern) continue;
                                     @endphp
-                                    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border: 1px solid #dee2e6;">
-                                        <h6 style="margin-bottom: 10px; color: #495057;">
+                                    <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px; border: 1px solid #dee2e6;">
+                                        <h6 style="margin-bottom: 5px; color: #495057; font-size: 13px;">
                                             <i class="fas fa-file-alt"></i> {{ $pattern->title }}
                                             @if($pattern->pattern_code) <small>({{ $pattern->pattern_code }})</small> @endif
                                         </h6>
-                                        
-                                        <!-- متن الگو -->
-                                        <div style="margin-bottom: 15px; padding: 10px; background: #e9ecef; border-radius: 4px; font-family: monospace; font-size: 13px;">
+                                        <div style="padding: 8px; background: #e9ecef; border-radius: 4px; font-family: monospace; font-size: 12px;">
                                             {{ $patternTexts[$patternId] ?? '' }}
                                         </div>
-                                        
-                                        <!-- کدهای متغیر و تخصیص فیلدها -->
-                                        @if(isset($patternVariables[$patternId]) && !empty($patternVariables[$patternId]))
-                                            <div style="margin-bottom: 10px;">
-                                                <strong style="font-size: 12px; color: #666;">کدهای متغیرهای موجود:</strong>
-                                                <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;">
-                                                    @foreach($patternVariables[$patternId] as $variableCode)
-                                                        <span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
-                                                            {{ $variableCode }}
-                                                        </span>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                            
-                                            @foreach($patternVariables[$patternId] as $variableCode)
-                                                <div style="margin-bottom: 10px;">
-                                                    <label style="font-size: 12px; font-weight: bold; color: #495057;">
-                                                        {{ $variableCode }} → فیلد مربوطه:
-                                                    </label>
-                                                    <select 
-                                                        wire:model="variableAssignments.{{ $patternId }}.{{ $variableCode }}" 
-                                                        class="form-control form-control-sm"
-                                                        style="font-size: 12px;"
-                                                    >
-                                                        <option value="">انتخاب فیلد...</option>
-                                                        @foreach($availableTableFields as $field)
-                                                            <option value="{{ $field['name'] }}">
-                                                                {{ $field['label'] }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    @error('variableAssignments.' . $patternId . '.' . $variableCode) 
-                                                        <span style="color: red; font-size: 11px;">{{ $message }}</span> 
-                                                    @enderror
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <p style="color: #6c757d; font-size: 12px; font-style: italic;">
-                                                این الگو هیچ کد متغیری ({0}, {1}, ...) ندارد.
-                                            </p>
-                                        @endif
                                     </div>
                                 @endforeach
+                                
+                                <!-- لیست یکپارچه کدهای متغیر و تخصیص فیلدها -->
+                                @php
+                                    $allVariableCodes = [];
+                                    foreach($selectedPatterns as $patternId) {
+                                        if(isset($patternVariables[$patternId]) && !empty($patternVariables[$patternId])) {
+                                            foreach($patternVariables[$patternId] as $variableCode) {
+                                                $allVariableCodes[$variableCode] = $variableCode;
+                                            }
+                                        }
+                                    }
+                                    $allVariableCodes = array_values($allVariableCodes);
+                                @endphp
+                                
+                                @if(!empty($allVariableCodes))
+                                    <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 6px; border: 1px solid #dee2e6;">
+                                        <h6 style="margin-bottom: 10px; color: #495057;">
+                                            <i class="fas fa-code"></i> تخصیص فیلدها به کدهای متغیر
+                                        </h6>
+                                        <div style="margin-bottom: 10px;">
+                                            <strong style="font-size: 12px; color: #666;">کدهای متغیرهای موجود:</strong>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;">
+                                                @foreach($allVariableCodes as $variableCode)
+                                                    <span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">
+                                                        {{ $variableCode }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                        
+                                        @foreach($allVariableCodes as $variableCode)
+                                            <div style="margin-bottom: 10px;">
+                                                <label style="font-size: 12px; font-weight: bold; color: #495057;">
+                                                    {{ $variableCode }} → فیلد مربوطه:
+                                                </label>
+                                                <select 
+                                                    wire:model="variableAssignments.{{ $variableCode }}" 
+                                                    class="form-control form-control-sm"
+                                                    style="font-size: 12px;"
+                                                >
+                                                    <option value="">انتخاب فیلد...</option>
+                                                    @foreach($availableTableFields as $field)
+                                                        <option value="{{ $field['name'] }}">
+                                                            {{ $field['label'] }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('variableAssignments.' . $variableCode) 
+                                                    <span style="color: red; font-size: 11px;">{{ $message }}</span> 
+                                                @enderror
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p style="color: #6c757d; font-size: 12px; font-style: italic; margin-top: 10px;">
+                                        هیچ کد متغیری ({0}, {1}, ...) در الگوهای انتخاب شده وجود ندارد.
+                                    </p>
+                                @endif
                             </div>
                             @error('variableAssignments') <span style="color: red; font-size: 12px;">{{ $message }}</span> @enderror
                         </div>
