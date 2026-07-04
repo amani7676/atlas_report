@@ -20,6 +20,7 @@ class Edit extends Component
     public $auto_ability = false;
     public $patterns = [];
     public $selectedPattern = '';
+    public $api_endpoint_name = '';
 
     public function mount($id)
     {
@@ -32,6 +33,7 @@ class Edit extends Component
         $this->negative_score = $this->report->negative_score;
         $this->increase_coefficient = $this->report->increase_coefficient;
         $this->auto_ability = $this->report->auto_ability ?? false;
+        $this->api_endpoint_name = $this->report->api_endpoint_name ?? '';
         
         // بارگذاری الگوی مرتبط با گزارش (فقط اولین الگو)
         $firstPattern = $this->report->patterns()
@@ -66,6 +68,7 @@ class Edit extends Component
         'negative_score' => 'required|integer|min:0',
         'increase_coefficient' => 'required|numeric|min:0',
         'selectedPattern' => 'required|exists:patterns,id',
+        'api_endpoint_name' => 'nullable|regex:/^[a-zA-Z0-9_]+$/|max:255',
     ];
 
     public function update()
@@ -82,6 +85,17 @@ class Edit extends Component
             }
         }
 
+        // بررسی تکراری بودن نام endpoint
+        if (!empty($this->api_endpoint_name)) {
+            $existingEndpoint = Report::where('api_endpoint_name', $this->api_endpoint_name)
+                ->where('id', '!=', $this->report->id)
+                ->first();
+            if ($existingEndpoint) {
+                $this->addError('api_endpoint_name', 'این نام endpoint قبلاً برای گزارش "' . $existingEndpoint->title . '" استفاده شده است.');
+                return;
+            }
+        }
+
         $this->report->update([
             'category_id' => $this->category_id,
             'title' => $this->title,
@@ -89,6 +103,7 @@ class Edit extends Component
             'negative_score' => $this->negative_score,
             'increase_coefficient' => $this->increase_coefficient,
             'auto_ability' => $this->auto_ability,
+            'api_endpoint_name' => $this->api_endpoint_name ?: null,
         ]);
 
         // به‌روزرسانی الگوی مرتبط با گزارش (فقط یک الگو)

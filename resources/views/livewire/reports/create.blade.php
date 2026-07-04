@@ -27,6 +27,22 @@
             </div>
 
             <div class="form-group">
+                <label class="form-label">نام API Endpoint</label>
+                <input
+                    type="text"
+                    wire:model="api_endpoint_name"
+                    class="form-control"
+                    placeholder="مثال: room_messy (فقط حروف انگلیسی، اعداد و زیرخط)"
+                    style="direction: ltr; text-align: left;"
+                >
+                <small style="display: block; color: #666; margin-top: 5px; font-size: 12px;">
+                    این نام در API برای شناسایی این گزارش استفاده می‌شود. اگر خالی بماند، از ID گزارش استفاده می‌شود.
+                    <br>فرمت مجاز: حروف انگلیسی، اعداد و زیرخط (a-z, A-Z, 0-9, _)
+                </small>
+                @error('api_endpoint_name') <span style="color: #f72585; font-size: 14px;">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="form-group">
                 <label class="form-label">توضیحات *</label>
                 <textarea
                     wire:model="description"

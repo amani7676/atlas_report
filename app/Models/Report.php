@@ -16,7 +16,8 @@ class Report extends Model
         'description',
         'negative_score',
         'increase_coefficient',
-        'auto_ability'
+        'auto_ability',
+        'api_endpoint_name'
     ];
 
     protected $casts = [

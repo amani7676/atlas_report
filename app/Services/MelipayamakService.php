@@ -1366,12 +1366,15 @@ class MelipayamakService
                 ];
             }
 
-            // ایجاد SOAP Client
+            // ایجاد SOAP Client با timeout برای جلوگیری از کندی روی هاست
             ini_set("soap.wsdl_cache_enabled", "0");
+            ini_set('default_socket_timeout', 15); // 15 seconds timeout
             $soapClient = new \SoapClient($wsdlUrl, [
                 'encoding' => 'UTF-8',
                 'cache_wsdl' => WSDL_CACHE_NONE,
                 'exceptions' => true,
+                'connection_timeout' => 15, // 15 seconds connection timeout
+                'trace' => true,
             ]);
 
             // فراخوانی متد SendByBaseNumber
@@ -2039,5 +2042,287 @@ class MelipayamakService
 
         $code = (string)$responseCode;
         return $errorMessages[$code] ?? 'خطای نامشخص (کد: ' . $code . ')';
+    }
+
+    /**
+     * دریافت پیامک‌های دریافتی/ارسالی از سامانه ملی پیامک
+     * 
+     * @param int $location 1 = دریافتی، 2 = ارسالی، -1 = همه
+     * @param int $index اندیس شروع (پیشنهاد: 0)
+     * @param int $count تعداد رکورد درخواستی
+     * @param string|null $from شماره فرستنده (اختیاری)
+     * @return array
+     */
+    public function getMessages($location = 2, $index = 0, $count = 100, $from = null)
+    {
+        try {
+            $data = [
+                'username' => $this->getUsername(),
+                'password' => $this->getPassword(),
+                'location' => $location,
+                'index' => $index,
+                'count' => $count,
+            ];
+
+            if ($from) {
+                $data['from'] = $from;
+            }
+
+            Log::debug('Melipayamak GetMessages Request', [
+                'location' => $location,
+                'index' => $index,
+                'count' => $count,
+                'from' => $from,
+                'url' => $this->baseUrl . '/SendSMS/GetMessages',
+            ]);
+
+            // استفاده از GET طبق مستندات رسمی
+            $response = Http::get($this->baseUrl . '/SendSMS/GetMessages', $data);
+            $responseBody = trim($response->body());
+
+            Log::debug('Melipayamak GetMessages Response', [
+                'http_status' => $response->status(),
+                'response_length' => strlen($responseBody),
+                'response_preview' => substr($responseBody, 0, 1000),
+                'full_response' => $responseBody,
+            ]);
+
+            if ($response->successful()) {
+                // تلاش برای پارس JSON
+                $jsonData = json_decode($responseBody, true);
+                
+                if (json_last_error() === JSON_ERROR_NONE && is_array($jsonData)) {
+                    // پاسخ JSON است
+                    $messages = $jsonData;
+                    
+                    Log::info('Melipayamak GetMessages Success (JSON)', [
+                        'messages_count' => count($messages),
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'messages' => $messages,
+                        'message' => count($messages) . ' پیام دریافت شد',
+                        'raw_response' => $responseBody,
+                    ];
+                } else {
+                    // پاسخ احتمالا XML است
+                    // تلاش برای پارس XML
+                    $xml = simplexml_load_string($responseBody);
+                    if ($xml !== false) {
+                        $messages = [];
+                        
+                        Log::debug('XML parsed successfully', [
+                            'xml_keys' => array_keys(get_object_vars($xml)),
+                        ]);
+                        
+                        // بررسی ساختارهای مختلف XML
+                        // ساختار 1: MessagesBL -> MessagesBL
+                        if (isset($xml->MessagesBL)) {
+                            $messagesBL = $xml->MessagesBL;
+                            // اگر MessagesBL یک آرایه است
+                            if (isset($messagesBL->MessagesBL)) {
+                                foreach ($messagesBL->MessagesBL as $msg) {
+                                    $messages[] = (array)$msg;
+                                }
+                            } else {
+                                // اگر خود MessagesBL آرایه است
+                                foreach ($messagesBL as $msg) {
+                                    $messages[] = (array)$msg;
+                                }
+                            }
+                        }
+                        // ساختار 2: Messages مستقیم
+                        elseif (isset($xml->Messages)) {
+                            foreach ($xml->Messages as $msg) {
+                                $messages[] = (array)$msg;
+                            }
+                        }
+                        // ساختار 3: هر عنصر مستقیماً یک پیام است
+                        else {
+                            foreach ($xml as $msg) {
+                                $messages[] = (array)$msg;
+                            }
+                        }
+                        
+                        Log::info('Melipayamak GetMessages Success (XML)', [
+                            'messages_count' => count($messages),
+                            'first_message' => !empty($messages) ? $messages[0] : null,
+                        ]);
+
+                        return [
+                            'success' => true,
+                            'messages' => $messages,
+                            'message' => count($messages) . ' پیام دریافت شد',
+                            'raw_response' => $responseBody,
+                        ];
+                    }
+                    
+                    // اگر XML هم نبود، پاسخ خام را برمی‌گردانیم
+                    Log::warning('Melipayamak GetMessages - Unknown format', [
+                        'response_body' => $responseBody,
+                    ]);
+                    
+                    return [
+                        'success' => true,
+                        'messages' => [],
+                        'message' => 'پاسخ دریافت شد (فرمت ناشناخته): ' . substr($responseBody, 0, 200),
+                        'raw_response' => $responseBody,
+                    ];
+                }
+            }
+
+            Log::error('Melipayamak GetMessages Error', [
+                'http_status' => $response->status(),
+                'response_body' => $responseBody,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در دریافت پیام‌ها: ' . $responseBody,
+                'raw_response' => $responseBody,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Melipayamak GetMessages Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در اتصال به سرویس: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * دریافت وضعیت تحویل (دلیوری) پیامک ارسال شده
+     * 
+     * @param int|array $recId شناسه پیامک (می‌تواند آرایه هم باشد)
+     * @return array
+     */
+    public function getDeliveries($recId)
+    {
+        try {
+            $data = [
+                'username' => $this->getUsername(),
+                'password' => $this->getPassword(),
+            ];
+
+            // اگر آرایه است، به رشته تبدیل می‌کنیم
+            if (is_array($recId)) {
+                $data['recIds'] = implode(',', $recId);
+            } else {
+                $data['recId'] = $recId;
+            }
+
+            Log::debug('Melipayamak GetDeliveries Request', [
+                'rec_id' => $recId,
+            ]);
+
+            $response = Http::asForm()->post($this->baseUrl . '/SendSMS/GetDeliveries2', $data);
+            $responseBody = trim($response->body());
+
+            Log::debug('Melipayamak GetDeliveries Response', [
+                'http_status' => $response->status(),
+                'response_body' => $responseBody,
+            ]);
+
+            if ($response->successful()) {
+                // تلاش برای پارس JSON
+                $jsonData = json_decode($responseBody, true);
+                
+                if (json_last_error() === JSON_ERROR_NONE && is_array($jsonData)) {
+                    // پاسخ JSON است
+                    $deliveries = $jsonData;
+                    
+                    Log::info('Melipayamak GetDeliveries Success', [
+                        'deliveries_count' => count($deliveries),
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'deliveries' => $deliveries,
+                        'message' => 'وضعیت تحویل دریافت شد',
+                        'raw_response' => $responseBody,
+                    ];
+                } else {
+                    // پاسخ احتمالا عددی یا XML است
+                    // اگر عددی است، آن را به عنوان وضعیت برمی‌گردانیم
+                    if (is_numeric($responseBody)) {
+                        $status = (int)$responseBody;
+                        $statusText = $this->getDeliveryStatusText($status);
+                        
+                        return [
+                            'success' => true,
+                            'deliveries' => [['status' => $status, 'text' => $statusText]],
+                            'message' => 'وضعیت تحویل: ' . $statusText,
+                            'raw_response' => $responseBody,
+                        ];
+                    }
+                    
+                    // در غیر این صورت پاسخ خام را برمی‌گردانیم
+                    return [
+                        'success' => true,
+                        'deliveries' => [],
+                        'message' => 'پاسخ دریافت شد',
+                        'raw_response' => $responseBody,
+                    ];
+                }
+            }
+
+            Log::error('Melipayamak GetDeliveries Error', [
+                'http_status' => $response->status(),
+                'response_body' => $responseBody,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در دریافت وضعیت تحویل: ' . $responseBody,
+                'raw_response' => $responseBody,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Melipayamak GetDeliveries Exception', [
+                'rec_id' => $recId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'خطا در اتصال به سرویس: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * دریافت متن وضعیت تحویل بر اساس کد
+     * 
+     * @param int $status کد وضعیت
+     * @return string
+     */
+    protected function getDeliveryStatusText($status)
+    {
+        $statusTexts = [
+            '-1' => 'ارسال نشده',
+            '-2' => 'ارسال بیش از 100 کد یکتا در فراخوانی',
+            '-3' => 'نام کاربری یا رمز عبور اشتباه است',
+            '-10' => 'بروز خطا در دریافت گزارش تحویل',
+            '0' => 'ارسال شده به مخابرات',
+            '1' => 'رسیده به گوشی',
+            '2' => 'نرسیده به گوشی',
+            '3' => 'خطای مخابراتی',
+            '5' => 'خطای نامشخص',
+            '8' => 'رسیده به مخابرات',
+            '16' => 'نرسیده به مخابرات',
+            '35' => 'لیست سیاه',
+            '100' => 'نامشخص',
+            '200' => 'ارسال شده',
+            '300' => 'فیلتر شده',
+            '400' => 'در لیست ارسال',
+            '500' => 'عدم پذیرش',
+        ];
+
+        return $statusTexts[(string)$status] ?? 'وضعیت نامشخص';
     }
 }

@@ -37,18 +37,29 @@ class CreateResidentReport extends Component
 
     public function loadReports()
     {
-        $this->categories = Category::all();
-        $this->reports = Report::all();
+        $this->categories = Category::select('id', 'name')->get();
+        // Only load reports when category is selected to improve performance
+        if ($this->selectedCategory) {
+            $this->reports = Report::where('category_id', $this->selectedCategory)
+                ->select('id', 'title', 'negative_score')
+                ->get();
+        } else {
+            $this->reports = collect();
+        }
     }
 
     public function updatedSelectedCategory()
     {
-        $this->reports = $this->selectedCategory 
-            ? Report::where('category_id', $this->selectedCategory)->get()
-            : Report::all();
-        
-        // Update pattern message when reports change
-        $this->updatePatternMessage();
+        $this->reports = $this->selectedCategory
+            ? Report::where('category_id', $this->selectedCategory)
+                ->select('id', 'title', 'negative_score')
+                ->orderBy('title')
+                ->get()
+            : collect();
+
+        // Reset report_id when category changes
+        $this->report_id = null;
+        $this->patternMessage = null;
     }
     
     public function updatedReportId()
@@ -334,52 +345,52 @@ class CreateResidentReport extends Component
     private function sendSmsToResidents($residents, $report)
     {
         $pattern = $this->patternMessage['pattern'];
-        
+
         // Cache pattern variables and pivot data outside the loop for performance
         preg_match_all('/\{(\d+)\}/', $pattern->text, $matches);
         $variableCodes = $matches[0];
-        
+
         // Get all pivot data at once
         $pivotDataMap = \Illuminate\Support\Facades\DB::table('pattern_pattern_variables')
             ->where('pattern_id', $pattern->id)
             ->whereIn('variable_code', $variableCodes)
             ->get()
             ->keyBy('variable_code');
-        
+
         // Get pattern variable once
         $patternVariable = PatternVariable::where('pattern_code', $pattern->pattern_code)
             ->where('is_active', true)
             ->first();
-        
+
         // Get sender number once
         $senderNumber = \App\Models\SenderNumber::getActivePatternNumbers()->first();
         $senderNumberValue = $senderNumber ? $senderNumber->number : null;
         $apiKey = $senderNumber ? $senderNumber->api_key : null;
-        
+
         $bodyId = (int)$pattern->pattern_code;
         $melipayamakService = new \App\Services\MelipayamakService();
-        
+
         foreach ($residents as $resident) {
             if (empty($resident->resident_phone)) {
                 continue;
             }
-            
+
             try {
                 // Generate personalized message
                 $finalMessage = $this->generatePersonalizedMessage($pattern, $resident);
-                
+
                 // Extract variables for SMS using cached data
                 $variables = [];
                 foreach ($variableCodes as $code) {
                     $pivot = $pivotDataMap->get($code);
-                    
+
                     if ($pivot && $pivot->table_field && $patternVariable) {
                         $value = $this->getVariableValue($patternVariable->table_name, $pivot->table_field, $resident, $report);
                         $variables[] = $value;
                     }
                 }
-                
-                // Create SMS record
+
+                // Create SMS record with pending status
                 $smsMessageResident = \App\Models\SmsMessageResident::create([
                     'sms_message_id' => null,
                     'report_id' => $this->report_id,
@@ -393,8 +404,8 @@ class CreateResidentReport extends Component
                     'description' => $finalMessage,
                     'status' => 'pending',
                 ]);
-                
-                // Send SMS using sendByBaseNumber
+
+                // Send SMS synchronously but with timeout to prevent blocking
                 $result = $melipayamakService->sendByBaseNumber(
                     $resident->resident_phone,
                     $bodyId,
@@ -402,7 +413,7 @@ class CreateResidentReport extends Component
                     $senderNumberValue,
                     $apiKey
                 );
-                
+
                 // Update SMS record status
                 if ($result['success']) {
                     $smsMessageResident->update([
@@ -423,7 +434,7 @@ class CreateResidentReport extends Component
                         'raw_response' => $result['raw_response'] ?? null,
                     ]);
                 }
-                
+
                 \Log::info('SMS record created and sent for resident', [
                     'resident_id' => $resident->resident_id,
                     'phone' => $resident->resident_phone,
@@ -431,7 +442,7 @@ class CreateResidentReport extends Component
                     'success' => $result['success'] ?? false,
                     'message' => $result['message'] ?? 'No message'
                 ]);
-                
+
             } catch (\Exception $e) {
                 \Log::error('Error creating/sending SMS for resident', [
                     'resident_id' => $resident->resident_id,

@@ -2270,6 +2270,13 @@ class ResidentReports extends Component
                 return $resident->bed_name ?? '';
             case 'unit_name':
                 return $resident->unit_name ?? '';
+            case 'contract_payment_date_jalali':
+            case 'payment_date_jalali':
+                return $resident->contract_payment_date_jalali ?? '';
+            case 'contract_start_date_jalali':
+                return $resident->contract_start_date_jalali ?? '';
+            case 'contract_end_date_jalali':
+                return $resident->contract_end_date_jalali ?? '';
             default:
                 return $resident->$field ?? '';
         }

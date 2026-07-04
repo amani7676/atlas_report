@@ -18,6 +18,7 @@ class Create extends Component
     public $auto_ability = true;
     public $patterns = [];
     public $selectedPattern = '';
+    public $api_endpoint_name = '';
 
     public function mount()
     {
@@ -39,6 +40,7 @@ class Create extends Component
         'negative_score' => 'required|integer|min:0',
         'increase_coefficient' => 'required|numeric|min:0',
         'selectedPattern' => 'required|exists:patterns,id',
+        'api_endpoint_name' => 'nullable|regex:/^[a-zA-Z0-9_]+$/|max:255',
     ];
 
     public function save()
@@ -55,13 +57,23 @@ class Create extends Component
             }
         }
 
+        // بررسی تکراری بودن نام endpoint
+        if (!empty($this->api_endpoint_name)) {
+            $existingEndpoint = Report::where('api_endpoint_name', $this->api_endpoint_name)->first();
+            if ($existingEndpoint) {
+                $this->addError('api_endpoint_name', 'این نام endpoint قبلاً برای گزارش "' . $existingEndpoint->title . '" استفاده شده است.');
+                return;
+            }
+        }
+
         $report = Report::create([
             'category_id' => $this->category_id,
             'title' => $this->title,
             'description' => $this->description,
             'negative_score' => $this->negative_score,
             'increase_coefficient' => $this->increase_coefficient,
-            'auto_ability' => $this->auto_ability
+            'auto_ability' => $this->auto_ability,
+            'api_endpoint_name' => $this->api_endpoint_name ?: null
         ]);
 
         // اتصال الگو به گزارش (فقط یک الگو)

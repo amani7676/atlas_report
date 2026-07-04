@@ -12,4 +12,4 @@
     </button>
 </div>
 
-<?php /**PATH C:\laragon\www\atlas_report\resources\views/livewire/layout/sync-button.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\livewire\layout\sync-button.blade.php ENDPATH**/ ?>

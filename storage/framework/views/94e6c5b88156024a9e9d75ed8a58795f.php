@@ -1624,7 +1624,7 @@
                 
                 <!-- سایر -->
                 <div class="menu-section">سایر</div>
-                <li class="menu-item has-submenu <?php echo e(request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') || request()->is('settings*') || request()->is('patterns*') || request()->is('variables*') || request()->is('api-keys*') || request()->is('admin/card-thresholds*') ? 'open' : ''); ?>">
+                <li class="menu-item has-submenu <?php echo e(request()->is('table-names*') || request()->is('constants*') || request()->is('sender-numbers*') || request()->is('settings*') || request()->is('patterns*') || request()->is('variables*') || request()->is('api-keys*') || request()->is('api-manager*') || request()->is('admin/card-thresholds*') || request()->is('sms/api-messages*') ? 'open' : ''); ?>">
                     <a href="#" onclick="event.preventDefault(); toggleSubmenu(this);">
                         <i class="fas fa-cogs"></i>
                         <span>سایر</span>
@@ -1649,6 +1649,12 @@
                             </a>
                         </li>
                         <li>
+                            <a href="/api-manager" class="<?php echo e(request()->is('api-manager*') ? 'active' : ''); ?>">
+                                <i class="fas fa-server"></i>
+                                <span>مدیریت API</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="/variables" class="<?php echo e(request()->is('variables*') ? 'active' : ''); ?>">
                                 <i class="fas fa-code"></i>
                                 <span>مدیریت متغیرها</span>
@@ -1670,6 +1676,12 @@
                             <a href="/sender-numbers" class="<?php echo e(request()->is('sender-numbers*') ? 'active' : ''); ?>">
                                 <i class="fas fa-phone-alt"></i>
                                 <span>مدیریت شماره‌های فرستنده</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/sms/api-messages" class="<?php echo e(request()->is('sms/api-messages*') ? 'active' : ''); ?>">
+                                <i class="fas fa-sms"></i>
+                                <span>پیام‌های سامانه ملی پیامک</span>
                             </a>
                         </li>
                     </ul>
@@ -1711,7 +1723,7 @@ $__split = function ($name, $params = []) {
 
 $__key = null;
 
-$__key ??= \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::generateKey('lw-3005043130-0', $__key);
+$__key ??= \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::generateKey('lw-4149055777-0', $__key);
 
 $__html = app('livewire')->mount($__name, $__params, $__key);
 
@@ -2432,4 +2444,4 @@ if (isset($__slots)) unset($__slots);
 
 </html>
 
-<?php /**PATH C:\laragon\www\atlas_report\resources\views/layouts/app.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\laragon\www\atlas_report\resources\views\layouts\app.blade.php ENDPATH**/ ?>

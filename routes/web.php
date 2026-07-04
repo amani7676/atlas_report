@@ -56,10 +56,12 @@ Route::get('/variables', \App\Livewire\Variables\Index::class)->name('variables.
 Route::get('/variables/create', \App\Livewire\Variables\Index::class)->name('variables.create')->middleware('auth');
 Route::get('/sender-numbers', \App\Livewire\Admin\SenderNumbers::class)->name('sender-numbers.index')->middleware('auth');
 Route::get('/api-keys', \App\Livewire\Admin\ApiKeyManager::class)->name('api-keys.index')->middleware('auth');
+Route::get('/api-manager', \App\Livewire\Admin\ApiManager::class)->name('api-manager.index')->middleware('auth');
 Route::get('/constants', \App\Livewire\Constants\Index::class)->name('constants.index')->middleware('auth');
 Route::get('/table-names', \App\Livewire\TableNames\Index::class)->name('table-names.index')->middleware('auth');
 Route::get('/settings', \App\Livewire\Settings\Index::class)->name('settings.index')->middleware('auth');
 Route::get('/sms/sent', \App\Livewire\Sms\SentMessages::class)->name('sms.sent')->middleware('auth');
+Route::get('/sms/api-messages', \App\Livewire\Sms\ApiMessages::class)->name('sms.api-messages')->middleware('auth');
 
 
 // Test endpoint
@@ -526,3 +528,147 @@ Route::post('/api/categories/bulk-delete', function () {
     // این Route برای حذف گروهی استفاده می‌شود
     return response()->json(['success' => true]);
 })->name('categories.bulk-delete');
+
+// API endpoint برای دریافت داده‌های کاربر
+Route::get('/api/resident/{residentId}', function ($residentId) {
+    try {
+        $resident = \App\Models\Resident::where('resident_id', $residentId)->first();
+        
+        if (!$resident) {
+            return response()->json([
+                'success' => false,
+                'message' => 'کاربر یافت نشد'
+            ], 404);
+        }
+
+        // دریافت گزارش‌های این کاربر
+        $residentReports = \App\Models\ResidentReport::where('resident_id', $residentId)
+            ->with('report', 'report.category')
+            ->get()
+            ->groupBy(function ($rr) {
+                return $rr->report->api_endpoint_name ?? 'other';
+            })
+            ->map(function ($reports, $key) {
+                return $reports->map(function ($rr) {
+                    return [
+                        'id' => $rr->id,
+                        'report_id' => $rr->report_id,
+                        'report_title' => $rr->report->title ?? null,
+                        'report_category' => $rr->report->category->name ?? null,
+                        'report_negative_score' => $rr->report->negative_score ?? 0,
+                        'description' => $rr->description,
+                        'notes' => $rr->notes,
+                        'has_been_sent' => $rr->has_been_sent,
+                        'is_checked' => $rr->is_checked,
+                        'created_at' => $rr->created_at ? $rr->created_at->format('Y-m-d H:i:s') : null,
+                    ];
+                });
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'resident_id' => $resident->resident_id,
+                'contract_id' => $resident->contract_id,
+                'full_name' => $resident->resident_full_name,
+                'phone' => $resident->resident_phone,
+                'reports' => $residentReports,
+            ]
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error fetching resident data', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در دریافت اطلاعات: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('api.resident.data');
+
+// API endpoint برای دریافت همه کاربران با تخلف‌ها
+Route::get('/api/residents/all', function () {
+    try {
+        $residents = \App\Models\Resident::all();
+        
+        $residentsData = $residents->map(function ($resident) {
+            // دریافت گزارش‌های این کاربر
+            $residentReports = \App\Models\ResidentReport::where('resident_id', $resident->resident_id)
+                ->with('report', 'report.category')
+                ->get()
+                ->groupBy(function ($rr) {
+                    return $rr->report->api_endpoint_name ?? 'other';
+                })
+                ->map(function ($reports, $key) {
+                    return $reports->map(function ($rr) {
+                        return [
+                            'id' => $rr->id,
+                            'report_id' => $rr->report_id,
+                            'report_title' => $rr->report->title ?? null,
+                            'report_category' => $rr->report->category->name ?? null,
+                            'report_negative_score' => $rr->report->negative_score ?? 0,
+                            'description' => $rr->description,
+                            'notes' => $rr->notes,
+                            'has_been_sent' => $rr->has_been_sent,
+                            'is_checked' => $rr->is_checked,
+                            'created_at' => $rr->created_at ? $rr->created_at->format('Y-m-d H:i:s') : null,
+                        ];
+                    });
+                });
+
+            return [
+                'resident_id' => $resident->resident_id,
+                'contract_id' => $resident->contract_id,
+                'full_name' => $resident->resident_full_name,
+                'phone' => $resident->resident_phone,
+                'reports' => $residentReports,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'count' => $residentsData->count(),
+            'data' => $residentsData,
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error fetching all residents data', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در دریافت اطلاعات: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('api.residents.all');
+
+// API endpoint برای دریافت لیست همه گزارش‌ها با endpoint names
+Route::get('/api/reports/endpoints', function () {
+    try {
+        $reports = \App\Models\Report::with('category')
+            ->orderBy('title')
+            ->get()
+            ->map(function ($report) {
+                return [
+                    'id' => $report->id,
+                    'title' => $report->title,
+                    'category' => $report->category->name ?? null,
+                    'api_endpoint_name' => $report->api_endpoint_name,
+                    'negative_score' => $report->negative_score,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $reports
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در دریافت اطلاعات: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('api.reports.endpoints');

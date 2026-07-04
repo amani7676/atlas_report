@@ -875,6 +875,47 @@ class PatternManual extends Component
             }
         }
 
+        // اگر الگو انتخاب شده، از متغیرهای اختصاصی آن الگو استفاده می‌کنیم
+        if ($this->selectedPattern) {
+            $pattern = Pattern::find($this->selectedPattern);
+            if ($pattern) {
+                $patternVariables = $pattern->getPatternVariablesWithCodes();
+                
+                $result = [];
+                $usedIndices = array_unique(array_map('intval', $matches[1]));
+                sort($usedIndices);
+                
+                // پیدا کردن بزرگترین index برای ساخت آرایه کامل
+                $maxIndex = !empty($usedIndices) ? max($usedIndices) : -1;
+                
+                // ساخت آرایه کامل از 0 تا maxIndex
+                for ($i = 0; $i <= $maxIndex; $i++) {
+                    $code = '{' . $i . '}';
+                    
+                    if (isset($patternVariables[$code])) {
+                        $variable = $patternVariables[$code];
+                        $value = $this->getVariableValue($variable, $residentData, $reportData);
+                        $result[] = $value;
+                    } else {
+                        // اگر متغیر اختصاصی برای این کد وجود نداشت، از متغیر عمومی استفاده می‌کنیم
+                        $globalVariable = PatternVariable::where('code', $code)
+                            ->where('is_active', true)
+                            ->first();
+                        
+                        if ($globalVariable) {
+                            $value = $this->getVariableValue($globalVariable, $residentData, $reportData);
+                            $result[] = $value;
+                        } else {
+                            $result[] = '';
+                        }
+                    }
+                }
+                
+                return $result;
+            }
+        }
+
+        // اگر الگو انتخاب نشده بود، از روش قدیمی استفاده می‌کنیم
         // بارگذاری متغیرها از دیتابیس
         $variables = PatternVariable::where('is_active', true)
             ->get()
@@ -1008,7 +1049,12 @@ class PatternManual extends Component
      */
     protected function getVariableValue($variable, $residentData, $reportData)
     {
-        $field = $variable->table_field ?? '';
+        // اگر متغیر از نوع اختصاصی است و table_field در pivot دارد، از آن استفاده می‌کنیم
+        if (isset($variable->pivot_table_field)) {
+            $field = $variable->pivot_table_field;
+        } else {
+            $field = $variable->table_field ?? '';
+        }
         $type = $variable->variable_type ?? 'user';
         
         \Log::debug('Getting variable value', [

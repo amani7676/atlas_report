@@ -1040,11 +1040,7 @@ class ExpiredToday extends Component
                 for ($i = 0; $i <= $maxIndex; $i++) {
                     $code = '{' . $i . '}';
                     
-                    // منطق خاص برای کد {3} - مقدار مستقیم delay از دیتابیس
-                    if ($code === '{3}') {
-                        $delay = $residentDataForVariables['delay'] ?? 0;
-                        $result[] = $delay;
-                    } elseif (isset($patternVariables[$code])) {
+                    if (isset($patternVariables[$code])) {
                         $variable = $patternVariables[$code];
                         $value = $this->getVariableValue($variable, $residentDataForVariables, null);
                         $result[] = $value;

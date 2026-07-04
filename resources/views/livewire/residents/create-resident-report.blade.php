@@ -36,7 +36,7 @@
                         <i class="fas fa-folder"></i>
                         دسته‌بندی
                     </label>
-                    <select class="form-select" wire:model.live="selectedCategory">
+                    <select class="form-select" wire:model.change="selectedCategory">
                         <option value="">همه دسته‌بندی‌ها</option>
                         @foreach($categories as $category)
                             <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -51,6 +51,11 @@
                         گزارش
                         <span class="text-danger">*</span>
                     </label>
+                    @if($this->selectedCategory && $this->reports->isEmpty())
+                        <div class="text-muted small">
+                            <i class="fas fa-spinner fa-spin"></i> در حال بارگذاری گزارش‌ها...
+                        </div>
+                    @endif
                     <select class="form-select" wire:model="report_id" required>
                         <option value="">-- انتخاب گزارش --</option>
                         @foreach($reports as $report)
