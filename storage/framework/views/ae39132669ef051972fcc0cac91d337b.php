@@ -44,24 +44,56 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                     تنظیمات سیستم کارت‌ها
                 </h3>
 
-                <!-- تعداد گزارش یکسان -->
+                <!-- تعداد تخلف یکسان برای کارت زرد -->
                 <div style="margin-bottom: 25px;">
                     <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
-                        <i class="fas fa-repeat" style="margin-left: 5px;"></i>
-                        تعداد گزارش یکسان برای نمایش <span style="color: red;">*</span>
+                        <i class="fas fa-square" style="margin-left: 5px; color: #ffc107;"></i>
+                        تعداد تخلف یکسان برای کارت زرد <span style="color: red;">*</span>
                     </label>
                     <input
                         type="number"
-                        wire:model="repeat_violation"
+                        wire:model="yellow_violation_count_threshold"
                         class="form-control"
                         placeholder="مثال: 3"
                         min="1"
                         style="width: 100%; max-width: 400px;"
                     >
                     <small style="color: #666; margin-top: 5px; display: block;">
-                        تعداد گزارش یکسان که باید برای نمایش در "اقامت‌گران با تخلف‌های تکرارای یکسان" استفاده شود.
+                        تعداد تکرار یک تخلف برای دریافت کارت زرد. پیش‌فرض: 3 بار.
                     </small>
-                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['repeat_violation'];
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['yellow_violation_count_threshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> 
+                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
+                            <?php echo e($message); ?>
+
+                        </span> 
+                    <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                </div>
+
+                <!-- تعداد تخلف یکسان برای کارت قرمز -->
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                        <i class="fas fa-square" style="margin-left: 5px; color: #dc3545;"></i>
+                        تعداد تخلف یکسان برای کارت قرمز <span style="color: red;">*</span>
+                    </label>
+                    <input
+                        type="number"
+                        wire:model="red_violation_count_threshold"
+                        class="form-control"
+                        placeholder="مثال: 5"
+                        min="1"
+                        style="width: 100%; max-width: 400px;"
+                    >
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        تعداد تکرار یک تخلف برای دریافت کارت قرمز. پیش‌فرض: 5 بار.
+                    </small>
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['red_violation_count_threshold'];
 $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
 if ($__bag->has($__errorArgs[0])) :
 if (isset($message)) { $__messageOriginal = $message; }

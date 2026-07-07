@@ -9,6 +9,8 @@ class CardThresholds extends Component
 {
     public $yellowThreshold;
     public $redThreshold;
+    public $yellowViolationCountThreshold;
+    public $redViolationCountThreshold;
     public $successMessage = '';
 
     public function mount()
@@ -20,9 +22,13 @@ class CardThresholds extends Component
     {
         $yellowConstant = Constant::where('key', 'yellow_card_threshold')->first();
         $redConstant = Constant::where('key', 'red_card_threshold')->first();
+        $yellowViolationCountConstant = Constant::where('key', 'yellow_violation_count_threshold')->first();
+        $redViolationCountConstant = Constant::where('key', 'red_violation_count_threshold')->first();
 
         $this->yellowThreshold = $yellowConstant ? $yellowConstant->value : 20;
         $this->redThreshold = $redConstant ? $redConstant->value : 30;
+        $this->yellowViolationCountThreshold = $yellowViolationCountConstant ? $yellowViolationCountConstant->value : 3;
+        $this->redViolationCountThreshold = $redViolationCountConstant ? $redViolationCountConstant->value : 5;
     }
 
     public function saveThresholds()
@@ -30,6 +36,8 @@ class CardThresholds extends Component
         $this->validate([
             'yellowThreshold' => 'required|integer|min:1|max:100',
             'redThreshold' => 'required|integer|min:1|max:100',
+            'yellowViolationCountThreshold' => 'required|integer|min:1|max:50',
+            'redViolationCountThreshold' => 'required|integer|min:1|max:50',
         ], [
             'yellowThreshold.required' => 'آستانه کارت زرد الزامی است',
             'yellowThreshold.integer' => 'آستانه کارت زرد باید عدد باشد',
@@ -39,11 +47,25 @@ class CardThresholds extends Component
             'redThreshold.integer' => 'آستانه کارت قرمز باید عدد باشد',
             'redThreshold.min' => 'آستانه کارت قرمز باید حداقل 1 باشد',
             'redThreshold.max' => 'آستانه کارت قرمز نباید بیشتر از 100 باشد',
+            'yellowViolationCountThreshold.required' => 'آستانه تعداد تخلف کارت زرد الزامی است',
+            'yellowViolationCountThreshold.integer' => 'آستانه تعداد تخلف کارت زرد باید عدد باشد',
+            'yellowViolationCountThreshold.min' => 'آستانه تعداد تخلف کارت زرد باید حداقل 1 باشد',
+            'yellowViolationCountThreshold.max' => 'آستانه تعداد تخلف کارت زرد نباید بیشتر از 50 باشد',
+            'redViolationCountThreshold.required' => 'آستانه تعداد تخلف کارت قرمز الزامی است',
+            'redViolationCountThreshold.integer' => 'آستانه تعداد تخلف کارت قرمز باید عدد باشد',
+            'redViolationCountThreshold.min' => 'آستانه تعداد تخلف کارت قرمز باید حداقل 1 باشد',
+            'redViolationCountThreshold.max' => 'آستانه تعداد تخلف کارت قرمز نباید بیشتر از 50 باشد',
         ]);
 
         // بررسی اینکه آستانه قرمز باید بزرگتر یا مساوی زرد باشد
         if ($this->redThreshold < $this->yellowThreshold) {
             $this->addError('redThreshold', 'آستانه کارت قرمز باید بزرگتر یا مساوی آستانه کارت زرد باشد');
+            return;
+        }
+
+        // بررسی اینکه آستانه تعداد تخلف قرمز باید بزرگتر یا مساوی زرد باشد
+        if ($this->redViolationCountThreshold < $this->yellowViolationCountThreshold) {
+            $this->addError('redViolationCountThreshold', 'آستانه تعداد تخلف کارت قرمز باید بزرگتر یا مساوی آستانه تعداد تخلف کارت زرد باشد');
             return;
         }
 
@@ -63,6 +85,24 @@ class CardThresholds extends Component
                 [
                     'value' => $this->redThreshold,
                     'description' => 'آستانه امتیاز برای کارت قرمز'
+                ]
+            );
+
+            // ذخیره یا ایجاد آستانه تعداد تخلف کارت زرد
+            Constant::updateOrCreate(
+                ['key' => 'yellow_violation_count_threshold'],
+                [
+                    'value' => $this->yellowViolationCountThreshold,
+                    'description' => 'آستانه تعداد تخلف برای کارت زرد'
+                ]
+            );
+
+            // ذخیره یا ایجاد آستانه تعداد تخلف کارت قرمز
+            Constant::updateOrCreate(
+                ['key' => 'red_violation_count_threshold'],
+                [
+                    'value' => $this->redViolationCountThreshold,
+                    'description' => 'آستانه تعداد تخلف برای کارت قرمز'
                 ]
             );
 

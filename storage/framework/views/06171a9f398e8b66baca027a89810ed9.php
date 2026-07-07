@@ -92,6 +92,85 @@ endif;
 unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                             </div>
 
+                            <hr class="my-4">
+
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-hashtag me-2"></i>
+                                آستانه‌های تعداد تخلف
+                            </h6>
+
+                            <div class="mb-4">
+                                <label for="yellowViolationCountThreshold" class="form-label fw-bold">
+                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                    آستانه تعداد تخلف کارت زرد
+                                </label>
+                                <input 
+                                    type="number" 
+                                    class="form-control <?php $__errorArgs = ['yellowViolationCountThreshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> ? 'is-invalid' : ''" 
+                                    id="yellowViolationCountThreshold"
+                                    wire:model.live="yellowViolationCountThreshold"
+                                    min="1" 
+                                    max="50"
+                                    step="1"
+                                    placeholder="مثال: 3">
+                                <div class="form-text text-muted">
+                                    اقامت‌گرانی که تعداد تخلفات یکسان (گزارش مشابه) به این عدد برسد، کارت زرد دریافت می‌کنند.
+                                </div>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['yellowViolationCountThreshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                                    <div class="invalid-feedback d-block">
+                                        <?php echo e($message); ?>
+
+                                    </div>
+                                <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="redViolationCountThreshold" class="form-label fw-bold">
+                                    <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                                    آستانه تعداد تخلف کارت قرمز
+                                </label>
+                                <input 
+                                    type="number" 
+                                    class="form-control <?php $__errorArgs = ['redViolationCountThreshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?> ? 'is-invalid' : ''" 
+                                    id="redViolationCountThreshold"
+                                    wire:model.live="redViolationCountThreshold"
+                                    min="1" 
+                                    max="50"
+                                    step="1"
+                                    placeholder="مثال: 5">
+                                <div class="form-text text-muted">
+                                    اقامت‌گرانی که تعداد تخلفات یکسان (گزارش مشابه) به این عدد برسد، کارت قرمز دریافت می‌کنند.
+                                </div>
+                                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php $__errorArgs = ['redViolationCountThreshold'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                                    <div class="invalid-feedback d-block">
+                                        <?php echo e($message); ?>
+
+                                    </div>
+                                <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                            </div>
+
                             <!-- نمایش وضعیت فعلی -->
                             <div class="alert alert-info mb-4">
                                 <h6 class="alert-heading">
@@ -100,18 +179,18 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                 </h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <strong>کارت زرد:</strong> امتیاز ≥ <?php echo e($yellowThreshold); ?>
+                                        <strong>کارت زرد:</strong> امتیاز ≥ <?php echo e($yellowThreshold); ?> یا تعداد تخلف یکسان ≥ <?php echo e($yellowViolationCountThreshold); ?>
 
                                     </div>
                                     <div class="col-md-6">
-                                        <strong>کارت قرمز:</strong> امتیاز ≥ <?php echo e($redThreshold); ?>
+                                        <strong>کارت قرمز:</strong> امتیاز ≥ <?php echo e($redThreshold); ?> یا تعداد تخلف یکسان ≥ <?php echo e($redViolationCountThreshold); ?>
 
                                     </div>
                                 </div>
                                 <hr>
                                 <small class="text-muted">
                                     <i class="fas fa-lightbulb me-1"></i>
-                                    نکته: آستانه کارت قرمز باید بزرگتر یا مساوی آستانه کارت زرد باشد.
+                                    نکته: آستانه‌های کارت قرمز باید بزرگتر یا مساوی آستانه‌های کارت زرد باشند.
                                 </small>
                             </div>
 

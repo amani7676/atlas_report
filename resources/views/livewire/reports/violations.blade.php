@@ -367,14 +367,12 @@
                                                     <span class="badge bg-info">{{ $person->total_reports }}</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    @if($person->total_score == 0)
-                                                        <span class="badge bg-success">عالی</span>
-                                                    @elseif($person->total_score <= 5)
-                                                        <span class="badge bg-info">خوب</span>
-                                                    @elseif($person->total_score <= 10)
-                                                        <span class="badge bg-warning">متوسط</span>
+                                                    @if($person->total_score >= $redThreshold || ($person->max_repeated_violation_count ?? 0) >= $redViolationCountThreshold)
+                                                        <span class="badge bg-danger">کارت قرمز</span>
+                                                    @elseif($person->total_score >= $yellowThreshold || ($person->max_repeated_violation_count ?? 0) >= $yellowViolationCountThreshold)
+                                                        <span class="badge bg-warning">کارت زرد</span>
                                                     @else
-                                                        <span class="badge bg-danger">نیاز به توجه</span>
+                                                        <span class="badge bg-info">بدون کارت</span>
                                                     @endif
                                                 </td>
                                             </tr>

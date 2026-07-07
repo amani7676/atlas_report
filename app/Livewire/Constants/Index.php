@@ -140,6 +140,9 @@ class Index extends Component
             $message = 'ثابت با موفقیت ایجاد شد.';
         }
 
+        // Dispatch event برای به‌روزرسانی تایمر همگام‌سازی
+        $this->dispatch('constants-updated');
+
         $this->dispatch('showToast', [
             'type' => 'success',
             'title' => 'موفقیت!',

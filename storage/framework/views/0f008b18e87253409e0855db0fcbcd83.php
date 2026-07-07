@@ -399,14 +399,12 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                                     <span class="badge bg-info"><?php echo e($person->total_reports); ?></span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($person->total_score == 0): ?>
-                                                        <span class="badge bg-success">عالی</span>
-                                                    <?php elseif($person->total_score <= 5): ?>
-                                                        <span class="badge bg-info">خوب</span>
-                                                    <?php elseif($person->total_score <= 10): ?>
-                                                        <span class="badge bg-warning">متوسط</span>
+                                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($person->total_score >= $redThreshold || ($person->max_repeated_violation_count ?? 0) >= $redViolationCountThreshold): ?>
+                                                        <span class="badge bg-danger">کارت قرمز</span>
+                                                    <?php elseif($person->total_score >= $yellowThreshold || ($person->max_repeated_violation_count ?? 0) >= $yellowViolationCountThreshold): ?>
+                                                        <span class="badge bg-warning">کارت زرد</span>
                                                     <?php else: ?>
-                                                        <span class="badge bg-danger">نیاز به توجه</span>
+                                                        <span class="badge bg-info">بدون کارت</span>
                                                     <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                                 </td>
                                             </tr>

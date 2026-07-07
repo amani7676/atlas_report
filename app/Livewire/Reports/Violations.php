@@ -27,10 +27,17 @@ class Violations extends Component
     public $showMostRepeatedViolation = true;
     public $showMostViolationsPerson = true;
     public $showAllPersonViolations = true;
+    
+    // تنظیمات کارت زرد و قرمز
+    public $yellowThreshold = 20;
+    public $redThreshold = 30;
+    public $yellowViolationCountThreshold = 3;
+    public $redViolationCountThreshold = 5;
 
     public function mount()
     {
         $this->loadSettings();
+        $this->loadCardThresholds();
     }
     
     /**
@@ -49,6 +56,17 @@ class Violations extends Component
         $this->showMostRepeatedViolation = ViolationSetting::getValue('show_most_repeated_violation', '1') === '1';
         $this->showMostViolationsPerson = ViolationSetting::getValue('show_most_violations_person', '1') === '1';
         $this->showAllPersonViolations = ViolationSetting::getValue('show_all_person_violations', '1') === '1';
+    }
+    
+    /**
+     * بارگذاری thresholdهای کارت زرد و قرمز
+     */
+    public function loadCardThresholds()
+    {
+        $this->yellowThreshold = (int) (\App\Models\Constant::where('key', 'yellow_card_threshold')->first()?->value ?? 20);
+        $this->redThreshold = (int) (\App\Models\Constant::where('key', 'red_card_threshold')->first()?->value ?? 30);
+        $this->yellowViolationCountThreshold = (int) (\App\Models\Constant::where('key', 'yellow_violation_count_threshold')->first()?->value ?? 3);
+        $this->redViolationCountThreshold = (int) (\App\Models\Constant::where('key', 'red_violation_count_threshold')->first()?->value ?? 5);
     }
 
     public function updatingSearch()
@@ -191,9 +209,22 @@ class Violations extends Component
             // 3. مجموع تخلفات هر شخص (برای نمایش جدول کامل)
             'allPersonViolations' => ResidentReport::selectRaw('
                     resident_reports.resident_name,
-                    COUNT(CASE WHEN reports.negative_score > 0 THEN 1 END) as violation_count,
-                    SUM(CASE WHEN reports.negative_score > 0 THEN reports.negative_score ELSE 0 END) as total_score,
-                    COUNT(*) as total_reports
+                    COUNT(CASE WHEN reports.category_id = 1 AND reports.negative_score > 0 AND reports.id != 2 THEN 1 END) as violation_count,
+                    SUM(CASE WHEN reports.category_id = 1 AND reports.negative_score > 0 AND reports.id != 2 THEN reports.negative_score ELSE 0 END) as total_score,
+                    COUNT(*) as total_reports,
+                    (
+                        SELECT MAX(repeated_count)
+                        FROM (
+                            SELECT COUNT(*) as repeated_count
+                            FROM resident_reports rr2
+                            JOIN reports r2 ON rr2.report_id = r2.id
+                            WHERE rr2.resident_name = resident_reports.resident_name
+                            AND r2.category_id = 1
+                            AND r2.negative_score > 0
+                            AND r2.id != 2
+                            GROUP BY rr2.report_id
+                        ) as repeated
+                    ) as max_repeated_violation_count
                 ')
                 ->leftJoin('reports', 'resident_reports.report_id', '=', 'reports.id')
                 ->groupBy('resident_reports.resident_name')

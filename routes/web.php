@@ -672,3 +672,107 @@ Route::get('/api/reports/endpoints', function () {
         ], 500);
     }
 })->name('api.reports.endpoints');
+
+// API endpoint برای دریافت کاربران با تخلف‌ها (گروه‌بندی شده)
+Route::get('/api/admin/violations', function () {
+    try {
+        // دریافت thresholdهای کارت زرد و قرمز از تنظیمات
+        $yellowThreshold = (int) (\App\Models\Constant::where('key', 'yellow_card_threshold')->first()?->value ?? 20);
+        $redThreshold = (int) (\App\Models\Constant::where('key', 'red_card_threshold')->first()?->value ?? 30);
+        $yellowViolationCountThreshold = (int) (\App\Models\Constant::where('key', 'yellow_violation_count_threshold')->first()?->value ?? 3);
+        $redViolationCountThreshold = (int) (\App\Models\Constant::where('key', 'red_violation_count_threshold')->first()?->value ?? 5);
+
+        // دریافت کاربرانی که گزارش تخلف با امتیاز بالاتر از صفر دارند (به جز اخطار سررسید)
+        $residentsWithViolations = \App\Models\ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+            ->where('reports.category_id', 1) // دسته‌بندی تخلف
+            ->where('reports.negative_score', '>', 0) // امتیاز بالاتر از صفر
+            ->where('reports.id', '!=', 2) // حذف اخطار سررسید
+            ->whereNotNull('resident_reports.resident_id')
+            ->select('resident_reports.resident_id')
+            ->distinct()
+            ->get();
+
+        $data = $residentsWithViolations->map(function ($item) use ($yellowThreshold, $redThreshold, $yellowViolationCountThreshold, $redViolationCountThreshold) {
+            $residentId = $item->resident_id;
+            
+            // دریافت اطلاعات کاربر
+            $resident = \App\Models\Resident::where('resident_id', $residentId)->first();
+            
+            // دریافت تخلف‌های کاربر (فقط دسته‌بندی تخلف، نه اطلاع‌رسانی و نه اخطار سررسید)
+            $violations = \App\Models\ResidentReport::join('reports', 'resident_reports.report_id', '=', 'reports.id')
+                ->where('reports.category_id', 1)
+                ->where('reports.negative_score', '>', 0)
+                ->where('reports.id', '!=', 2) // حذف اخطار سررسید
+                ->where('resident_reports.resident_id', $residentId)
+                ->select(
+                    'reports.id as report_id',
+                    'reports.title as violation_type',
+                    'reports.negative_score as violation_score',
+                    'resident_reports.created_at'
+                )
+                ->get();
+
+            // گروه‌بندی تخلف‌های یکسان
+            $groupedViolations = $violations->groupBy('report_id')->map(function ($group) {
+                $count = $group->count();
+                $totalScore = $group->sum('violation_score');
+                
+                return [
+                    'violation_type' => $group->first()->violation_type,
+                    'violation_id' => $group->first()->report_id,
+                    'count' => $count,
+                    'single_score' => $group->first()->violation_score,
+                    'total_score' => $totalScore,
+                ];
+            })->values();
+
+            // محاسبه مجموع کل امتیازات
+            $totalViolationScore = $groupedViolations->sum('total_score');
+            
+            // محاسبه بیشترین تعداد تخلف یکسان
+            $maxRepeatedViolationCount = $groupedViolations->max('count') ?? 0;
+
+            // تعیین وضعیت کارت بر اساس thresholdها (فقط امتیاز یا تعداد تخلف یکسان)
+            $cardStatus = 'none';
+            if ($totalViolationScore >= $redThreshold || $maxRepeatedViolationCount >= $redViolationCountThreshold) {
+                $cardStatus = 'red';
+            } elseif ($totalViolationScore >= $yellowThreshold || $maxRepeatedViolationCount >= $yellowViolationCountThreshold) {
+                $cardStatus = 'yellow';
+            }
+
+            return [
+                'resident_id' => $residentId,
+                'resident_name' => $resident ? $resident->resident_full_name : 'نامشخص',
+                'resident_phone' => $resident ? $resident->resident_phone : null,
+                'unit_name' => $resident ? $resident->unit_name : null,
+                'room_name' => $resident ? $resident->room_name : null,
+                'bed_name' => $resident ? $resident->bed_name : null,
+                'total_violation_score' => $totalViolationScore,
+                'max_repeated_violation_count' => $maxRepeatedViolationCount,
+                'card_status' => $cardStatus,
+                'card_status_label' => $cardStatus === 'red' ? 'کارت قرمز' : ($cardStatus === 'yellow' ? 'کارت زرد' : 'بدون کارت'),
+                'yellow_threshold' => $yellowThreshold,
+                'red_threshold' => $redThreshold,
+                'yellow_violation_count_threshold' => $yellowViolationCountThreshold,
+                'red_violation_count_threshold' => $redViolationCountThreshold,
+                'violations' => $groupedViolations,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'count' => $data->count(),
+            'data' => $data,
+        ]);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error fetching violations data', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'خطا در دریافت اطلاعات: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('api.admin.violations');

@@ -36,24 +36,48 @@
                     تنظیمات سیستم کارت‌ها
                 </h3>
 
-                <!-- تعداد گزارش یکسان -->
+                <!-- تعداد تخلف یکسان برای کارت زرد -->
                 <div style="margin-bottom: 25px;">
                     <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
-                        <i class="fas fa-repeat" style="margin-left: 5px;"></i>
-                        تعداد گزارش یکسان برای نمایش <span style="color: red;">*</span>
+                        <i class="fas fa-square" style="margin-left: 5px; color: #ffc107;"></i>
+                        تعداد تخلف یکسان برای کارت زرد <span style="color: red;">*</span>
                     </label>
                     <input
                         type="number"
-                        wire:model="repeat_violation"
+                        wire:model="yellow_violation_count_threshold"
                         class="form-control"
                         placeholder="مثال: 3"
                         min="1"
                         style="width: 100%; max-width: 400px;"
                     >
                     <small style="color: #666; margin-top: 5px; display: block;">
-                        تعداد گزارش یکسان که باید برای نمایش در "اقامت‌گران با تخلف‌های تکرارای یکسان" استفاده شود.
+                        تعداد تکرار یک تخلف برای دریافت کارت زرد. پیش‌فرض: 3 بار.
                     </small>
-                    @error('repeat_violation') 
+                    @error('yellow_violation_count_threshold') 
+                        <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
+                            {{ $message }}
+                        </span> 
+                    @enderror
+                </div>
+
+                <!-- تعداد تخلف یکسان برای کارت قرمز -->
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                        <i class="fas fa-square" style="margin-left: 5px; color: #dc3545;"></i>
+                        تعداد تخلف یکسان برای کارت قرمز <span style="color: red;">*</span>
+                    </label>
+                    <input
+                        type="number"
+                        wire:model="red_violation_count_threshold"
+                        class="form-control"
+                        placeholder="مثال: 5"
+                        min="1"
+                        style="width: 100%; max-width: 400px;"
+                    >
+                    <small style="color: #666; margin-top: 5px; display: block;">
+                        تعداد تکرار یک تخلف برای دریافت کارت قرمز. پیش‌فرض: 5 بار.
+                    </small>
+                    @error('red_violation_count_threshold') 
                         <span style="color: red; font-size: 12px; margin-top: 5px; display: block;">
                             {{ $message }}
                         </span> 

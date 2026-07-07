@@ -11,9 +11,10 @@ class Index extends Component
     public $api_url = '';
     public $sms_delay_before_start = 2; // تاخیر قبل از شروع ارسال (ثانیه)
     public $sms_delay_between_messages = 200; // تاخیر بین هر پیامک (میلی‌ثانیه)
-    public $repeat_violation = 3; // تعداد گزارش یکسان برای نمایش
     public $yellow_card_threshold = 15; // امتیاز برای کارت زرد
     public $red_card_threshold = 25; // امتیاز برای کارت قرمز
+    public $yellow_violation_count_threshold = 3; // تعداد تخلف یکسان برای کارت زرد
+    public $red_violation_count_threshold = 5; // تعداد تخلف یکسان برای کارت قرمز
     public $excluded_reports = []; // لیست گزارش‌های مستثنی شده
     public $reports = []; // لیست تمام گزارش‌ها
 
@@ -23,9 +24,10 @@ class Index extends Component
             'api_url' => 'required|url',
             'sms_delay_before_start' => 'required|integer|min:0|max:60',
             'sms_delay_between_messages' => 'required|integer|min:0|max:5000',
-            'repeat_violation' => 'required|integer|min:1',
             'yellow_card_threshold' => 'required|integer|min:1',
             'red_card_threshold' => 'required|integer|min:1',
+            'yellow_violation_count_threshold' => 'required|integer|min:1',
+            'red_violation_count_threshold' => 'required|integer|min:1',
             'excluded_reports' => 'array',
             'excluded_reports.*' => 'integer|exists:reports,id',
         ];
@@ -34,15 +36,18 @@ class Index extends Component
     protected $messages = [
         'api_url.required' => 'لینک API الزامی است.',
         'api_url.url' => 'لینک API باید یک URL معتبر باشد.',
-        'repeat_violation.required' => 'تعداد گزارش یکسان الزامی است.',
-        'repeat_violation.integer' => 'تعداد گزارش یکسان باید عدد باشد.',
-        'repeat_violation.min' => 'تعداد گزارش یکسان باید حداقل 1 باشد.',
-        'yellow_card_threshold.required' => 'امتیاز کارت زرد الزامی است.',
+        'yellow_card_threshold.required' => 'امتیاز کارت زیر الزامی است.',
         'yellow_card_threshold.integer' => 'امتیاز کارت زرد باید عدد باشد.',
         'yellow_card_threshold.min' => 'امتیاز کارت زرد باید حداقل 1 باشد.',
         'red_card_threshold.required' => 'امتیاز کارت قرمز الزامی است.',
         'red_card_threshold.integer' => 'امتیاز کارت قرمز باید عدد باشد.',
         'red_card_threshold.min' => 'امتیاز کارت قرمز باید حداقل 1 باشد.',
+        'yellow_violation_count_threshold.required' => 'تعداد تخلف کارت زرد الزامی است.',
+        'yellow_violation_count_threshold.integer' => 'تعداد تخلف کارت زرد باید عدد باشد.',
+        'yellow_violation_count_threshold.min' => 'تعداد تخلف کارت زرد باید حداقل 1 باشد.',
+        'red_violation_count_threshold.required' => 'تعداد تخلف کارت قرمز الزامی است.',
+        'red_violation_count_threshold.integer' => 'تعداد تخلف کارت قرمز باید عدد باشد.',
+        'red_violation_count_threshold.min' => 'تعداد تخلف کارت قرمز باید حداقل 1 باشد.',
         'sms_delay_before_start.required' => 'تاخیر قبل از شروع ارسال الزامی است.',
         'sms_delay_before_start.integer' => 'تاخیر قبل از شروع ارسال باید عدد باشد.',
         'sms_delay_before_start.min' => 'تاخیر قبل از شروع ارسال نمی‌تواند منفی باشد.',
@@ -60,16 +65,18 @@ class Index extends Component
         $this->sms_delay_before_start = $settings->sms_delay_before_start ?? 2;
         $this->sms_delay_between_messages = $settings->sms_delay_between_messages ?? 200;
         
-        // بارگذاری تنظیمات گزارش تخلفات از constants
-        $repeatViolation = \App\Models\Constant::where('key', 'repeat_violation')->first();
-        $this->repeat_violation = $repeatViolation ? (int)$repeatViolation->value : 3;
-        
         // بارگذاری تنظیمات کارت‌ها از constants
         $yellowCard = \App\Models\Constant::where('key', 'yellow_card_threshold')->first();
         $this->yellow_card_threshold = $yellowCard ? (int)$yellowCard->value : 15;
         
         $redCard = \App\Models\Constant::where('key', 'red_card_threshold')->first();
         $this->red_card_threshold = $redCard ? (int)$redCard->value : 25;
+        
+        $yellowViolationCount = \App\Models\Constant::where('key', 'yellow_violation_count_threshold')->first();
+        $this->yellow_violation_count_threshold = $yellowViolationCount ? (int)$yellowViolationCount->value : 3;
+        
+        $redViolationCount = \App\Models\Constant::where('key', 'red_violation_count_threshold')->first();
+        $this->red_violation_count_threshold = $redViolationCount ? (int)$redViolationCount->value : 5;
         
         // بارگذاری لیست تمام گزارش‌ها
         $this->reports = Report::with('category')
@@ -102,12 +109,6 @@ class Index extends Component
             'sms_delay_between_messages' => $this->sms_delay_between_messages,
         ]);
 
-        // ذخیره تنظیمات گزارش تخلفات در constants
-        \App\Models\Constant::updateOrCreate(
-            ['key' => 'repeat_violation'],
-            ['value' => (string)$this->repeat_violation, 'type' => 'number', 'description' => 'تعداد گزارش یکسان برای نمایش در اقامت‌گران با تخلف‌های تکرارای یکسان']
-        );
-        
         // ذخیره تنظیمات کارت‌ها در constants
         \App\Models\Constant::updateOrCreate(
             ['key' => 'yellow_card_threshold'],
@@ -117,6 +118,16 @@ class Index extends Component
         \App\Models\Constant::updateOrCreate(
             ['key' => 'red_card_threshold'],
             ['value' => (string)$this->red_card_threshold, 'type' => 'number', 'description' => 'امتیاز لازم برای دریافت کارت قرمز']
+        );
+        
+        \App\Models\Constant::updateOrCreate(
+            ['key' => 'yellow_violation_count_threshold'],
+            ['value' => (string)$this->yellow_violation_count_threshold, 'type' => 'number', 'description' => 'تعداد تخلف یکسان برای کارت زرد']
+        );
+        
+        \App\Models\Constant::updateOrCreate(
+            ['key' => 'red_violation_count_threshold'],
+            ['value' => (string)$this->red_violation_count_threshold, 'type' => 'number', 'description' => 'تعداد تخلف یکسان برای کارت قرمز']
         );
         
         // ذخیره گزارش‌های مستثنی شده در constants

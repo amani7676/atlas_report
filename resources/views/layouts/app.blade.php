@@ -1709,12 +1709,6 @@
                 </button>
                 <div style="margin-right: auto;"></div>
                 <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                    <!-- تایمر رفرش خودکار -->
-                    <div id="refresh-timer" style="display: none; align-items: center; gap: 8px; padding: 5px 12px; background: rgba(67, 97, 238, 0.1); border-radius: 20px; font-size: 14px; color: var(--primary-color); font-weight: 500;">
-                        <i class="fas fa-clock"></i>
-                        <span id="timer-text">--:--</span>
-                    </div>
-                    @livewire('layout.sync-button')
                     <a href="/residents/expired-today" style="color: var(--primary-color); text-decoration: none; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; transition: all 0.3s;" 
                        class="{{ request()->is('residents/expired-today') ? 'active' : '' }}"
                        onmouseover="this.style.backgroundColor='rgba(67, 97, 238, 0.1)'" 
@@ -2334,23 +2328,12 @@
     @livewireScripts
     
     <!-- Persistent Alarm - Method 2: Simple HTML with AJAX -->
-    <div id="sync-alarm" style="position: fixed; top: 20px; right: calc(var(--sidebar-width) + 20px); z-index: 10000; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(238, 90, 82, 0.3); min-width: 320px; max-width: 400px; display: none;">
-        <div style="display: flex; align-items: flex-start; gap: 15px;">
-            <div style="flex-shrink: 0; font-size: 24px;">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div style="flex: 1;">
-                <div style="font-weight: 700; margin-bottom: 6px; font-size: 16px;">
-                    نیاز به همگام‌سازی
-                </div>
-                <div style="font-size: 13px; opacity: 0.95; margin-bottom: 12px;">
-                    داده‌ها ممکن است به‌روز نباشند. برای دریافت آخرین اطلاعات روی دکمه همگام‌سازی کلیک کنید.
-                </div>
-                <button onclick="syncData()" id="sync-btn" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;">
-                    <i class="fas fa-sync-alt" id="sync-icon"></i>
-                    <span id="sync-text">همگام‌سازی داده‌ها</span>
-                </button>
-            </div>
+    <div id="sync-alarm" style="position: fixed; top: 20px; right: calc(var(--sidebar-width) + 20px); z-index: 10000; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; padding: 12px 16px; border-radius: 12px; box-shadow: 0 8px 25px rgba(238, 90, 82, 0.3); display: none;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button onclick="syncData()" id="sync-btn" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-sync-alt" id="sync-icon"></i>
+                <span id="sync-text">همگام‌سازی داده‌ها</span>
+            </button>
             <button onclick="closeAlarm()" style="flex-shrink: 0; background: rgba(255, 255, 255, 0.2); border: none; color: white; cursor: pointer; padding: 0; width: 28px; height: 28px; border-radius: 50%; font-size: 14px;">
                 <i class="fas fa-times"></i>
             </button>

@@ -67,6 +67,61 @@
                                 @enderror
                             </div>
 
+                            <hr class="my-4">
+
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-hashtag me-2"></i>
+                                آستانه‌های تعداد تخلف
+                            </h6>
+
+                            <div class="mb-4">
+                                <label for="yellowViolationCountThreshold" class="form-label fw-bold">
+                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                    آستانه تعداد تخلف کارت زرد
+                                </label>
+                                <input 
+                                    type="number" 
+                                    class="form-control @error('yellowViolationCountThreshold') ? 'is-invalid' : ''" 
+                                    id="yellowViolationCountThreshold"
+                                    wire:model.live="yellowViolationCountThreshold"
+                                    min="1" 
+                                    max="50"
+                                    step="1"
+                                    placeholder="مثال: 3">
+                                <div class="form-text text-muted">
+                                    اقامت‌گرانی که تعداد تخلفات یکسان (گزارش مشابه) به این عدد برسد، کارت زرد دریافت می‌کنند.
+                                </div>
+                                @error('yellowViolationCountThreshold')
+                                    <div class="invalid-feedback d-block">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="redViolationCountThreshold" class="form-label fw-bold">
+                                    <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                                    آستانه تعداد تخلف کارت قرمز
+                                </label>
+                                <input 
+                                    type="number" 
+                                    class="form-control @error('redViolationCountThreshold') ? 'is-invalid' : ''" 
+                                    id="redViolationCountThreshold"
+                                    wire:model.live="redViolationCountThreshold"
+                                    min="1" 
+                                    max="50"
+                                    step="1"
+                                    placeholder="مثال: 5">
+                                <div class="form-text text-muted">
+                                    اقامت‌گرانی که تعداد تخلفات یکسان (گزارش مشابه) به این عدد برسد، کارت قرمز دریافت می‌کنند.
+                                </div>
+                                @error('redViolationCountThreshold')
+                                    <div class="invalid-feedback d-block">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
+
                             <!-- نمایش وضعیت فعلی -->
                             <div class="alert alert-info mb-4">
                                 <h6 class="alert-heading">
@@ -75,16 +130,16 @@
                                 </h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <strong>کارت زرد:</strong> امتیاز ≥ {{ $yellowThreshold }}
+                                        <strong>کارت زرد:</strong> امتیاز ≥ {{ $yellowThreshold }} یا تعداد تخلف یکسان ≥ {{ $yellowViolationCountThreshold }}
                                     </div>
                                     <div class="col-md-6">
-                                        <strong>کارت قرمز:</strong> امتیاز ≥ {{ $redThreshold }}
+                                        <strong>کارت قرمز:</strong> امتیاز ≥ {{ $redThreshold }} یا تعداد تخلف یکسان ≥ {{ $redViolationCountThreshold }}
                                     </div>
                                 </div>
                                 <hr>
                                 <small class="text-muted">
                                     <i class="fas fa-lightbulb me-1"></i>
-                                    نکته: آستانه کارت قرمز باید بزرگتر یا مساوی آستانه کارت زرد باشد.
+                                    نکته: آستانه‌های کارت قرمز باید بزرگتر یا مساوی آستانه‌های کارت زرد باشند.
                                 </small>
                             </div>
 
